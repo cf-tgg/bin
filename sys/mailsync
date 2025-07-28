@@ -1,0 +1,82 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-28 05:13:50 cf>
+# cf [Linux 6.15.4-zen2-1-zen x86_64 GNU/Linux]
+
+MBX="${MAIL:-$HOME/.local/mail}/sshchat"
+MSG="$HOME/.local/mail/ssh-msg.log"
+HST="$HOME/.local/var/log/ssh-chat.log"
+CHT="$MBX/new/$(date +"%F_%H%M%S")"
+MCR="$MBX/cur"
+XDG_STATE_HOME=${XDG_STATE_HOME:-"$HOME/.local/state"}
+export XDG_STATE_HOME
+
+updateicon() {
+    echo "$1" >/tmp/msgboxicon
+    pkill -RTMIN+19 -u "$USER" "${STATUSBAR:-dwmblocks}"
+    return 0
+}
+
+rotchat() {
+    a="$1" ; b="$2" ; c="$3"
+    diff "$a" "$b" | sed -n 's/^< //p' | grep -v '^[[:space:]]*$' > "$c" && cmp -s "$a" "$b" || cp -f "$a" "$b"
+    ( [ "$(grep -c . "$c")" -lt 1 ] && rm -f "$c" && updateicon "" ) || updateicon "🔔"
+    return 0
+}
+
+ding() {
+    speaker-test -t wav -w ding.wav -l 1 >/dev/null 2>&1
+}
+
+SRC_PATH=".local/var/log/ssh-msg.log"
+DEST_PATH="$HOME/.local/mail/ssh-msg.log"
+LOG_FILE="$HOME/.local/var/log/mailsync.log"
+HOSTS="rpie dg3s rdg3 dg3"
+
+for host in $HOSTS; do
+    if rsync -aiv "${host}:~/${SRC_PATH}" "${DEST_PATH}" >> "${LOG_FILE}" 2>&1 ; then
+        break
+    fi
+done
+
+ts=$(date +%s)
+tmr=$((ts - 30))
+
+if [ "$(stat -c "%Y" "$DEST_PATH" 2>/dev/null)" -lt "$tmr" ]; then
+    for jhost in rdg3 dg3 dg3s ; do
+        if rsync -e "ssh -J $jhost" -aiv rpie:~/"$SRC_PATH" "$DEST_PATH" >> "$LOG_FILE" 2>&1 ; then
+            break
+        fi
+    done
+fi
+
+rotchat "$MSG" "$HST" "$CHT"
+
+[ -f "$CHT" ] && {
+    ding
+    name=$(grep "~~" "$CHT" | awk -F 'est dans la place' '{print $1}' | cut -d ']' -f2- | tr -d ' ')
+    [ -n "$name" ] || name=$(awk -F'] ' '{print $2}' | cut -d ':' -f1 | tr -d ' ')
+    cat "$CHT" >> "$HOME/.local/mail/sshchat/cur/${name}.$(date +"%F")"
+    emc -r "$HOME/.local/mail/sshchat/cur/${name}.$(date +"%F")"
+    mv "$CHT" "$MCR" >/dev/null 2>&1
+    updateicon ""
+}
+
+find "$MCR" -type f -empty -exec rm -f {} \; >/dev/null 2>&1
+
+state_file="${XDG_STATE_HOME}/smscheck.last"
+[ -f "$state_file" ] || touch "$state_file"
+curr_mtime=$(stat -c "%Y" "$MSG" 2>/dev/null) || exit 1
+
+if [ ! -f "$state_file" ]; then
+  printf '%s\n' "$curr_mtime" > "$state_file"
+  exit 0
+fi
+
+prev_mtime=$(cat "$statefile")
+if [ "$curr_mtime" != "$prev_mtime" ]; then
+    pkill -RTMIN+20 "${STATUSBAR:-dwmblocks}"
+fi
+
+
+exit 0

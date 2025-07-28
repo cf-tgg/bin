@@ -1,0 +1,62 @@
+#!/bin/sh
+
+
+DISPLAYS=$(xrandr | grep 'mm' | awk '{print $1}')
+
+if [ "$1" = "-d" ]; then
+    # dmenu select display and destination devices
+    DP_SELECT=$(echo "$DISPLAYS" | sed 's/ /\n/g' | dmenu -i -l "$(echo "$DISPLAYS" | wc -l)" -p "Source:")
+    DEST=$(echo "ipad dellg3" | sed 's/ /\n/g' | dmenu -i -p "Destination:")
+else
+    DP_SELECT="$1"
+    DEST="$2"
+fi
+
+valid_display=false
+for display in $DISPLAYS; do
+    if [ "$display" = "$DP_SELECT" ]; then
+        valid_display=true
+        break
+    fi
+done
+
+if ! $valid_display; then
+    echo "$DP_SELECT is not a valid Display."
+    exit 1
+fi
+
+ipad() {
+	local IP="${IP:-10.0.0.191}"
+	local PORT="${PORT:-5004}"
+	local DP_INFO=$(xrandr | grep $DP_SELECT | awk '{print $3}')
+	local SIZE=$(echo $DP_INFO | cut -d + -f1)
+	local POS="$(echo $DP_INFO | cut -d + -f2),$(echo $DP_INFO | cut -d + -f3)"
+	echo $SIZE $POS
+	ffmpeg -f x11grab -s $SIZE -i :0.0+$POS \
+	-c:v libx264 -pix_fmt yuv420p -preset ultrafast -tune zerolatency \
+	-x264opts keyint=30:min-keyint=30:no-scenecut \
+	-b:v 2000k -maxrate 2000k -bufsize 2000k \
+	-fflags +genpts+discardcorrupt -fps_mode cfr \
+	-async 1 -an -fflags nobuffer -flags low_delay -f rtp_mpegts rtp://$IP:$PORT
+}
+
+dellg3() {
+	local IP="${IP:-10.0.0.177}"
+	local PORT="${PORT:-5004}"
+	local DP_INFO=$(xrandr | grep $DP_SELECT | awk '{print $3}')
+	local SIZE=$(echo $DP_INFO | cut -d + -f1)
+	local POS="$(echo $DP_INFO | cut -d + -f2),$(echo $DP_INFO | cut -d + -f3)"
+	echo $SIZE $POS
+	ffmpeg -f x11grab -s $SIZE -i :0.0+$POS \
+	-c:v libx264 -pix_fmt yuv420p -preset ultrafast -tune zerolatency \
+	-x264opts keyint=30:min-keyint=30:no-scenecut \
+	-b:v 2000k -maxrate 2000k -bufsize 2000k \
+	-fflags +genpts+discardcorrupt -fps_mode cfr \
+	-async 1 -an -fflags nobuffer -flags low_delay -f rtp_mpegts rtp://$IP:$PORT
+}
+
+case $DEST in
+	ipad) ipad;;
+	dellg3) dellg3;;
+esac
+

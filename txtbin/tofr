@@ -1,0 +1,5 @@
+#!/bin/sh
+# naive way to switch en. to fr. prefix in websites.
+
+website="$1"
+[ -n "$website" ] && echo "$website" | sed 's/\/\/en./\/\/fr./'

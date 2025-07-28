@@ -1,0 +1,47 @@
+#!/bin/sh
+
+monitor_runit_services() {
+    # Directory containing symlinks to active services
+    local service_dir="/run/runit/service"
+    # Exported variables for maintenance
+    export RUNNING_SERVICES=""
+    export SERVICE_PIDS=""
+    export SERVICE_UPTIME=""
+
+    # Iterate through each service in the directory
+    for service in "$service_dir"/*; do
+        if [ -d "$service" ]; then
+            local service_name
+            service_name=$(basename "$service")
+
+            # Check service status
+            local status
+            status=$(sv status "$service" 2>/dev/null)
+
+            # Get the PID and uptime
+            local pid uptime
+            pid=$(sv status "$service" | grep "pid:" | awk '{print $2}')
+            uptime=$(ps -p "$pid" -o etime= 2>/dev/null)
+
+            # Log the running services, PIDs, and uptime
+            if echo "$status" | grep -q "run:"; then
+                echo "Service: $service_name is running with PID: $pid for $uptime"
+
+                # Append service information to exported variables
+                RUNNING_SERVICES="$RUNNING_SERVICES $service_name"
+                SERVICE_PIDS="$SERVICE_PIDS $pid"
+                SERVICE_UPTIME="$SERVICE_UPTIME $uptime"
+            else
+                echo "Service: $service_name is not running."
+            fi
+        fi
+    done
+
+    # Exported variables will be available for further script operations
+    export RUNNING_SERVICES
+    export SERVICE_PIDS
+    export SERVICE_UPTIME
+}
+
+# Call the function to monitor services
+monitor_runit_services

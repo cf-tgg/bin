@@ -1,0 +1,307 @@
+'accessnthmonitor' https://dwm.suckless.org/patches/accessnthmonitor
+'activemonitor' https://dwm.suckless.org/patches/activemonitor
+'activetagindicatorbar' https://dwm.suckless.org/patches/activetagindicatorbar
+'actualfullscreen' https://dwm.suckless.org/patches/actualfullscreen
+'adjacenttag' https://dwm.suckless.org/patches/adjacenttag
+'allowkillrule' https://dwm.suckless.org/patches/allowkillrule
+'alpha' https://dwm.suckless.org/patches/alpha
+'alt tab class' https://dwm.suckless.org/patches/alt-tab-class
+'alt tab' https://dwm.suckless.org/patches/alt-tab
+'alternativetags' https://dwm.suckless.org/patches/alternativetags
+'alttab2' https://dwm.suckless.org/patches/alttab2
+'alttagsdecoration' https://dwm.suckless.org/patches/alttagsdecoration
+'alwayscenter' https://dwm.suckless.org/patches/alwayscenter
+'alwaysfullscreen' https://dwm.suckless.org/patches/alwaysfullscreen
+'alwaysontop' https://dwm.suckless.org/patches/alwaysontop
+'anybar' https://dwm.suckless.org/patches/anybar
+'aspectresize' https://dwm.suckless.org/patches/aspectresize
+'attachabove' https://dwm.suckless.org/patches/attachabove
+'attachaside' https://dwm.suckless.org/patches/attachaside
+'attachasideandbelow' https://dwm.suckless.org/patches/attachasideandbelow
+'attachbelow' https://dwm.suckless.org/patches/attachbelow
+'attachbottom' https://dwm.suckless.org/patches/attachbottom
+'attachdirection' https://dwm.suckless.org/patches/attachdirection
+'attachtop' https://dwm.suckless.org/patches/attachtop
+'autodarkmode' https://dwm.suckless.org/patches/autodarkmode
+'autoresize' https://dwm.suckless.org/patches/autoresize
+'autostart' https://dwm.suckless.org/patches/autostart
+'autostarttags' https://dwm.suckless.org/patches/autostarttags
+'awesomebar' https://dwm.suckless.org/patches/awesomebar
+'azerty' https://dwm.suckless.org/patches/azerty
+'bar height' https://dwm.suckless.org/patches/bar_height
+'barconfig' https://dwm.suckless.org/patches/barconfig
+'barpadding' https://dwm.suckless.org/patches/barpadding
+'bartabgroups' https://dwm.suckless.org/patches/bartabgroups
+'bartoggle' https://dwm.suckless.org/patches/bartoggle
+'bidi' https://dwm.suckless.org/patches/bidi
+'blanktags' https://dwm.suckless.org/patches/blanktags
+'borderrule' https://dwm.suckless.org/patches/borderrule
+'bottomstack' https://dwm.suckless.org/patches/bottomstack
+'bulkill' https://dwm.suckless.org/patches/bulkill
+'canfocusfloating' https://dwm.suckless.org/patches/canfocusfloating
+'canfocusrule' https://dwm.suckless.org/patches/canfocusrule
+'center first window' https://dwm.suckless.org/patches/center_first_window
+'center' https://dwm.suckless.org/patches/center
+'centeredmaster' https://dwm.suckless.org/patches/centeredmaster
+'centeredwindowname' https://dwm.suckless.org/patches/centeredwindowname
+'centretitle' https://dwm.suckless.org/patches/centretitle
+'cfacts' https://dwm.suckless.org/patches/cfacts
+'clientindicators' https://dwm.suckless.org/patches/clientindicators
+'clientmonoclesymbol' https://dwm.suckless.org/patches/clientmonoclesymbol
+'clientopacity' https://dwm.suckless.org/patches/clientopacity
+'clientspertag' https://dwm.suckless.org/patches/clientspertag
+'cmdcustomize' https://dwm.suckless.org/patches/cmdcustomize
+'colemak keys' https://dwm.suckless.org/patches/colemak_keys
+'colorbar' https://dwm.suckless.org/patches/colorbar
+'colorschemes' https://dwm.suckless.org/patches/colorschemes
+'columngaps' https://dwm.suckless.org/patches/columngaps
+'columns' https://dwm.suckless.org/patches/columns
+'combo' https://dwm.suckless.org/patches/combo
+'cool autostart' https://dwm.suckless.org/patches/cool_autostart
+'cropwindows' https://dwm.suckless.org/patches/cropwindows
+'current desktop' https://dwm.suckless.org/patches/current_desktop
+'cursorwarp' https://dwm.suckless.org/patches/cursorwarp
+'customisation' https://dwm.suckless.org/customisation
+'cyclelayouts' https://dwm.suckless.org/patches/cyclelayouts
+'cyclewindows' https://dwm.suckless.org/patches/cyclewindows
+'dash above activeWindow' https://dwm.suckless.org/patches/dash_above_activeWindow
+'deck' https://dwm.suckless.org/patches/deck
+'decoration hints' https://dwm.suckless.org/patches/decoration_hints
+'default tag apps' https://dwm.suckless.org/patches/default_tag_apps
+'defaultlayoutpermonitor' https://dwm.suckless.org/patches/defaultlayoutpermonitor
+'defaulttransparency' https://dwm.suckless.org/patches/defaulttransparency
+'desktoponly' https://dwm.suckless.org/patches/desktoponly
+'destroyfocus' https://dwm.suckless.org/patches/destroyfocus
+'dmenumatchtop' https://dwm.suckless.org/patches/dmenumatchtop
+'doublepressquit' https://dwm.suckless.org/patches/doublepressquit
+'dragmfact' https://dwm.suckless.org/patches/dragmfact
+'dualstatus' https://dwm.suckless.org/patches/dualstatus
+'dwmc' https://dwm.suckless.org/patches/dwmc
+'dwmfifo' https://dwm.suckless.org/patches/dwmfifo
+'dynamic window management' https://dwm.suckless.org/dynamic_window_management
+'dynamicscratchpads' https://dwm.suckless.org/patches/dynamicscratchpads
+'dynamicswallow' https://dwm.suckless.org/patches/dynamicswallow
+'emptyview' https://dwm.suckless.org/patches/emptyview
+'environmentvars' https://dwm.suckless.org/patches/environmentvars
+'ewmhtags' https://dwm.suckless.org/patches/ewmhtags
+'exitmenu' https://dwm.suckless.org/patches/exitmenu
+'exresize' https://dwm.suckless.org/patches/exresize
+'extrabar' https://dwm.suckless.org/patches/extrabar
+'fadeinactive' https://dwm.suckless.org/patches/fadeinactive
+'fakefullscreen' https://dwm.suckless.org/patches/fakefullscreen
+'fancybar' https://dwm.suckless.org/patches/fancybar
+'faq' https://dwm.suckless.org/faq
+'fibonacci' https://dwm.suckless.org/patches/fibonacci
+'fixmultimon' https://dwm.suckless.org/patches/fixmultimon
+'flextile' https://dwm.suckless.org/patches/flextile
+'float border color' https://dwm.suckless.org/patches/float_border_color
+'floatborderwidth' https://dwm.suckless.org/patches/floatborderwidth
+'floatrules' https://dwm.suckless.org/patches/floatrules
+'focusadjacenttag' https://dwm.suckless.org/patches/focusadjacenttag
+'focusbynum' https://dwm.suckless.org/patches/focusbynum
+'focusfullscreen' https://dwm.suckless.org/patches/focusfullscreen
+'focusmaster' https://dwm.suckless.org/patches/focusmaster
+'focusmonmouse' https://dwm.suckless.org/patches/focusmonmouse
+'focusonclick' https://dwm.suckless.org/patches/focusonclick
+'focusonnetactive' https://dwm.suckless.org/patches/focusonnetactive
+'focusurgent' https://dwm.suckless.org/patches/focusurgent
+'focusvisibletagstacks' https://dwm.suckless.org/patches/focusvisibletagstacks
+'foreground' https://dwm.suckless.org/patches/foreground
+'freespace' https://dwm.suckless.org/patches/freespace
+'fsignal' https://dwm.suckless.org/patches/fsignal
+'fullgaps' https://dwm.suckless.org/patches/fullgaps
+'fullscreen' https://dwm.suckless.org/patches/fullscreen
+'functionalgaps' https://dwm.suckless.org/patches/functionalgaps
+'gaplessgrid' https://dwm.suckless.org/patches/gaplessgrid
+'gaps' https://dwm.suckless.org/patches/gaps
+'gestures' https://dwm.suckless.org/patches/gestures
+'goatcmd' https://dwm.suckless.org/patches/goatcmd
+'goback' https://dwm.suckless.org/patches/goback
+'graballkeycodes' https://dwm.suckless.org/patches/graballkeycodes
+'gridmode' https://dwm.suckless.org/patches/gridmode
+'hide vacant tags' https://dwm.suckless.org/patches/hide_vacant_tags
+'hideborder' https://dwm.suckless.org/patches/hideborder
+'historical' https://dwm.suckless.org/patches/historical
+'holdbar' https://dwm.suckless.org/patches/holdbar
+'horizgrid' https://dwm.suckless.org/patches/horizgrid
+'horizontal vertical i3' https://dwm.suckless.org/patches/horizontal-vertical-i3
+'horizontal' https://dwm.suckless.org/patches/horizontal
+'ignore transient windows' https://dwm.suckless.org/patches/ignore_transient_windows
+'inplacerotate' https://dwm.suckless.org/patches/inplacerotate
+'insets' https://dwm.suckless.org/patches/insets
+'integrated status text' https://dwm.suckless.org/patches/integrated-status-text
+'ipc' https://dwm.suckless.org/patches/ipc
+'ispermanent' https://dwm.suckless.org/patches/ispermanent
+'keybindings' https://dwm.suckless.org/patches/keybindings
+'keychain' https://dwm.suckless.org/patches/keychain
+'keychord' https://dwm.suckless.org/patches/keychord
+'keycodes' https://dwm.suckless.org/patches/keycodes
+'keymodes' https://dwm.suckless.org/patches/keymodes
+'keypressrelease' https://dwm.suckless.org/patches/keypressrelease
+'killfocusnext' https://dwm.suckless.org/patches/killfocusnext
+'killunsel' https://dwm.suckless.org/patches/killunsel
+'launcher colors' https://dwm.suckless.org/patches/launcher-colors
+'launcher' https://dwm.suckless.org/patches/launcher
+'layoutmenu' https://dwm.suckless.org/patches/layoutmenu
+'layoutmonitorrules' https://dwm.suckless.org/patches/layoutmonitorrules
+'layoutscroll' https://dwm.suckless.org/patches/layoutscroll
+'leftlayout' https://dwm.suckless.org/patches/leftlayout
+'leftstack' https://dwm.suckless.org/patches/leftstack
+'locktagsfor' https://dwm.suckless.org/patches/locktagsfor
+'mainmon' https://dwm.suckless.org/patches/mainmon
+'mark' https://dwm.suckless.org/patches/mark
+'maximize' https://dwm.suckless.org/patches/maximize
+'monocle count' https://dwm.suckless.org/patches/monocle_count
+'monoclesymbol' https://dwm.suckless.org/patches/monoclesymbol
+'movecenter' https://dwm.suckless.org/patches/movecenter
+'movekeyboard' https://dwm.suckless.org/patches/movekeyboard
+'moveontagmon' https://dwm.suckless.org/patches/moveontagmon
+'moveplace' https://dwm.suckless.org/patches/moveplace
+'moveresize' https://dwm.suckless.org/patches/moveresize
+'movestack' https://dwm.suckless.org/patches/movestack
+'movethrow' https://dwm.suckless.org/patches/movethrow
+'movetoedge' https://dwm.suckless.org/patches/movetoedge
+'mpdcontrol' https://dwm.suckless.org/patches/mpdcontrol
+'multi monitor' https://dwm.suckless.org/multi-monitor
+'multi pointer' https://dwm.suckless.org/multi-pointer
+'multikey' https://dwm.suckless.org/patches/multikey
+'multimon' https://dwm.suckless.org/patches/multimon
+'multimonitorscratchpads' https://dwm.suckless.org/patches/multimonitorscratchpads
+'multipledynamicscratchpads' https://dwm.suckless.org/patches/multipledynamicscratchpads
+'namedscratchpads' https://dwm.suckless.org/patches/namedscratchpads
+'nametag' https://dwm.suckless.org/patches/nametag
+'nextprev' https://dwm.suckless.org/patches/nextprev
+'nmaster' https://dwm.suckless.org/patches/nmaster
+'nmaxmaster' https://dwm.suckless.org/patches/nmaxmaster
+'noborder' https://dwm.suckless.org/patches/noborder
+'noborderflicker' https://dwm.suckless.org/patches/noborderflicker
+'notallowed' https://dwm.suckless.org/patches/notallowed
+'notitle' https://dwm.suckless.org/patches/notitle
+'nrowgrid' https://dwm.suckless.org/patches/nrowgrid
+'onlyquitonempty' https://dwm.suckless.org/patches/onlyquitonempty
+'pango' https://dwm.suckless.org/patches/pango
+'patches' https://dwm.suckless.org/patches
+'pertag' https://dwm.suckless.org/patches/pertag
+'preserveonrestart' https://dwm.suckless.org/patches/preserveonrestart
+'preview all win' https://dwm.suckless.org/patches/preview-all-win
+'push' https://dwm.suckless.org/patches/push
+'pwkl' https://dwm.suckless.org/patches/pwkl
+'qubesdecorations' https://dwm.suckless.org/patches/qubesdecorations
+'qubesrules' https://dwm.suckless.org/patches/qubesrules
+'quitprompt' https://dwm.suckless.org/patches/quitprompt
+'rainbowtags' https://dwm.suckless.org/patches/rainbowtags
+'ratiofullscreen' https://dwm.suckless.org/patches/ratiofullscreen
+'rearrangebar' https://dwm.suckless.org/patches/rearrangebar
+'rebootcmd' https://dwm.suckless.org/patches/rebootcmd
+'refreshrate' https://dwm.suckless.org/patches/refreshrate
+'removeborder' https://dwm.suckless.org/patches/removeborder
+'reorganizetags' https://dwm.suckless.org/patches/reorganizetags
+'resetlayout' https://dwm.suckless.org/patches/resetlayout
+'resetnmaster' https://dwm.suckless.org/patches/resetnmaster
+'resizecorners' https://dwm.suckless.org/patches/resizecorners
+'resizehere' https://dwm.suckless.org/patches/resizehere
+'restartsig' https://dwm.suckless.org/patches/restartsig
+'restoreafterrestart' https://dwm.suckless.org/patches/restoreafterrestart
+'rmaster' https://dwm.suckless.org/patches/rmaster
+'rotatestack' https://dwm.suckless.org/patches/rotatestack
+'rotatetags' https://dwm.suckless.org/patches/rotatetags
+'rulerefresher' https://dwm.suckless.org/patches/rulerefresher
+'save floats' https://dwm.suckless.org/patches/save_floats
+'scheme switch' https://dwm.suckless.org/patches/scheme_switch
+'scratchpad' https://dwm.suckless.org/patches/scratchpad
+'scratchpads' https://dwm.suckless.org/patches/scratchpads
+'screenshots' https://dwm.suckless.org/screenshots
+'script tags' https://dwm.suckless.org/patches/script_tags
+'selectivefakefullscreen' https://dwm.suckless.org/patches/selectivefakefullscreen
+'selfrestart' https://dwm.suckless.org/patches/selfrestart
+'sendmoncenter' https://dwm.suckless.org/patches/sendmoncenter
+'setborderpx' https://dwm.suckless.org/patches/setborderpx
+'setstatus' https://dwm.suckless.org/patches/setstatus
+'setxkbgroup' https://dwm.suckless.org/patches/setxkbgroup
+'sgrstatus' https://dwm.suckless.org/patches/sgrstatus
+'shift tools' https://dwm.suckless.org/patches/shift-tools
+'showselmon' https://dwm.suckless.org/patches/showselmon
+'shutdowncmd' https://dwm.suckless.org/patches/shutdowncmd
+'single tagset' https://dwm.suckless.org/patches/single_tagset
+'singularborders' https://dwm.suckless.org/patches/singularborders
+'sizehints' https://dwm.suckless.org/patches/sizehints
+'smartborders' https://dwm.suckless.org/patches/smartborders
+'spawn cwd' https://dwm.suckless.org/patches/spawn_cwd
+'spawnprograms' https://dwm.suckless.org/patches/spawnprograms
+'spawntag' https://dwm.suckless.org/patches/spawntag
+'splitstatus' https://dwm.suckless.org/patches/splitstatus
+'sshawarespawn' https://dwm.suckless.org/patches/sshawarespawn
+'stacker' https://dwm.suckless.org/patches/stacker
+'stackmfact' https://dwm.suckless.org/patches/stackmfact
+'stairs' https://dwm.suckless.org/patches/stairs
+'staticstatus' https://dwm.suckless.org/patches/staticstatus
+'status monitor' https://dwm.suckless.org/status_monitor
+'status2d' https://dwm.suckless.org/patches/status2d
+'statusallmons' https://dwm.suckless.org/patches/statusallmons
+'statusbarfont' https://dwm.suckless.org/patches/statusbarfont
+'statusbutton' https://dwm.suckless.org/patches/statusbutton
+'statuscmd' https://dwm.suckless.org/patches/statuscmd
+'statuscolors' https://dwm.suckless.org/patches/statuscolors
+'statuspadding' https://dwm.suckless.org/patches/statuspadding
+'stdin' https://dwm.suckless.org/patches/stdin
+'steam' https://dwm.suckless.org/patches/steam
+'sticky' https://dwm.suckless.org/patches/sticky
+'stickyindicator' https://dwm.suckless.org/patches/stickyindicator
+'swallow' https://dwm.suckless.org/patches/swallow
+'swapfocus' https://dwm.suckless.org/patches/swapfocus
+'swaptags' https://dwm.suckless.org/patches/swaptags
+'switch all monitor tags' https://dwm.suckless.org/patches/switch_all_monitor_tags
+'switchcol' https://dwm.suckless.org/patches/switchcol
+'switchtotag' https://dwm.suckless.org/patches/switchtotag
+'systray' https://dwm.suckless.org/patches/systray
+'tab' https://dwm.suckless.org/patches/tab
+'tag previews' https://dwm.suckless.org/patches/tag-previews
+'tagall' https://dwm.suckless.org/patches/tagall
+'tagcolorscheme' https://dwm.suckless.org/patches/tagcolorscheme
+'tagfun' https://dwm.suckless.org/patches/tagfun
+'taggrid' https://dwm.suckless.org/patches/taggrid
+'tagintostack' https://dwm.suckless.org/patches/tagintostack
+'taglabels' https://dwm.suckless.org/patches/taglabels
+'taglayouts' https://dwm.suckless.org/patches/taglayouts
+'tagothermonitor' https://dwm.suckless.org/patches/tagothermonitor
+'tagshift' https://dwm.suckless.org/patches/tagshift
+'tagspawn' https://dwm.suckless.org/patches/tagspawn
+'tapresize' https://dwm.suckless.org/patches/tapresize
+'tatami' https://dwm.suckless.org/patches/tatami
+'three column' https://dwm.suckless.org/patches/three-column
+'tiledmove' https://dwm.suckless.org/patches/tiledmove
+'tilegap' https://dwm.suckless.org/patches/tilegap
+'tilewide' https://dwm.suckless.org/patches/tilewide
+'titlecolor' https://dwm.suckless.org/patches/titlecolor
+'toggleallmons' https://dwm.suckless.org/patches/toggleallmons
+'togglebartag' https://dwm.suckless.org/patches/togglebartag
+'toggleborder' https://dwm.suckless.org/patches/toggleborder
+'togglefloatingcenter' https://dwm.suckless.org/patches/togglefloatingcenter
+'toggletopbar' https://dwm.suckless.org/patches/toggletopbar
+'transfer' https://dwm.suckless.org/patches/transfer
+'truecenteredtitle' https://dwm.suckless.org/patches/truecenteredtitle
+'tutorial' https://dwm.suckless.org/tutorial
+'two monitor setup' https://dwm.suckless.org/patches/two_monitor_setup
+'underlinetags' https://dwm.suckless.org/patches/underlinetags
+'unfloatvisible' https://dwm.suckless.org/patches/unfloatvisible
+'unicode ellipsis' https://dwm.suckless.org/patches/unicode-ellipsis
+'urgentborder' https://dwm.suckless.org/patches/urgentborder
+'uselessgap' https://dwm.suckless.org/patches/uselessgap
+'vanitygaps' https://dwm.suckless.org/patches/vanitygaps
+'viewonrulestag' https://dwm.suckless.org/patches/viewonrulestag
+'viewontag' https://dwm.suckless.org/patches/viewontag
+'vtcolors' https://dwm.suckless.org/patches/vtcolors
+'warp' https://dwm.suckless.org/patches/warp
+'win31theme' https://dwm.suckless.org/patches/win31theme
+'windowfollow' https://dwm.suckless.org/patches/windowfollow
+'windowmap' https://dwm.suckless.org/patches/windowmap
+'winicon' https://dwm.suckless.org/patches/winicon
+'winview' https://dwm.suckless.org/patches/winview
+'xfce4 panel' https://dwm.suckless.org/patches/xfce4-panel
+'xkb' https://dwm.suckless.org/patches/xkb
+'xrdb' https://dwm.suckless.org/patches/xrdb
+'xresources' https://dwm.suckless.org/patches/xresources
+'xtheme' https://dwm.suckless.org/patches/xtheme
+'xtile' https://dwm.suckless.org/patches/xtile
+'zeroastag' https://dwm.suckless.org/patches/zeroastag
+'zoomswap' https://dwm.suckless.org/patches/zoomswap

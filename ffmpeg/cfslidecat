@@ -1,0 +1,103 @@
+#!/bin/sh
+# cfslides crossfade transitions cat script
+
+# Default transition duration and image display duration
+DURATION=5
+IMAGE_DURATION=5
+OUTPUT=""
+INPUTS=""
+TARGET_WIDTH=1920
+TARGET_HEIGHT=1080
+
+# Function to display usage information
+usage() {
+  echo "Usage: $0 [-d duration] [-o output.mp4] <video1.mp4> [video2.mp4 ... videoN.mp4] [image1.jpg ... imageN.jpg]"
+  echo "  -d, --duration  Set the transition duration in seconds (default is 5)."
+  echo "  -o, --output    Set the output filename (overrides default generated name)."
+  echo "  -h, --help      Show this help message."
+  exit 1
+}
+
+# Parse command-line options
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -o | --output )    shift; OUTPUT="$1" ;;
+    -d | --duration )  shift; DURATION="$1" ;;
+    -h | --help )      usage ;;
+    * )                break ;;
+  esac
+  shift
+done
+
+# Check if at least two video/image files were provided
+if [ "$#" -lt 2 ]; then
+  usage
+fi
+
+# Capture video and image files from remaining arguments and sort them numerically
+VIDEO_FILES=$(printf "%s\n" "$@" | sort -n)
+
+# Set output filename if not provided
+if [ -z "$OUTPUT" ]; then
+  FIRST_INPUT=$(echo "$VIDEO_FILES" | head -n 1)
+  LAST_INPUT=$(echo "$VIDEO_FILES" | tail -n 1)
+  OUTPUT="merged_$(basename "$FIRST_INPUT" .*)-$(basename "$LAST_INPUT" .*).mp4"
+fi
+
+# Preprocess images with ImageMagick
+PREPROCESSED_FILES=""
+for file in $VIDEO_FILES; do
+  if [ -f "$file" ]; then
+    if [[ "$file" =~ \.(jpg|jpeg|png)$ ]]; then
+      # Resize image to target resolution
+      PREPROCESSED_FILE=$(mktemp --suffix=.jpg)
+      magick "$file" -resize "${TARGET_WIDTH}x${TARGET_HEIGHT}!" "$PREPROCESSED_FILE"
+      PREPROCESSED_FILES="$PREPROCESSED_FILES $PREPROCESSED_FILE"
+    elif [[ "$file" =~ \.(mp4)$ ]]; then
+      # Preprocess video to match resolution
+      PREPROCESSED_FILE=$(mktemp --suffix=.mp4)
+      ffmpeg -i "$file" -vf "scale=${TARGET_WIDTH}:${TARGET_HEIGHT}" -c:a copy "$PREPROCESSED_FILE"
+      PREPROCESSED_FILES="$PREPROCESSED_FILES $PREPROCESSED_FILE"
+    fi
+  fi
+done
+
+# Prepare input flags and validate preprocessed files
+INPUTS=""
+for file in $PREPROCESSED_FILES; do
+  INPUTS="$INPUTS -i \"$file\""
+done
+
+# Create the filter_complex string with explicit stream references
+FILTER_COMPLEX=""
+OFFSET=0
+index=0
+
+# Sequentially link each video/image with xfade transitions
+for file in $PREPROCESSED_FILES; do
+  previous_duration=$(get_duration "$file") # Get duration for this video/image
+  if [ "$index" -gt 0 ]; then
+    end_time=$((OFFSET))
+    FILTER_COMPLEX="${FILTER_COMPLEX}[v$((index - 1))][${index}:v]xfade=transition=fade:duration=${DURATION}:offset=${end_time}[v$index];"
+    OFFSET=$((OFFSET + previous_duration - DURATION)) # Update offset for the next transition
+  else
+    FILTER_COMPLEX="[0:v]scale=1920:1080[v0];"
+  fi
+  OFFSET=$((OFFSET + previous_duration)) # Add this duration for the next round
+  index=$((index + 1))
+done
+
+# Ensure no trailing semicolons and map the final output
+FILTER_COMPLEX="${FILTER_COMPLEX%;}"
+FINAL_OUTPUT="[v$((index - 1))]"
+
+# Construct the final FFmpeg command
+FFMPEG_CMD="ffmpeg $INPUTS -filter_complex \"$FILTER_COMPLEX\" -map \"$FINAL_OUTPUT\" -r 25 \"$OUTPUT\""
+
+# Execute the FFmpeg command
+eval "$FFMPEG_CMD"
+
+# Clean up temporary preprocessed files
+for file in $PREPROCESSED_FILES; do
+  rm -f "$file"
+done

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+set -eu
+#{{{
+chnum=$(iwlist wlan0 scan|grep -i 'channel:' | awk -F: '{print $2}')
+[ -n "$chnum" ] || { echo "failed to retrieve channel" >&2 ; exit 1 ; }
+scan="iwlist_wlan0_channel_${chnum}.scan"
+scanhead=$(iwlist wlan0 scan | tee "$scan" | head)
+printf '%s\n' "$scanhead"
+#}}}
+
+
+
+speed_test=$(speedtest 2>/dev/null | grep -iE 'result url:' |awk -F 'Result URL:' '{print $2}' | sed 's/[[:space:]]//g')
+timestamp=$(date +"%F_%H%M")
+[ -n "$speed_test" ] || { echo "speedtest failed" >&2 ; exit 1 ; }
+wget "${speed_test}.png" -O "chantest_$(printf '%02d' "$chnum")_${timestamp}.png" || exit 1
+
+
+exit 0

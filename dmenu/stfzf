@@ -1,0 +1,160 @@
+#!/usr/bin/zsh -e
+# fzfmenu - fzf as dmenu replacement
+
+# to run as app launcher, use sxhkd and put in ~/.config/sxhkdrc run apps launcher
+# control + alt + s ; r
+#   dmenu_path | ~/.local/bin/fzfmenu | bash
+# ( You can use anything other than dmenu_path that gets a list of entries in $PATH too.)
+# To use for Ctrl-t for a floating menu from terminal
+# For bash
+# __fzfmenu__() {
+#   local cmd="fd -tf --max-depth=1"
+#   eval "$cmd" | ~/.local/bin/fzfmenu
+# }
+#
+# __fzf-menu__() {
+#   local selected="$(__fzfmenu__)"
+#   READLINE_LINE="${READLINE_LINE:0:$READLINE_POINT}$selected${READLINE_LINE:$READLINE_POINT}"
+#   READLINE_POINT=$(( READLINE_POINT + ${#selected} ))
+# }
+# bind -x '"\C-t":"__fzf-menu__"'
+# For zsh
+#
+# __fzfmenu__(){
+#   local cmd="fd -tf --max-depth=1"
+#   eval $cmd | ~/.local/bin/fzfmenu
+# }
+# __fzf-menu__() {
+#   LBUFFER="${LBUFFER}$(__fzfmenu__)"
+#   local ret=$?
+#   zle reset-prompt
+#   return $ret
+# }
+#
+# zle     -N    __fzf-menu__
+# bindkey -M emacs '^T^G' __fzf-menu__
+# bindkey -M vicmd '^T^G' __fzf-menu__
+# bindkey -M viins '^T^G' __fzf-menu__
+
+# fifos are here to not wait for end of input
+# (useful for e.g. find $HOME | fzfmenu ...)
+input=$(mktemp -u --suffix .fzfmenu.input)
+output=$(mktemp -u --suffix .fzfmenu.output)
+mkfifo $input
+mkfifo $output
+chmod 600 $input $output
+
+# it's better to use st here (starts a lot faster than pretty much everything else)
+# the ugly printf | sed thing is here to make args with quotes work.
+# (e.g. --preview='echo {1}').
+# sadly we can't use "$@" here directly because we are inside sh -c "..." call
+# already.
+# you can also set window dimensions via -g '=COLSxROWS', see man st.
+#
+# alias stmenu='${ st -c stfzf -n stfzf -e sh -c "cat $input | fzf $(printf -- " '%s'" "$@" | sed "s/^ ''$//") | tee $output" }  & disown'
+
+# handle ctrl+c outside child terminal window
+# trap "kill $! 2>/dev/null; rm -f $input $output" EXIT
+#
+# cat > $input
+# cat $output
+
+# zsh keybinding to select a torrent with transmission-remote
+# pick_torrent() LBUFFER="transmission-remote -t ${$({
+#     for torrent in ${(f)"$(transmission-remote -l)"}; do
+#         torrent_name=$torrent[73,-1]
+#         [[ $torrent_name != (Name|) ]] && echo ${${${(s. .)torrent}[1]}%\*} $torrent_name
+#     done
+# } | fzf)%% *} -"
+# zle -N pick_torrent
+# bindkey '^o' pick_torrent
+
+# Install packages using yay (change to pacman/AUR helper of your choice)
+# function in() {
+#     yay -Slq | fzf -q "$1" -m --preview 'yay -Si {1}'| xargs -ro yay -S
+# }
+
+# Remove installed packages (change to pacman/AUR helper of your choice)
+# function re() {
+#     yay -Qq | fzf -q "$1" -m --preview 'yay -Qi {1}' | xargs -ro yay -Rns
+
+# Helper function to integrate yay and fzf
+# yzf() {
+#   pos=$1
+#   shift
+#   sed "s/ /\t/g" |
+#     fzf --nth=$pos --multi --history="${FZF_HISTDIR:-$XDG_STATE_HOME/fzf}/history-yzf$pos" \
+#       --preview-window=60%,border-left \
+#       --bind="double-click:execute(xdg-open 'https://archlinux.org/packages/{$pos}'),alt-enter:execute(xdg-open 'https://aur.archlinux.org/packages?K={$pos}&SB=p&SO=d&PP=100')" \
+#        "$@" | cut -f$pos | xargs
+# }
+# Dev note: print -s adds a shell history entry
+
+# List installable packages into fzf and install selection
+# yas() {
+#   cache_dir="/tmp/yas-$USER"
+#   test "$1" = "-y" && rm -rf "$cache_dir" && shift
+#   mkdir -p "$cache_dir"
+#   preview_cache="$cache_dir/preview_{2}"
+#   list_cache="$cache_dir/list"
+#   { test "$(cat "$list_cache$@" | wc -l)" -lt 50000 && rm "$list_cache$@"; } 2>/dev/null
+#   pkg=$( (cat "$list_cache$@" 2>/dev/null || { pacman --color=always -Sl "$@"; yay --color=always -Sl aur "$@" } | sed 's/ [^ ]*unknown-version[^ ]*//' | tee "$list_cache$@") |
+#     yzf 2 --tiebreak=index --preview="cat $preview_cache 2>/dev/null | grep -v 'Querying' | grep . || yay --color always -Si {2} | tee $preview_cache")
+#   if test -n "$pkg"
+#     then echo "Installing $pkg..."
+#       cmd="yay -S $pkg"
+#       print -s "$cmd"
+#       eval "$cmd"
+#       rehash
+#   fi
+# }
+
+# List installed packages into fzf and remove selection
+# Tip: use -e to list only explicitly installed packages
+# yar() {
+#       pkg=$(yay --color=always -Q "$@" | yzf 1 --tiebreak=length --preview="yay --color always -Qli {1}")
+#       if test -n "$pkg"
+#         then echo "Removing $pkg..."
+#           cmd="yay -R --cascade --recursive $pkg"
+#           print -s "$cmd"
+#           eval "$cmd"
+#       fi
+# }
+
+#### Uses wl-copy to copy the current entry to the clipboard on Wayland:
+# export FZF_DEFAULT_OPTS='--bind "ctrl-y:execute-silent(printf {} | cut -f 2- | wl-copy --trim-newline)"'
+#
+#### Todoist CLI task filitring and preview
+# ❯ todoist --namespace --project-namespace list | fzf --preview 'todoist show {1}' | cut -d ' ' -f 1 | tr '\n' ' '
+# The command used for preview is todoist show {1}
+# The show option is used to show the task details
+# The {1} represents the first feild in the line -> Task ID
+#
+### Dictcc Translation
+# Request database file from https://www1.dict.cc/translation_file_request.php
+#
+# cat /path/to/dict.txt | tail -n +16 | fzf --tiebreak=length
+#
+### Emoji
+#
+# emojis=$("$HOME/Templates/css/emoji.txt")
+#
+# selected_emoji=$(echo $emojis | fzf)
+#
+# echo $selected_emoji
+#
+### Slurm
+# fzf integration with some Slurm's cli utilities (zsh & bash)
+#
+# scancel
+# Look for user's job IDs to easily kill running jobs
+#
+# _fzf_complete_scancel() {
+#         _fzf_complete --multi --header-lines=1 -- "$@" < <(squeue -u $USER)
+# }
+# _fzf_complete_scancel_post() {
+#         awk '{print $1}'
+# }
+# [ -n "$BASH" ] && complete -F _fzf_complete_scancel -o default -o bashdefault scancel || :
+#
+#

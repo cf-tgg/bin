@@ -1,0 +1,11 @@
+#!/bin/sh
+
+f="$1"
+
+r=$(realpath "$f")
+n=$(basename "$r"| sed "s/^.\///;s/\\\//g")
+d=$(mediainfo --INFORM="Video;%Duration%" "$f" | cut -d. -f1)
+s=$((d/1000))
+t=${n%.*}
+
+printf "#EXTINF:%s,%s\n%s\n" "$s" "$t" "$r"

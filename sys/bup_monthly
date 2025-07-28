@@ -1,0 +1,85 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:34:10 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+# Backup mensuel
+# Récupération avec : tar -xzvf <archive.tar.gz>
+
+# Définition du dossier de sauvegarde mensuel
+BDIR="$HOME/Documents/Backups/3-mensuel/bup_$(date +%Y-%m-%d)"
+
+# Création du dossier
+mkdir -p "$BDIR"
+
+# Chemins des dossiers à sauvegarder dans des tableaux
+CONFIG=(
+    "$XDG_CONFIG_HOME/shell"
+    "$XDG_CONFIG_HOME/x11"
+    "$XDG_CONFIG_HOME/dunst"
+    "$XDG_CONFIG_HOME/gh"
+    "$XDG_CONFIG_HOME/nvim"
+    "$XDG_CONFIG_HOME/zsh"
+    "$XDG_CONFIG_HOME/tmux/tmux.conf"
+    "$XDG_CONFIG_HOME/obs-studio"
+    "$XDG_CONFIG_HOME/ytfzf"
+    "$XDG_CONFIG_HOME/zathura"
+    "$XDG_CONFIG_HOME/mutt"
+    "$XDG_CONFIG_HOME/msmtp"
+    "$XDG_CONFIG_HOME/mu4e"
+    "$XDG_CONFIG_HOME/mbsync"
+    "$XDG_CONFIG_HOME/syngestures.toml"
+    "$XDG_CONFIG_HOME/mpv"
+    "$XDG_CONFIG_HOME/nsxiv"
+    "$XDG_CONFIG_HOME/newsboat"
+    "$XDG_CONFIG_HOME/mimeapps.list"
+    "$XDG_CONFIG_HOME/QtProject.conf"
+    "$XDG_CONFIG_HOME/xdg-desktop-portal"
+    "$XDG_CONFIG_HOME/ytfzf"
+    "$XDG_CONFIG_HOME/zinger"
+    "$XDG_CONFIG_HOME/torsocks"
+    "$XDG_CONFIG_HOME/tor"
+    "$XDG_CONFIG_HOME/transmission"
+    "$XDG_CONFIG_HOME/transmission-daemon"
+    "$XDG_CONFIG_HOME/surfraw"
+    "$XDG_CONFIG_HOME/calcurse"
+    "$XDG_CONFIG_HOME/mpd"
+    "$XDG_CONFIG_HOME/mpv"
+    "$XDG_CONFIG_HOME/picom"
+    "$XDG_CONFIG_HOME/bluez"
+    "$XDG_CONFIG_HOME/abook"
+    "$XDG_CONFIG_HOME/fontconfig"
+    "$XDG_CONFIG_HOME/user-dirs.dirs"
+    "$XDG_CONFIG_HOME/pulsemixer.cfg"
+    "$XDG_CONFIG_HOME/pipe-viewer"
+    "$XDG_CONFIG_HOME/qutebrowser"
+)
+
+DATA=(
+    "$XDG_DATA_HOME/password-store"
+    "$XDG_DATA_HOME/keyrings"
+    "$XDG_DATA_HOME/calcurse"
+    "$XDG_DATA_HOME/gnupg"
+    "$HOME/.ssh"
+)
+
+SCRIPTS=(
+    "$HOME/.emacs.d/init.el"
+    "$HOME/.emacs.d/early-init.el"
+    "$HOME/.emacs.d/bookmarks"
+    "$HOME/.emacs.d/eww-bookmarks"
+    "$HOME/.local/bin"
+    "$HOME/Templates/c"
+    "$HOME/Templates/css"
+    "$HOME/Templates/settings"
+    "$HOME/Templates/html/startpage"
+)
+
+# Créer l'archive pour chaque chemins de chaque tableaux
+sudo tar -zcvf "$BDIR/config_$(date +%Y-%m-%d).tar.gz" -C / "${CONFIG[@]}"
+sudo tar -zcvf "$BDIR/data_$(date +%Y-%m-%d).tar.gz" -C / "${DATA[@]}"
+sudo tar -zcvf "$BDIR/home_$(date +%Y-%m-%d).tar.gz" -C / "${SCRIPTS[@]}"
+
+# Trouver les fichiers plus vieux que 365 jours et les supprimer (12 Total)
+sudo find "$HOME/Documents/Backups/3-mensuel/" -type f -mtime +363 -delete
+sudo find "$HOME/Documents/Backups/3-mensuel/" -type d -mtime +363 -delete

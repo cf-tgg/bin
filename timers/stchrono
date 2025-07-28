@@ -1,0 +1,17 @@
+#!/bin/sh
+# -*- mode: sh; -*-
+# Launcher wrapper for `chrono'
+# Spawns embeded st terminal in dwmbar displaying elapsed time for TIME period.
+
+time=$(dmenu -p "chrono:")
+
+wininfo=$(xwininfo -root -tree | grep '("dwm" "dwm")')
+winid=$(echo "$wininfo" | awk '{print $1}')
+win_g=$(echo "$wininfo" | awk '{print $7}')
+win_h=$(echo "$win_g" | cut -d+ -f1 | cut -d 'x' -f2)
+
+st -w "$winid" -g 11x1+2128+2 -i -e chrono "$time" &
+chrono_pid=$!
+
+timer "$time" && kill "$chrono_pid"
+speaker-test -t wav -w ding_mono.wav -l 1 >/dev/null 2>&1

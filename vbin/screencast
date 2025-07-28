@@ -1,0 +1,38 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#screen=':0.0'
+#output="screencast_$(date +%Y%m%d_%H%M).mkv"
+#res="$(xdpyinfo | grep dimensions | awk '{print $2;}')"
+
+#ffmpeg -y -f x11grab -s "$res" -i "$screen" -f alsa -i default "$output"
+
+getdim() { xrandr | sed -n "s/\s*\([0-9]\+x[0-9]\+\).*\*.*/\1/p" ; }
+
+updateicon() {
+	echo "$1" > /tmp/recordingicon
+	pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+}
+
+killrecording() {
+    recpid=$(cat /tmp/recordingpid)
+    kill -15 "$recpid"
+    rm -f /tmp/recordingpid 2>/dev/null
+    updateicon ""
+    pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+}
+
+ffmpeg -y \
+       -f x11grab \
+       -framerate 30 \
+       -s "$(getdim)" \
+       -i "$DISPLAY" \
+       -r 24 \
+       -use_wallclock_as_timestamps 1 \
+       -f alsa -thread_queue_size 1024 -i default \
+       -c:v h264 \
+       -crf 0 -preset ultrafast -c:a aac \
+       "${HOME}/screencast-$(date '+%F-%H%M-%S').mp4" &
+
+echo $! > /tmp/recordingpid
+updateicon "⏺️🎙️"

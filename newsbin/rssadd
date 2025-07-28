@@ -1,0 +1,37 @@
+#!/bin/sh
+# Adds rss feeds passed as arguments to RSSFILE
+# Corrects the rss link syntax when known to be needed.
+
+if echo "$1" | grep -q "https*://\S\+\.[A-Za-z]\+\S*" ; then
+	url="$1"
+else
+	url="$(grep -Eom1 '<[^>]+(rel="self"|application/[a-z]+\+xml)[^>]+>' "$1" |
+		grep -o "https?://[^\" ]")"
+
+
+	echo "$url" | grep -q "https*://\S\+\.[A-Za-z]\+\S*" ||
+		notify-send "That doesn't look like a full URL." && exit 1
+fi
+
+
+RSSFILE="${XDG_CONFIG_HOME:-$HOME/.config}/newsboat/urls"
+if awk '{print $1}' "$RSSFILE" | grep "^$url$" >/dev/null; then
+	notify-send "You already have this RSS feed."
+else
+
+case "$url" in
+    *reddit*) echo "${url}/.rss" >> "$RSSFILE" && notify-send "$url RSS feed added." ;;
+	*youtube*)
+			uploader=$(curl -s "$url" | grep -iEo '/@[a-zA-Z0-9_=/?.&%-]+./' | cut -d'@' -f2 | cut -d'/' -f1  | sort -u | head -n1)
+			channelid=$(curl -s "$url" | grep -iEo 'https://www.youtube.com/channel/[a-zA-Z0-9_=/?.&%-]+' | sort -u | head -n1 | awk -F'/' '{print $5}')
+			[ -z "$channelid" ] && notify-send "la brebis s'est égarée." "$channelid $url" && echo "$url" >> "$HOME/brebis" && exit 1
+			feedprefix="https://www.youtube.com/feeds/videos.xml?channel_id=$channelid"
+			THUMB="$HOME/Pictures/icons/dunst_icons/ytchannels/$uploader.png"
+			[ -f "$THUMB" ] || wget -q "$(curl -s "$1" | grep -Eo 'https://yt3.[a-zA-Z0-9_=/?.&%-]+' |head -n1)" -O "$THUMB"
+			feedstr="$feedprefix \"~$uploader\""
+			feedindex=$(nl "$RSSFILE" | grep "Reddit" | cut -d'"' -f1 | sed 's/^ //; s/ $//; s/\n//g')
+			[ -n "$channelid" ] && [ -n "$feedindex" ] && grep -q "$feedstr" "$RSSFILE" ||\
+				sed -i "${feedindex}i${feedstr}" "$RSSFILE" && notify-send -a "ytdlp" -i "$THUMB" -r 9999 -t 1000 "$uploader" "dans la ferme." ;;
+			*) echo "$url" >> "$RSSFILE" && notify-send "$url RSS feed added." ;;
+		esac
+fi

@@ -1,0 +1,182 @@
+#!/bin/sh -e
+#       _                 __
+#    __| |___ _   _ _ __ / _|_ __ __ ___      __
+#   / _` / __| | | | '__| |_| '__/ _` \ \ /\ / /
+#  | (_| \__ \ |_| | |  |  _| | | (_| |\ V  V /
+#   \__,_|___/\__,_|_|  |_| |_|  \__,_| \_/\_/
+#
+# cf. https://gitlab.com/cf.gg
+#
+# A minimal dmenu surfraw query dmenu searchbar wrapper
+#   Minimal dependencies:
+#     - a working shell with common utilities, which you already have.
+#       (awk sed tr which shift printf echo etc.)
+#     - sr (surfraw cli version, as a search engine),
+#     - at least one web browser (could possibly be piped to other programs)
+#     - xclip (for bindings to query from clipboard/primary selection)
+#
+# Useful links:
+# [Surfraw#ArchWiki](https://wiki.archlinux.org/title/Surfraw)
+# [dmenu#suckless](https://tools.suckless.org/dmenu/)
+# [Dmenu#Archwiki](https://wiki.archlinux.org/title/Dmenu)
+# [man -w surfraw](/usr/share/man/man1/surfraw.1.gz)
+# [man -w dmennu](/usr/local/man/man1/dmenu.1)
+# [Elvis](https://gitlab.com/surfraw/Surfraw/-/wikis/current-elvi)
+# [gotbletu](https://github.com/famousketchup/gotbletu-dotfiles)
+# zsh completion for dsurfraw -e|--elvi option
+# _dsrfraw_elvi_completion() {
+#     local -a elvis
+#     elvis=(
+#         ${(f)"$(sr -elvi | cut -d'-' -f1 | sed 's/\t//g' | tr -d ' ' | awk 'NR > 1')"}
+#     )
+#     _describe 'values' elvis
+# }
+# # Register completion for -e and --elvi options
+# compdef _dsrfraw_elvi_completion dsurfraw
+
+usage() {
+ while IFS= read -r line; do
+        printf '%s\n' "$line"
+    done <<-'EOF'
+         _                 __
+      __| |___ _   _ _ __ / _|_ __ __ ___      __
+     / _` / __| | | | '__| |_| '__/ _` \ \ /\ / /
+    | (_| \__ \ |_| | |  |  _| | | (_| |\ V  V /
+     \__,_|___/\__,_|_|  |_| |_|  \__,_| \_/\_/
+
+                                         ~ cf.
+  dsurfraw
+      A minimal surfraw wrapper dmenu searchbar.
+
+  Syntax
+      dsurfraw [-e|--elvi <ELVI>] [-b|--browser <BROWSER>] <QUERY>
+
+  Usage
+      First, bind the script to your desired key combo.
+      dsurfraw will spawn a dmenu prompt for user to input a QUERY.
+
+      When used in dmenu, if the first 2 arguments of the QUERY
+      match an available ELVI or BROWSER, they are removed from
+      the QUERY and are passed on as parameters.
+
+  Execution
+      The constructed QUERY is passed on as a single string argument
+      to the chosen surfraw ELVI and the results are displayed in
+      the chosen BROWSER (default: sensible-browser).
+
+      Note that if your query were to be 'chromium archwiki', the
+      final query would be an empty string so nothing will happen.
+
+      Feel free to tweak the script to your liking.
+
+  Examples
+    From the command line:
+      $ dsurfraw -e ddg -b qutebrowser "archwiki"
+      $ dsurfraw -e ddg "archwiki"
+      $ dsurfraw "archwiki"
+
+    From dmenu: *first call the script (from keybinding or wtv)*
+      rfc 2045
+      rfc firefox 2046
+      chromium rfc 2047
+      archwiki surfraw
+      google what is the meaning of life?
+
+  Tips
+    Binding the scripts parameters to individual keybinds allows
+    for quick access to specific search engines and browsers.
+        e.g bind 'dsurfraw -e ddg' to Mod+Shift+d
+            bind 'dsurfraw -e archwiki' to Mod+Shift+a
+            bind 'dsurfraw -e rfc' to Mod+Shift+r
+            bind 'dsurfraw -b qutebrowser' to Mod+Shift+q
+            bind 'dsurfraw -b chromium' to Mod+Shift+c
+            bind 'dsurfraw -b firefox' to Mod+Shift+f
+    for a more efficient workflow, send the query to multiple
+    elvis at once by binding them to a keybind:
+        e.g. Mod+Shift+Enter could run the following:
+        ```sh
+        query="$@"
+        for i in archwiki wikipedia google ddg; do
+              dsurfraw -e "$i" "$query"
+          done
+        ```
+EOF
+    exit 1
+}
+
+case "$1" in
+    -h|--help)
+        usage
+        ;;
+esac
+
+# Populate ELVIS with available engines
+ELVIS="$(sr -elvi | cut -d"-" -f1 | sed 's/\t//g' | tr -d ' ' | awk 'NR > 1' | tr '\n' ' ')"
+
+# Default browser options
+BROWSERS="firefox-developer-edition firefox chromium brave qutebrowser librewolf tor-browser surf luakit lynx w3m"
+# Default values
+ELVI=""
+BROW="$BROWSER"
+USE_DMENU=false
+CHOOSE_BROWSER=false
+
+# Parse command-line arguments
+while :; do
+    case "$1" in
+        -d|--dmenu)
+            USE_DMENU=true
+            shift
+            ;;
+        -e|--elvi)
+            ELVI="$2"
+            shift 2
+            ;;
+        -b|--browser)
+            CHOOSE_BROWSER=true
+            BROW="$2"
+            shift 2
+            ;;
+        -q|--query)
+            shift
+            QUERY="$*"
+            break
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+QUERY="$*"
+
+# Helper function to check if value is in a string
+is_in_string() {
+    value="$1"
+    string="$2"
+    echo "$string" | grep -q "$value"
+}
+
+# Parse and assign query parameters
+if $USE_DMENU; then
+    QUERY="$(echo "" | dmenu -p "$BROW $ELVI")"
+    n=0
+    set -- "$QUERY"
+    while [ $n -lt  2 ]; do
+       if is_in_string "$1" "$ELVIS"; then
+           ELVI="$1"
+       elif  is_in_string "$1" "$BROWSERS"; then
+           BROW="$1"
+       fi
+        n=$((n + 1))
+    done
+    QUERY="$*"
+fi
+
+if $CHOOSE_BROWSER && command -v "$BROW" ; then
+    cmd="surfraw ${ELVI} -browser=${BROW} ${QUERY}"
+else
+    cmd="surfraw ${ELVI} ${QUERY}"
+fi
+
+[ -n "$QUERY" ] && $cmd

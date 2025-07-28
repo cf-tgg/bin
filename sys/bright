@@ -1,0 +1,77 @@
+#!/bin/sh
+#     __         _       __    __
+#    / /_  _____(_)___ _/ /_  / /_
+#   / __ \/ ___/ / __ `/ __ \/ __/
+#  / /_/ / /  / / /_/ / / / / /_
+# /_.___/_/  /_/\__, /_/ /_/\__/
+#              /____/
+
+backlight_dir=$(find /sys/class/backlight/*/brightness -exec dirname {} \;)
+max_f="$backlight_dir/max_brightness"
+brightness_f="$backlight_dir/brightness"
+
+max=$(cat "$max_f")
+current=$(cat "$brightness_f")
+
+current_percent=$((current * 100 / max))
+
+# Generate 100 brightness levels
+h2t() {
+  [ $# -eq 2 ] || { echo "Usage: h2t <max> <step_count>" >&2 ; exit 1; }
+  m=$1 ; t=$2
+  [ "$m" -lt "$t" ] && tmp=$m && m=$t && t=$tmp
+  s=$((m / t))
+  r=$((m % t))
+  for i in $(seq 1 "$t"); do
+    v=$((i * s + (i * r / t)))
+    printf " $v"
+  done
+}
+
+brightness_steps=$(h2t "$max" 100)
+
+echo "Current brightness: $current_percent%"
+
+input=$1
+[ -z "$input" ] && { echo "Usage: ${0##*/} <val>"; exit 1; }
+
+# Strip all non-digits
+digits=$(printf '%s' "$input" | tr -cd '[:digit:]')
+[ -z "$digits" ] && digits=0
+
+# Modulo and cap
+n=$(printf '%s\n' "$digits" | awk '{ print $1 % 101 }')
+[ "$n" -gt 100 ] && n=100
+[ "$n" -lt 0 ] && n=0
+
+# Detect if input starts with minus sign
+case "$input" in
+  -* ) p=$((current_percent - n)) ;;
+  *  ) p=$((current_percent + n)) ;;
+esac
+
+# Clamp p
+[ "$p" -gt 100 ] && p=100
+[ "$p" -lt 0 ] && p=0
+
+echo "Setting to $p%"
+
+# Convert percentage to brightness level
+final_level=$((p * max / 100))
+# Clamp brightness
+[ "$final_level" -gt "$max" ] && final_level=$max
+[ "$final_level" -lt 0 ] && final_level=0
+
+# Apply brightness
+echo "$final_level" | sudo tee "$brightness_f" > /dev/null
+
+# Icon logic
+if [ "$p" -lt 30 ]; then
+    icon=""  # Low light icon (FontAwesome or similar)
+else
+    icon="💡"  # Bright light icon (Unicode)
+fi
+
+# Notify via dunstify
+dunstify -t 1000 -a "bright" -u low -r 4444 \
+         -h string:x-canonical-private-synchronous:brightness "$icon $p%"

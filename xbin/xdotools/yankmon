@@ -1,0 +1,11 @@
+#!/bin/sh
+# Hacky active window selection
+
+eval "$(xdotool getactivewindow getwindowgeometry --shell)"
+wid=$(xdotool getactivewindow)
+x=$((WIDTH -  50))
+y=$((HEIGHT - 30))
+xdotool mousemove --window "$wid" 50 50 mousedown 1
+sleep 0.2
+xdotool key ctrl+c
+xdotool mousemove --window "$wid" "$x" "$y" mouseup 1 click 1

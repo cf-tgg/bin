@@ -1,0 +1,41 @@
+#!/bin/sh
+#
+# apply_powersave() {
+#     BATTERY_CAPACITY_FILE="/sys/class/power_supply/BAT1/capacity"
+#     if [ -f "$BATTERY_CAPACITY_FILE" ]; then
+#         BATTERY_CAPACITY=$(cat "$BATTERY_CAPACITY_FILE")
+#     else
+#         echo "Battery capacity file not found, aborting."
+#         exit 1
+#     fi
+#
+#     if [ "$BATTERY_CAPACITY" -lt 10 ]; then
+#         echo "Battery under 10%, applying superpowersave."
+#         echo powersupersave > /sys/module/pcie_aspm/parameters/policy
+#     elif [ "$BATTERY_CAPACITY" -ge 11 ] && [ "$BATTERY_CAPACITY" -le 59 ]; then
+#         echo "Battery between 11% and 59%, applying powersave."
+#         echo powersave > /sys/module/pcie_aspm/parameters/policy
+#     elif [ "$BATTERY_CAPACITY" -ge 60 ] && [ "$BATTERY_CAPACITY" -le 79 ]; then
+#         echo "Battery between 60% and 79%, applying default power policy."
+#         echo default > /sys/module/pcie_aspm/parameters/policy
+#     fi
+# }
+#
+# AC_ADAPTER="/sys/class/power_supply/ACAD/online"
+# if [ -f "$AC_ADAPTER" ] && grep -q 0 "$AC_ADAPTER" 2>/dev/null; then
+#     echo "System on battery power."
+#     apply_powersave
+#     WIFI_INTERFACE=$(iw dev | awk '$1=="Interface"{print $2}')
+#     if [ -n "$WIFI_INTERFACE" ]; then
+#         echo "Enabling Wi-Fi power save mode for $WIFI_INTERFACE."
+#         echo 1 > /sys/class/net/$WIFI_INTERFACE/device/power/control
+#     fi
+# else
+#     echo "System on AC power, running default settings."
+#     echo "default" > /sys/module/pcie_aspm/parameters/policy
+#     WIFI_INTERFACE=$(iw dev | awk '$1=="Interface"{print $2}')
+#     if [ -n "$WIFI_INTERFACE" ]; then
+#         echo "Disabling Wi-Fi power save mode for $WIFI_INTERFACE (AC power)."
+#         echo 0 > /sys/class/net/$WIFI_INTERFACE/device/power/control
+#     fi
+# fi

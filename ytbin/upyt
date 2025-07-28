@@ -1,0 +1,94 @@
+#!/bin/bash
+# Fetches YouTube uploader info, thumbnail, and channel data
+# Adds them to Newsboat feed and notifies via dunst
+
+[ -z "$1" ] && echo "Usage: $0 <YoutubeLink>" && exit 1
+
+uri="$1"
+DESTINATION="$HOME/Videos/yt/meta"
+NEWSBOAT_URLS="$HOME/.config/newsboat/urls"
+ICON_DIR="$HOME/Pictures/icons/dunst_icons/ytchannels"
+
+# Ensure directories exist
+mkdir -p "$DESTINATION" "$ICON_DIR"
+
+# Function to send a notification
+notify() {
+    local id="$1" title="$2" message="$3" icon="$4"
+    dunstify -a "ytdlp" -i "${icon:-$HOME/Pictures/icons/dunst_icons/youtube.png}" -r 9999 -t 1000 "$title" "$message"
+}
+
+# Function to fetch uploader data
+fetch_uploader_data() {
+    local json
+    json=$(yt-dlp "$uri" -j --skip-download)
+    echo "$json"
+}
+
+# Function to extract uploader details
+extract_uploader_details() {
+    local json="$1" key="$2"
+    jq -r ".$key" <<< "$json"
+}
+
+# Main processing
+if [[ "$uri" =~ https://www.youtube.com/@ ]]; then
+    id=${uri#https://www.youtube.com/@}
+    thumb="$ICON_DIR/${id##@}.png"
+    if notify "$id" "$id" "dans la ferme" "$thumb"; then
+        echo "$id dans la ferme"
+        exit 0
+    else
+        notify "$id" "$id ajouté à la ferme..." "${uri##https://www.youtube.com/@}"
+        echo "$uri ajouté à la ferme..."
+    fi
+    exit 0
+fi
+
+uploaderinfo=$(fetch_uploader_data)
+uploader=$(extract_uploader_details "$uploaderinfo" "uploader")
+channelid=$(extract_uploader_details "$uploaderinfo" "channel_id")
+uploaderurl=$(extract_uploader_details "$uploaderinfo" "uploader_url")
+uploaderid=$(extract_uploader_details "$uploaderinfo" "uploader_id")
+
+# Verify data integrity
+if [ -z "$uploader" ] || [ -z "$channelid" ] || [ -z "$uploaderurl" ]; then
+    echo "Error: Missing uploader data for URL: $uri"
+    exit 1
+fi
+
+# Add to Newsboat feed
+feedprefix="https://www.youtube.com/feeds/videos.xml?channel_id=$channelid"
+feedstr="$feedprefix \"~$uploader\""
+if grep -q "$feedprefix" "$NEWSBOAT_URLS"; then
+    notify "$uploader" "$uploader" "Feed already exists"
+else
+    echo "$feedstr" >> "$NEWSBOAT_URLS"
+    notify "$uploader" "$uploader" "Added to Newsboat feed"
+fi
+
+# Fetch and parse page content
+page_content=$(curl -s "$uploaderurl")
+videocount=$(grep -Eo '[0-9]+(K|M)? videos' <<< "$page_content" | head -n 1 | tr -d '[:alpha:] ')
+subcount=$(grep -Eo '[0-9]+(K|M)? subscribers' <<< "$page_content" | head -n 1 | tr -d '[:alpha:] ')
+uploader_dir="$HOME/Videos/yt/$uploader"
+
+# Thumbnail handling
+thumb="$ICON_DIR/${uploaderid##@}.png"
+if [ ! -f "$thumb" ]; then
+    pp=$(grep -Eo 'https://yt3.[a-zA-Z0-9_=/?.&%-]+' <<< "$page_content" | grep "s900" | sort -u | head -n 1)
+    wget -q "$pp" -O "$thumb" || cp "$HOME/Pictures/icons/dunst_icons/youtube.png" "$thumb"
+fi
+
+# Directory existence and video count check
+if [ -d "$uploader_dir" ]; then
+    lcount=$(find "$uploader_dir" -type l | wc -l)
+    mcount=$((videocount - lcount))
+    message="$mcount/$videocount videos\n$subcount subscribers"
+    notify "$uploader" "$uploader" "$message" "$thumb"
+else
+    mkdir -p "$uploader_dir"
+    notify "$uploader" "New Directory Created" "Fetching links for $uploader" "$thumb"
+fi
+
+exit 0

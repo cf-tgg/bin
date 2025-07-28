@@ -1,0 +1,5 @@
+#!/bin/sh
+
+primary="$(xsel -o)"
+linkhandler "$primary"
+notify-send -a "linkhandler" -i ~/Pictures/icons/dunst_icons/handup.png -t 1000  -r 8686 "linkhandler" "$primary"

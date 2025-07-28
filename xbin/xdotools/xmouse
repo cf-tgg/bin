@@ -1,0 +1,38 @@
+#!/bin/sh
+# Launcher script for Xmouseless keyboard mouse handler.
+# Handles centering the cursor in the currently active window,
+# unhiding the cursor and resetting xkb settings and hiding the
+# cursor on exit.
+
+# show
+killall unclutter
+
+eval "$(xdotool getactivewindow getwindowgeometry --shell)"
+cX=$((WIDTH / 2))
+cY=$((HEIGHT / 2))
+
+# [dbg]
+echo "Active window geometry:"
+echo "Window ID: $WINDOW"
+echo "Position: $X, $Y"
+echo "Dimensions: $WIDTH x $HEIGHT"
+echo "Center: $cX, $cY"
+
+# center
+xdotool mousemove --window "$WINDOW" "$cX" "$cY"
+
+# restore
+restore() {
+  xdotool key keyup super mouseup 1 mouseup 2 mouseup 3
+  kill -15 "${xpid}" 2>/dev/null
+  remaps
+  unclutter --timeout 1 --jitter 5 --start-hidden --ignore-scrolling --fork
+}
+
+# move
+xmouseless
+xpid=$!
+
+[ ! -x "$(ps $xpid)" ] && restore && exit 0
+
+trap 'restore' INT TERM HUP EXIT QUIT

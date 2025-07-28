@@ -1,0 +1,55 @@
+#!/bin/sh -e
+
+if ! command -v dwmswallow >/dev/null 2>&1 ; then
+    echo "dwmswallow script not found in PATH."
+    exit 1
+fi
+
+usage() {
+    cat <<EOF
+xswal --- swallows.
+
+Options:
+   -t TITLE   Specify window TITLE to swallow.
+   -x         use xmouseless to target SWALLOWEE.
+   -r         Reverse SWALLOWER-SWALLOWEE.
+   -h         Print this help message.
+EOF
+}
+
+title=""
+REVERSE=0
+XMOUSE=0
+
+while getopts "t:rhx" opt; do
+    case "$opt" in
+        t) title="$OPTARG" ;;
+        x) XMOUSE=1 ;;
+        r) REVERSE=1 ;;
+        h|*) usage ; exit 1 ;;
+    esac
+done
+
+if [ "$XMOUSE" -eq 1 ] ; then
+    if ! command -v xmouse >/dev/null 2>&1 ; then
+        echo "xmouse script not found in PATH."
+        exit 1
+    fi
+    setsid -f xmouse >/dev/null 2>&1
+fi
+
+if [ -z "$title" ]; then
+    t=$(xwininfo | grep "Window id:" | awk '{print $4}')
+else
+    t=$(wmctrl -l | grep "$title" | awk '{print $1}' | head -n 1)
+fi
+
+[ "$XMOUSE" -eq 1 ] && { pgrep xmouse | xargs kill -9 ;  }
+
+if [ "$REVERSE" -eq 1 ] ; then
+    dwmswallow "$t" "$WINDOWID" || exit 1
+else
+    dwmswallow "$WINDOWID" "$t" || exit 1
+fi
+
+exit 0

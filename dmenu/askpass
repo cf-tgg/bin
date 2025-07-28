@@ -1,0 +1,12 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-08 21:23:27 cf>
+
+ASKPASS="$HOME/.local/bin/dmenupass"
+export SUDO_ASKPASS="$ASKPASS"
+exec 3>&1
+exec 4<>/dev/null
+password="$(ASKPASS_FD=4 "$ASKPASS" 'Password:')"
+printf '%s\n' "$password" | sudo -S -k -p '' true
+unset password
+exit 0

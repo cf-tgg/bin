@@ -1,0 +1,3 @@
+#!/bin/sh
+	
+calcurse --next | sed 's/next appointment:/Dans /' | tts -m fr_FR-gilles-low

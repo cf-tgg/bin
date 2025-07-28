@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# Clear previous list
+echo "" > .windowList
+#
+# Get all window IDs from window list
+xprop -root | grep '_NET_CLIENT_LIST(WINDOW): window id #' | tr -d ',' | awk '{for(i=5;i<=NF;i++) print $i}' | while read -r win_id; do
+  # name
+  window_name=$(xprop -id "$win_id" _NET_WM_NAME | sed 's/_NET_WM_NAME(UTF8_STRING) = //; s/"//g')
+  # class
+  class_info=$(xprop -id "$win_id" WM_CLASS | awk -F ' = ' '{print $2}' | sed 's/^\[\(.*\)\]$/\1/; s/"//g'| cut -d ' ' -f2 )
+  # Output to .windowList
+  echo "$win_id;$class_info;$window_name" >> .windowList
+done
+
+GRP=($(cat .windowList | uniq | grep "$1" | sort -r ))
+
+  $arr=()
+for i in ${GRP[@]}; do 
+  $i=()
+  id="$( echo $i | cut -d';' -f1 )" >> $i 
+  class="$( echo $i | cut -d';' -f2 )" >> $i
+  name="$( echo $i | cut -d';' -f3 )" >> $i
+  $arr+=${i[@]}
+done
+
+for $x in $arr; do 
+             echo $class,$name | dmenu -i -p "Window Select: " | return $id
+ done
+

@@ -1,0 +1,10 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+f="$1"
+
+[ $(file --dereference --mime-type --brief "$f") = "image/jpeg" ] && url=$(exifjpg -u "$f" 2>/dev/null) || url=$(realpath "$f")
+
+( [ -n "$url" ] && echo "$url" ) || exit 1
+
+exit 0

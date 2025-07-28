@@ -1,0 +1,94 @@
+#!/bin/sh
+# yt-dlp wrappers for local downloads embedding
+
+DOWNLOAD_DIR="${XDG_VIDEO_DIR:-$HOME/Videos}/downloads"
+# ERROR_LOGS="$"
+
+yt_dl() {
+    cat "$1" |\
+    grep -v "^jq" |\
+    grep -v "#\(EXTM3U\|EXTINF\)" |\
+    xargs -I{} yt-dlp --write-info-json --write-comments --no-warnings --quiet -o "$DOWNLOAD_DIR/%(uploader)s/LinuxCrashCourse/%(title)s.%(ext)s" "{}"
+}
+
+ffjsonembed() {
+    file="$1"
+    info_json="$2"
+    dldate=$(date +"%Y-%m-%d %H:%M:%S")
+    cf="~cf."
+    json_file="${info_json#.info.json}.json"
+    jq '.' -r "$info_json" | jq --arg uri "$LINK" \
+        --arg dldate "$dldate" --arg cf "$cf" '
+            {
+                Title: .title,
+                Date: .upload_date,
+                Duration: .duration_string,
+                URI: (.webpage_url // $uri),
+                ID: .id,
+                Thumbnail: .thumbnail,
+                Description: .description,
+                Uploader: .uploader,
+                Resolution: .resolution,
+                LikeCount: .like_count,
+                ViewCount: .view_count,
+                CommentCount: .comment_count,
+                Channel: .channel,
+                ChannelFollowerCount: .channel_follower_count,
+                ChannelURL: .channel_url,
+                ChannelID: .channel_id,
+                UploaderID: .uploader_id,
+                UploaderURL: .uploader_url,
+                UploadDate: .upload_date,
+                Timestamp: .timestamp,
+                Playlist: (.playlist? // ""),
+                PlaylistIndex: (.playlist_index? // ""),
+                Subtitles: (.subtitles | {english: (.en? // []), french: (.fr? // [])}),
+                Categories: (.categories[]?| select(. != "")),
+                Tags: [ .tags[]?| select(. != "") ],
+                Chapters: [ .chapters[]? | {start_time, title} ],
+                Comments: (
+                .comments | map(select(
+                .author_is_uploader == true
+                or .is_pinned == true
+                or .like_count >= 10
+                or .text != ""))
+                | sort_by(.timestamp)
+                | reverse
+                | .[:100]
+                | map({
+                id: .id,
+                author: .author,
+                author_thumbnail: .author_thumbnail,
+                author_url: .author_url,
+                since: ._time_text,
+                timestamp: .timestamp,
+                text: .text,
+                like_count: .like_count,
+                is_pinned: .is_pinned,
+                author_is_uploader: .author_is_uploader
+            })),
+            DownloadDate: $dldate,
+            Signature: $cf
+        }' >"$json_file"
+    ext="${file##*.}"
+    title=$(basename "$file" ".$ext")
+    tmp_file="$title.tmp.$ext"
+    json_data=$(jq '.' -r "$json_file")
+    ffmpeg -i "$file" -metadata comment="$json_data" -codec copy "$tmp_file" 2>"$title.log"
+    [ -f "$tmp_file" ] && mv "$tmp_file" "$file" -f && echo "$title metadata embeded"
+    [ -f "$title.jpg" ] && embedjson "$json_file" "$title.jpg" &&
+    rm "$json_file" "$info_json"
+    return 0;
+}
+
+ff_infojs_embed () {
+    dir="$1"
+	for i in "$dir"/*.info.json; do
+		title=${i%%.info.json} 
+		ls -hN --group-directories-first "${title}".{mp4,webm,mkv} 2> /dev/null | while read -r t
+		do
+			ffjsonembed "$t" "$i"
+		done
+	done
+	return 0
+}

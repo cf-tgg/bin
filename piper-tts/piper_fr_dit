@@ -1,0 +1,173 @@
+#!/bin/sh
+#
+# Téléprompteur d'entrées. Lit de stdin ou concatène tous 
+#   les arguments passés en un bloc de chaînes,
+#     formate et affiche le texte dans le terminal, 
+#       piper-tts lit le texte à voix haute
+#         parec enregistre la source de sortie
+#           et ffmpeg pond un fichier audio.
+#
+#  Dépendences : piper-tts, ffmpeg, parec, aplay, un terminal compatible avec tput.
+#  Recommendations: newsboat (pour un lecteur de nouvelles automatique)
+#                   des lectures en format txt (pour des audiobooks)
+#                   entraîner sa propre voix (pour te faire lire par ta voix intérieure)
+#
+# Extensible aux limites de votre imagination !
+#
+
+# Évalue la provenance de l'entrée à rediriger
+if [ -t 0 ]; then
+    # Le descripteur de fichier indique qu'un terminal est connecté (stdin)
+    # Évalue les arguments fournis, si aucun argument, quitte et affiche 
+    # les consignes d'utilisation.
+    if [ -z "$1" ]; then
+        echo "Utilisation: <gilles_dit> <args> ou via stdin (tous les arguments sont concaténés en chaînes)"
+        exit 1
+    fi
+    if [[ -f $1 ]]; then
+        texte=$(cat $1)
+    else
+    texte="$*"
+    fi
+else
+    # L'entrée provient de stdin
+    texte=$(cat)
+fi
+
+# Récupère le nombre effectif de colonnes du terminal
+term_width=$(tput cols)
+
+# Calcul de la longueur maximale d'une ligne avec des marges de 2 espaces
+effective_width=$(($term_width - 4))
+
+# Formattage de l'entrée de texte
+input=$(echo "$1" | tr -s ' ;' ' ')
+# input=$(echo "$1")
+
+# Initialisation des variables de lignes et
+current_line=""
+output=""
+
+# Fonction qui formate la sortie selon si la longueur du prochain
+# mot dépasserait la limite de caractères de ligne, auquel cas il
+# est déplacé à la prochaine ligne
+process_line() {
+  # Si la ligne n'est pas vide
+  if [ -n "$current_line" ]; then
+    # Ajouter la ligne actuelle à la variable d'accumulation 
+    # ajoutant une indentation de deux espaces
+    output+="  ${current_line}\n"
+  fi
+  # Réinitialiser la prochaine ligne 
+  current_line=""
+}
+
+# Pour chaque mots de l'entrée de texte
+for word in $input; do
+  # Si la ligne actuelle est une nouvelle ligne
+  if [ ${#current_line} -eq 0 ]; then
+    # La ligne est le premier mot
+    current_line="$word"
+  # Si l'ajout d'un mot à la ligne ne dépasse pas la limite déterminée 
+  elif [ $((${#current_line} + ${#word} + 1)) -le $effective_width ]; then
+    # Le mot est ajouté à la ligne
+    current_line+=" $word"
+  else
+    # sinon imprimer la ligne et recommencer
+    process_line
+    current_line="$word"
+  fi
+done
+process_line # Ajouter la dernière ligne
+
+# Imprimer l'accumulation finale des lignes traitées
+echo -e "$output"
+
+# Récupères les arguments originaux capturés dans $texte
+output=$(echo "$texte")
+
+# S'il y a erreur, avertir et quitter
+if [ $? -ne 0 ]; then
+    echo "Erreur: Gilles ne diras rien."
+    exit 1
+fi
+
+# Pré-formatage additionnel de l'entrée pour le programme narrateur et l'enregistrement 
+processed_output=$(echo "$output" | iconv -f utf-8 -t utf-8 | sed '/^ $/d' | tr -d '\n' | tr -s '  ' ' ' | sed 's/:;/:/g' ) 
+
+# Définition des fichiers d'enregistrement temporaires et du log
+raw_file="$HOME/feeds/wav/temp/out.raw"
+wav_file="$HOME/feeds/wav/temp/out.wav"
+log_file="$HOME/feeds/wav/logs/newsplay.log"
+
+# Hard-coding de mes sources par facilité ( TODO: tester découverte et accumulation automatique )
+monitor_sources=(
+    "bluez_output.F0_F6_C1_D1_B9_74.1.monitor"
+    "alsa_output.pci-0000_c1_00.1.pro-output-3.monitor"
+    "alsa_output.pci-0000_c1_00.6.analog-stereo.monitor"
+    "alsa_input.pci-0000_c1_00.6.analog-stereo.monitor"
+)
+# Initialisation de la source finale
+selected_source=""
+
+# Identification de la source d'enregistrement appropriée.
+for source in "${monitor_sources[@]}"; do
+    if pactl list | grep -q "$source"; then
+        selected_source="$source"
+        break
+    fi
+done
+# Si aucune source n'a pu être identifiée, avertir et quitter
+if [ -z "$selected_source" ]; then
+    echo "Erreur: aucune source d'enregistrement n'a pu être établie."
+    exit 1
+fi
+
+# Début de l'enregistrement de la source de sortie avec parec vers le fichier temporaire brute
+parec -d "$source" --format=s16le --rate=48000 --channels=2 > "$raw_file" &
+parec_pid=$!
+
+# En assumant que piper-tts et parec sont configurés adéquatement, et que les fichiers sources sont présents, le narrateur lit le texte traité.
+echo "$processed_output" | piper-tts \
+        --silence_sentence 0.2 \
+        --length_scale 1.0 \
+        --model "$HOME/Templates/piper/voices/fr_FR-gilles-low.onnx" \
+        -c "$HOME/Templates/piper/voices/fr_FR-gilles-low.onnx.json" \
+        --output-raw 2>> "$log_file" | \
+        aplay -r 16000 -f S16_LE -t raw - 2>> "$log_file"
+
+# Encapsuler le statut de sortie de piper-tts et aplay
+exit_status=$?
+
+# Si échec de piper-tts ou de aplay, avertir,
+# indiquer où trouver le diagnostique et quitter.
+if [ $exit_status -ne 0 ]; then
+    echo "Erreur: Échec de piper-tts ou de aplay. Log: $log_file"
+    # Terminer parec si le processus est encore en vie
+    if ps -p $parec_pid > /dev/null; then
+        kill $parec_pid
+    fi
+    exit 1
+fi
+
+# Donner 3 secondes à parec pour terminer l'enregistrement ( TODO: à tester et ajuster ) 
+timeout=3
+count=0
+while ps -p $parec_pid > /dev/null; do
+    sleep 1
+    count=$((count + 1))
+    if [ $count -ge $timeout ]; then
+        kill $parec_pid
+        # convertir le fichier brute en fichier audio ( choisir un autre format ici )
+        ffmpeg -f s16le -ar 48000 -ac 2 -i "$raw_file" "$wav_file" > "$HOME/feeds/wav/logs/newsplay.log" 2>&1
+        
+        # Renommer/déplacer le fichier au goût
+        # mv "$wav_file" "rec_$(date +%Y-%m-%d_%H-%M-%S).wav"
+        
+        # Supprimer le fichier obsolet
+        rm "$raw_file"
+        # echo "$wav_file" # pour debug
+    fi
+done
+
+exit 0

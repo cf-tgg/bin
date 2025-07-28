@@ -1,0 +1,103 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-28 12:15:07 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+ding() {
+  speaker-test -t wav -w ding.wav -l 1 >/dev/null 2>&1
+}
+
+display_timer() {
+  hours=$((seconds / 3600))
+  minutes=$((seconds / 60 % 60))
+  remaining_seconds=$((seconds % 60))
+  printf "\r%02d:%02d:%02d" "$hours" "$minutes" "$remaining_seconds"
+}
+
+convert_to_seconds() {
+  inp=$1
+  if echo "$inp" | grep -q ':' ; then
+    echo "$inp" | awk -F: '
+      NF==4 {print $1*86400 + $2*3600 + $3*60 + $4; next}
+      NF==3 {print $1*3600 + $2*60 + $3; next}
+      NF==2 {print $1*60 + $2; next}
+      NF==1 {print $1; next}
+    '
+  else
+    datefmt_to_seconds "$inp"
+  fi
+}
+
+datefmt_to_seconds() {
+  inp=$1
+  total=0
+  tmpfile=$(mktemp) || exit 1
+  trap 'rm -f "$tmpfile"' EXIT INT TERM
+
+  echo "$inp" | grep -oiE '[0-9]+[dhmsDHMS]' > "$tmpfile"
+
+  while read -r chunk; do
+    unit=$(printf '%s\n' "$chunk" | sed 's/^[0-9]*\([dhmsDHMS]\)$/\1/' | tr '[:upper:]' '[:lower:]')
+    value=$(printf '%s\n' "$chunk" | tr -cd '0-9')
+    case "$value" in
+      ''|*[!0-9]*) continue ;;
+    esac
+    case "$unit" in
+      d) total=$((total + value * 86400)) ;;
+      h) total=$((total + value * 3600)) ;;
+      m) total=$((total + value * 60)) ;;
+      s) total=$((total + value)) ;;
+    esac
+  done < "$tmpfile"
+
+  rm -f "$tmpfile"
+  trap - EXIT INT TERM
+  echo "$total"
+}
+
+# Validate input
+if [ -z "$1" ]; then
+  echo "Usage: $0 <duration> [command...]" >&2
+  echo "Duration formats: 30, 01:20, 1h2m3s, 1:02:03, 1d3h50m400s etc." >&2
+  exit 1
+fi
+
+input=$1
+shift
+
+if echo "$input" | grep -q ':' ; then
+  total_seconds=$(convert_to_seconds "$input")
+elif echo "$input" | grep -qi '[dhms]' ; then
+  total_seconds=$(datefmt_to_seconds "$input")
+else
+  case "$input" in
+    ''|*[!0-9]*) echo "Invalid time format: $input" >&2; exit 1 ;;
+    *) total_seconds=$((10#$input)) ;;
+  esac
+fi
+
+seconds=$total_seconds
+
+# Collect command
+if [ ! -t 0 ]; then
+  actions=$(cat)
+else
+  actions="$*"
+fi
+
+# Timer loop
+while [ "$seconds" -gt 0 ]; do
+  display_timer
+  sleep 1
+  seconds=$((seconds - 1))
+done
+printf "\n"
+
+# Run command
+if [ -n "$actions" ]; then
+  sh -c "$actions" && ding
+else
+  ding
+fi
+
+exit 0

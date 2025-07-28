@@ -1,0 +1,10 @@
+#!/bin/bash
+# stacks 2 embedded nsxiv instances in right portion of a fullscreen terminal in yazi.
+
+trxiv() { rotdir "$1" | nsxiv - -e "$WINDOWID" -g "820x750+1430+10" -sw -a -b -o >/dev/null 2>&1  ; }
+brxiv() { rotdir "$1" | nsxiv - -e "$WINDOWID" -g "820x750+1430+755" -sw -ta -b -o >/dev/null 2>&1 ; }
+
+trxiv "$1" &
+[ -n "$!" ] && brxiv "$1"
+
+exit 0

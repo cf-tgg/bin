@@ -1,0 +1,301 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#     _ __ ___  _ ____   ____ _
+#    | '_ ` _ \| '_ \ \ / / _` |
+#    | | | | | | |_) \ V / (_| |
+#    |_| |_| |_| .__/ \_/ \__, |
+#              |_|           |_|
+#
+#    mpvq --- mpv queue manager
+#
+#    Dependencies: mpv dmenu yt-dlp dunst socat wmctrl xclip fzf
+
+#  set -e
+
+usage() {
+    env SC=$0 envsubst <<MAN
+    mpvqueue - A simple mpv playlist daemon
+
+    USAGE
+         ${SC} -[d|start|stop|forward|backward|status] [-add <file>]
+
+    OPTIONS
+        -d|start        Start the daemon to play videos in the playlist.
+        -stop|stop      Stops the playback.
+        -forward|fwd    Play the next video in the playlist.
+        -backward|back  Play the previous video in the playlist.
+        -add <file>     Add a video to the playlist, must be a valid video file.
+        -status         Show the current video playing.
+        -h | --help     Show this help message.
+
+    Using -add <file> allows for adding files to the video playlist.
+    Dependencies: mpv, dmenu, yt-dlp, dunst, xclip, socat, unixsocks, wmctrl, X11, xclip,
+                              ..is now basicly bloated lol.
+MAN
+}
+
+ipc_usage() {
+    cat <<'EOF'
+    mpvq_ipc - simple mpv JSON IPC testing
+
+        Usage: mpvq_ipc <command>
+
+    Commands:
+        play_pause
+        set_volume <int>
+        get_time_pos
+        observe_property <prop1> <prop2>
+        unobserve_property <prop>
+        enable_event <event>
+        disable_event <event>
+        request_log_messages <msg>
+        async_screenshot
+EOF
+}
+
+MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.m3u8"
+export MPVQ_PLAYLIST
+MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+export MPVQ_TITLES
+PLAYLIST_DIR="$HOME/Videos/yt/playlists"
+export PLAYLIST_DIR
+MPV_SOCK="/tmp/mpv.sock"
+export MPV_SOCK
+MPVQ_LOG="$HOME/.local/var/log/mpvq.log"
+export MPVQ_LOG
+MPCOUNT=$(grep -c '#EXTINF' "$MPVQ_PLAYLIST")
+export MPCOUNT
+TCOUNTS=$(grep -c . "$MPVQ_TITLES")
+export TCOUNTS
+BARICON="/tmp/mpvqicon"
+export BARICON
+
+if [ -f "$MPVQ_PLAYLIST" ]; then
+    [ "$(grep -c '#EXM3U' "$MPVQ_PLAYLIST")" -eq 1 ] || grep -n '^#EXTM3U$' "$MPVQ_PLAYLIST" | cut -d ':' -f1 | while read -r n ; do
+            [ "$n" -gt 1 ] && sed -i "${n}d" "$MPVQ_PLAYLIST"
+        done
+    [ "$(head -n 1 "$MPVQ_PLAYLIST")" = "#EXTM3U" ] || sed -i "1i #EXTM3U" "$MPVQ_PLAYLIST"
+else
+    echo '#EXTM3U' > "$MPVQ_PLAYLIST"
+fi
+
+updateicon() {
+    echo "$1" >"/tmp/mpvqicon"
+    pkill -RTMIN+12 "${STATUSBAR:-dwmblocks}"
+}
+
+asktoend() { printf "No\\nYes" | dmenu -i -p "kill it?" | grep -q '^Yes$' && kill_mpvq ; }
+
+kill_mpvq() {
+    pid=$(pidof mpv)
+    recpid="$pid" || recpid=$(cat "$MPV_PID")
+    if [ -n "$recpid" ] && kill -15 "$recpid" ; then
+        [ -f  "$MPV_PID" ] rm -f "$MPV_PID" "$MPV_SOCK" >/dev/null
+        pkill -RTMIN+13 "${STATUSBAR:-dwmblocks}"
+        updateicon "📺"
+        return 0
+    else
+        echo "failed to kill mpv" >&2
+        return 1
+    fi
+}
+
+status() {
+    mpcount=$(grep -c '#EXTINF' "$MPVQ_PLAYLIST")
+    pltail=$(nl "$MPVQ_PLAYLIST" | tail -n 10)
+    ( [ -t 0 ] && notify-send "Mpv Queue [$mpcount]" "$pltail" ) || printf '[mpvq] %s vids\n%s"' "$mpcount" "$pltail" || return 1
+}
+
+update_titles() {
+    titles=${1:-"$MPVQ_TITLES"}
+    grep -E "^#EXTINF" "$MPVQ_PLAYLIST" | while read -r e; do
+        echo "$e" | cut -d: -f2- | cut -d, -f2- | sed 's/,[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}$//'
+    done > "$titles" || { echo "Error: Failed to update playlist titles ($titles)" >&2 ; return 1 ; }
+    updateicon "+"
+}
+
+dmenu_playlist_append() {
+    pldir=${1:-"$PLAYLIST_DIR"}
+    [ -d "$pldir" ] || pldir="$HOME/Videos/playlists"
+    playlist=$(find "$pldir" -type f -name "*.m3u8" -exec basename "{}" \; | cut -d '.' -f1 | dmenu -i -l 12 -p 'append playlist:')
+    if [ -f "${playlist}.m3u8" ]; then
+        grep -v '#EXTM3U' "${playlist}.m3u8" >> "$MPVQ_PLAYLIST"
+        update_titles
+        return 0
+    else
+        echo "no such playlist: ${playlist}.m3u8" >&2
+        return 1
+    fi
+}
+
+dmenu_dir_append() {
+    playlist=${1:-"$MPVQ_PLAYLIST"}
+    dir=$(find "$HOME/Videos/yt" -type d -not -name "meta" | dmenu -i -p 'ytdirs: ')
+    [ -d "$dir" ] || return 1
+    find "$dir" -type l | while read -r l ; do
+        exifjpg -M "$l" 2>/dev/null >> "$playlist" || continue
+    done
+    update_titles
+}
+
+addvideo() {
+    [ $# -ge 1 ] || {
+        choice=$(printf 'playlists\bdirectory\nmpvqfzf\n' | dmenu -i -p "mpvq append:")
+        [ -n "$choice" ] || return 1
+        case "$choice" in
+            pl*) dmenu_playlist_append ;;
+            di*) dmenu_dir_append ;;
+            mp*) [ ! -t 1 ] && "$TERMINAL" -e "mpvqfzf" || mpvqfzf ;;
+            *) return 1 ;;
+        esac
+    }
+    for i in "$@" ; do
+        [ -L "$i" ] && i=$(readlink -f "$i") || i="$i"
+        case "$i" in
+            '^http'|'^https')
+                t=$(yt-dlp -q --no-warnings --skip-download --get-title "$i")
+                printf "#EXTINF:,%s\n%s\n" "$t" "$i" >> "$MPVQ_PLAYLIST"
+                ;;
+            "*\.(mp4|mkv|webm|avi|flv|mov|wmv|mpg|mpeg|3gp|ogv|ogg|ts|vob|gif)")
+                f=$(realpath "$i")
+                duration=$(mediainfo --Inform="General;%Duration%" "$f")
+                duration_sec=$((duration / 1000))
+                title=$(mediainfo --Inform="General;%Title%" "$f")
+                [ -z "$title" ] && title=$(basename "$f")
+                title=${title%.*}
+                date=$(mediainfo --Inform="General;%Encoded_Date%" "$f")
+                [ -z "$date" ] && date=$(stat -c %y "$f" 2>/dev/null | cut -d' ' -f1)
+                printf '#EXTINF:%s,%s,%s\n%s\n' "$duration_sec" "$title" "$date" "$f" >> "$MPVQ_PLAYLIST"
+                ;;
+            *.m3u*)
+                [ -f "$i" ] || return 1
+                grep -v "#EXTM3U" "$i" >> "$MPVQ_PLAYLIST"
+                ;;
+            *.jpg)
+                exifjpg -M "$i" 2>/dev/null >> "$MPVQ_PLAYLIST"
+                ;;
+            *) ;;
+        esac
+    done
+    update_titles
+}
+
+mpstart() {
+    pid_f="/tmp/mpvq.pid"
+    [ ! -S "${MPV_SOCK}" ] && mkfifo "$MPV_SOCK"
+    [ ! -w "${MPV_SOCK}" ] && { rm -f "$MPV_SOCK" && mkfifo "$MPV_SOCK" ; }
+    setsid -f mpv -quiet --playlist="$MPVQ_PLAYLIST" --input-ipc-server="${MPV_SOCK}" >"$MPVQ_LOG" 2>&1
+    echo $! > "$pid_f"
+    [ "$(pgrep mpv)" = "$(cat "$pid_f")" ] || pgrep mpv > "$pid_f"
+    updateicon "📺"
+}
+
+ytdownload() {
+    grep -E "^#EXTINF" "$MPVQ_PLAYLIST" | cut -d',' -f2- | nl |\
+        dmenu -l -i -p "download:" | awk '{print $1*2}' |\
+        while read -r ln; do
+            t=$(sed -n "${ln}p" "$MPVQ_PLAYLIST"|cut -d, -f2-)
+            u=$(sed -n "$((ln+1))p" "$MPVQ_PLAYLIST")
+            [ -n "$u" ] && printf "Yes\\nNo" | dmenu -i -p "Download $t?" |\
+            grep -q '^Yes$' && updateicon "" && ydl "$u" && updateicon ""
+        done
+    return 0
+}
+
+dndbox() {
+    pidof -xs "ixdnd" >/dev/null || setsid ixdnd &
+    [ -f "$MPVQ_WINID" ] && wmctrl -c "$(cat "$MPVQ_WINID")"
+    sleep 0.2  # Allow time for ixdnd to open if it wasn't already running
+    window_id=$(xdotool search --onlyvisible --name "DragBox" | head -n 1)
+    wait
+    [ -n "$window_id" ] && xdotool windowfocus "$window_id" key --repeat 2 k
+    return 0
+}
+
+clear(){
+  killall mpv
+  : > "$MPVQ_PLAYLIST";
+  : > "$MPVQ_TITLES";
+  rm -f "$MPV_SOCK"
+  notify "Cleared cleared all mpvq data."
+}
+
+dsubmenu(){
+    printf "file\ndir\nplaylist\videos"| dmenu -p "mpvq:" | while read -r el ; do
+        case "$el" in
+            file) findvideo || status ;;
+            dir) dmenu_dir_append ;;
+            playlist) dmenu_playlist_append ;;
+            videos) mpstart ;;
+        esac
+    done
+}
+
+tolower() {
+    echo "$@" | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz
+}
+
+menu() {
+    t=$(printf "Status\\nUpdate\\nAdd\\nPlay\\nRemote\\nDownload\\nSelect\\nHelp\\nEdit\\nClear\\nQuit" | dmenu -i -p 'mpvq:')
+    [ -n "$t" ] || return
+    sel=$(tolower "$t")
+    case "$sel" in
+        st*) status ;;
+        ad*|*que*|enq*|+) "$TERMINAL" -e "mpvqfzf" ;;
+        pl*) mpstart ;;
+        up*) update_titles ;;
+        cl*) clear ;;
+        dow*|*dl*|*td*) ytdownload ;;
+        rem*|*pc) mpv_ipc || mpvipc ;;
+        se*) mpvipc -d "loadfile" "$1"  ;;
+        ed*|*list|playl*) emc "$MPVQ_PLAYLIST" ;;
+        q*|k*) asktoend || kill_mpvq ;;
+        manipc|helpipc|ipcinfo) notify "$(ipc_usage)" ;;
+        h*|man|info|usage|*) notify "$(usage)" ;;
+    esac
+}
+
+case "$BLOCK_BUTTON" in
+    1) mpstart ;;
+    2) "$TERMINAL" -e "mpvqdl" ;;
+    3) "$TERMINAL" -e "mpvqfzf" ;;
+    4) dndbox ;;
+    5) menu ;;
+    6) emc "$MPVQ_PLAYLIST" ;;
+esac
+
+#  case "$1" in
+#      m*) menu ;;
+#      s*) status ;;
+#      i*) v="$2"
+#         addvideo "${v}" || { echo "failed to add ${v}" >&2 ; exit 1 ; } ;;
+#      I*) args=$(printf '\n' | dmenu -p 'mpv IPC cmd:')
+#         [ -n "$args" ] || exit 1
+#         mpvipc -d "$args" ;;
+#      S*) args="$2" || args=$(printf '\n' | dmenu -p 'mpv IPC cmd:')
+#         [ -n "$args" ] || exit 1
+#         mpvipc -d "$args" ;;
+#      b*) dndbox ;;
+#      n*) mpvipc -d "next" ;;
+#      p*) mpvipc -d "prev" ;;
+#      v*) vol="$2" || vol=$(printf "10\\n20\\n30\\n40\\n50\\n60\\n70\\n80\\n90\\n100\\n" | dmenu -p 'mpv volume:')
+#         [ -n "$vol" ] || exit 1
+#         mpvipc -d "set_property" "volume" "${vol}" ;;
+#      P*) mpstart ;;
+#      l*) select_playlist ;;
+#      k*) asktoend || kill_mpvq ;;
+#      D*) ytdownload ;;
+#      u*) update_titles && status ;;
+#      f*) mpvqfzf ;;
+#      h*) usage >&2 ; exit 2 ;;
+#      *) return ;;
+#  esac
+
+icon=$(cat "/tmp/mpvqicon")
+
+[ "${MPCOUNT}" -ne "${TCOUNTS}" ] && update_titles
+
+[ -n "$(pgrep mpv)" ] && updateicon "🎬" || updateicon "📺"
+
+printf "%s |" "$MPCOUNT"

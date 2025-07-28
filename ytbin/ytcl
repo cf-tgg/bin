@@ -1,0 +1,79 @@
+#!/bin/bash
+# fetches youtube uploader informations,
+# thumbnail and channel from youtube links,
+# adds them to newsboat feed and notifies with dunst
+
+
+[ -z "$1" ] && echo "Usage: $0 <YoutubeLink>" && exit 1
+
+uri="$1"
+
+if [[ "$uri" =~ https://www.youtube.com/@ ]]; then
+    id=${uri#https://www.youtube.com/@}
+    thumb="$HOME/Pictures/icons/dunst_icons/ytchannels/$id.png"
+    [ ! -f "$thumb" ] &&  wget -q "$(curl -s "$1" | grep -Eo 'https://yt3.[a-zA-Z0-9_=/?.&%-]+' |head -n1)" -O "$thumb" || exit 1
+    if dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "$id" "dans la ferme"; then
+        echo "$id dans la ferme"
+        [ -f "$thumb" ] && exit 0
+    else
+        dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "$id" "ajouté à la ferme..." WQ
+    fi
+fi
+DESTINATION="$HOME/Videos/yt/meta"
+[ ! -d "$DESTINATION" ] && mkdir -p "$DESTINATION"
+      url="$1"
+      case "$url" in
+        *youtube/@*)
+            uploaderid=${url#https://www.youtube.com/@}
+            url="https://www.youtube.com/@$uploaderid"
+            ;;
+        youtube/watch*)
+            channelid=$(curl -s "$url" |   grep -iEo '/channel/[a-zA-Z0-9_=/?.&%-]+./' | sed 's/\/\/\/\/channel\///' | awk -F'/' '{print $3}' | sort -u | head -n1)
+            churl="https://www.youtube.com/channel/$channelid"
+            uploaderid=$(curl -s "$churl"| grep -iEo '/@[a-zA-Z0-9_=/?.&%-]+./' | cut -d'@' -f2 | cut -d'/' -f1  | sort -u | head -n1)
+            url="https://www.youtube.com/@$uploaderid"
+            ;;
+        *) notify-send "Not a valid youtube link" && exit 1
+            ;;
+    esac
+    page_content=$(curl -s "$url")
+    uploader=$(grep -iEo '/@[a-zA-Z0-9_=/?.&%-]+./' | cut -d'@' -f2 | cut -d'/' -f1  <<< "$page_content" | head -n1)
+      [ -z "$channelid"] || channelid=$(grep -iEo 'https://www.youtube.com/channel/[a-zA-Z0-9_=/?.&%-]+'| head -n1 | awk -F'/' '{print $5}')
+      videocount=$(grep -Eo '[0-9]+(K|M)? videos' <<< "$page_content" | head -n 1)
+      subcount=$(grep -Eo '[0-9]+(K|M)? subscribers' <<< "$page_content" | head -n 1)
+      substr=${subcount// subscribers/ suiveux}
+      vidstr=${videocount// videos/ vidéos}
+         echo "$uploader"
+         echo "$uploaderid"
+         echo "$vidstr"
+         echo "$substr"
+        vcount=${videocount//[^0-9.]/}
+        vcount=${vcount%%.*}
+        uploader_dir="$HOME/Videos/yt/$uploader"
+
+        if [ -d "$uploader_dir" ]; then
+            lcount=$(find "$uploader_dir" -type l | wc -l)
+            upid=${uploaderid##@}
+            thumb="$HOME/Pictures/icons/dunst_icons/ytchannels/${upid}.png"
+            if [ ! -f "$thumb" ]; then
+              pp=$(grep -Eo 'https://yt3.[a-zA-Z0-9_=/?.&%-]+' <<< "$page_content" | grep "s900" | sort -u | head -n 1)
+              wget -q "$pp" -O "$thumb" || cp "$HOME/Pictures/icons/dunst_icons/youtube.png" "$thumb"
+            fi
+            if [ "$lcount" -eq "$vcount" ]; then
+                dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "$uploader" "\n$vidstr\n$substr\n$uploaderid"
+                printf "%s à jour\n%s\n%s\n%s" "$uploader" "$vidstr" "$substr" "$uploaderid"
+                exit 0
+            else
+                mcount=$((vcount - lcount))
+                dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "$uploader" "$mcount/$vidstr\n$substr $uploaderid"
+                printf "%s\n\t%s %s %s\n" "$uploader" "$vidstr" "$substr" "$uploaderid"
+                echo "$mcount manquants dans la ferme d'$uploader "
+                exit 0
+            fi
+        else
+            dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "Récolte des $vidstr dans la ferme d'$uploaderid" "\n$uploader\n$videocount\n$subcount"
+            echo "On créée l'dir: $uploader. Récoltons les liens..."
+            exit 0
+        fi
+
+exit 0

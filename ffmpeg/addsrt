@@ -1,0 +1,54 @@
+#!/bin/sh
+
+match_srt() {
+    f="${1%.*}"
+    match=$(echo "$f_name" | sed "/\(\_\|[[:digit:]]\)//g;s/[[:upper:]]/\L&/g;s/\./\-/g")
+    find . -type f -name "*.srt" | grep -iE "$match" | tail -n1
+}
+
+srt_lang() {
+     f=${1%.*}
+     match=$(echo "$f_name" | sed "/\(\_\|[[:digit:]]\)//g;s/[[:upper:]]/\L&/g;s/\./\-/g")
+     l=$(find . -type f -name "*.srt" | grep -iE "$match" | grep "\(en\|fr\)" | sed "s/$f//;s/\(-\|_\|\.\|\/\|srt\)//g;")
+     [ "${l:0:2}" = "en" ] && srt_lang="${l:0:3}" || srt_lang="${l:0:2}"
+     [ -n "$srt_lang" ] && echo "$srt_lang"
+}
+
+askchar() {
+    stty -echo -icanon
+    char=$(dd bs=1 count=1 2>/dev/null)
+    stty sane
+    echo "$char"
+}
+
+embedsrt() {
+	f="$1"
+	f_ext="${f##*.}"
+	out_f="out.${f_ext}"
+	srt_f=$(match_srt "$f")
+	srt_l=$(srt_lang "$f")
+	[ -f "$srt_f" ] || {
+		echo "Subtitle file not found."
+		return 1
+	}
+	[ -n "$srt_l" ] || {
+		echo "Subtitle language not found."
+		return 1
+	}
+	ffmpeg -hide_banner -sub_charenc UTF-8 -i "$f" -i "$srt_f" -map 0 -map 1 -c:v copy -c:a copy -c:s mov_text -metadata:s:s:0 language="$srt_l" "$out_f" -y && echo "${srt_f#./} ${srt_l} subtitles embedded in $out_f"
+	ans="n"
+	if [ "$(stat --format="%s" "$out_f")" -ge "$(stat --format="%s" "$f")" ]
+	then
+		ans="y"
+		printf "%s matches original file size. Finalize embedding %s? [Y/n] " "$out_f" "$f"
+		if askchar | grep -qi "^y"
+		then
+			mv -iv -f "$out_f" "$f"
+			echo "Embedding finalized: $f"
+		else
+			echo "Embedding not finalized."
+		fi
+	fi
+}
+
+embedsrt "$1" || echo "failed to embedsrt."

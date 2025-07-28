@@ -1,0 +1,24 @@
+#!/bin/sh
+# drag-and-drop download tool.
+
+log="$HOME/dndhandler.log"
+
+dragndrop --target | while read -r f; do
+  wmctrl -r 'dragon' -e 10,600,2,420,42
+  f=$(urldecode "$f")
+  f=${f#file://}
+  [ -L "$f" ] && f=$(realpath "$f")
+  echo "$f" >> "$log"
+  case "$f" in
+      *jpg)
+          u=$(exifjpg -u "$f" 2>/dev/null)
+          [ -n "${u}" ] && linkhandler "${u}"  || setsid -f nsxiv -aio "${f}" >/dev/null 2>&1 ;;
+      *mp4|*mkv|*mpeg4|*m3u|*m3u8) linkhandler "$f" ;;
+      *pdf) setsid -f zathura "$f" >/dev/null 2>&1 ;;
+      http*|*youtube*) linkhandler "$f"  ;;
+      *html|*htm) setsid -f "$BROWSER" "$f" >/dev/null 2>&1 ;;
+      *) setsid -f  "$EDITOR" "$f" >/dev/null 2>&1 ||  setsid -f "$BROWSER" "$f" >/dev/null 2>&1 ;;
+  esac
+done
+
+exit 0

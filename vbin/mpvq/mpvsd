@@ -1,0 +1,70 @@
+#!/bin/sh
+
+MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.m3u8"
+MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+MPV_SOCK="/tmp/mpv.sock"
+
+to_alt() {
+   f="$1"
+   playlist="$HOME/.cache/mpvq/sd_mpvq.m3u8"
+   titles="$HOME/.cache/mpvq/sd_mpvq.titles"
+   grep -v "#EXTM3U" "$f" | while read -r e; do
+      read -r u ;
+      [ -z "$e" ] || [ -z "$u" ] && continue
+      t=$(echo "$e" | sed -n 's/#EXTINF:\([0-9]*\),\(.*\)/\2/p')
+      grep -qF "$u" "$playlist" || printf "%s\n%s\n" "$e" "$u" >> "$playlist"
+      grep -q "$t" "$titles" || echo "$t" >> "$titles"
+   done || return 1
+   return 0
+}
+
+loadlist_sd() {
+   f="$1"
+   u="/tmp/filtered.m3u8"
+   grep -v "#EXT" "$f" > "$u"
+   echo '{"command": ["loadlist", "'"$u"'", "append"]}' | socat - "$MPV_SOCK" >/dev/null 2>&1
+   [ -f "$u" ] && rm -f "$u" >/dev/null 2>&1
+}
+
+extinf_sd() {
+    f="$1"; exifjpg -M "$f" | while read -r e; do
+        read -r u ;
+        grep -qF "$u" "$MPVQ_PLAYLIST" || printf "%s\n%s\n" "$e" "$u" >> "$MPVQ_PLAYLIST"  ;
+        echo '{"command": ["loadfile", "'"$u"'", "append"]}' | socat - "$MPV_SOCK" >/dev/null 2>&1 ;
+    done
+}
+
+loadfile_sd() {
+   echo '{"command": ["loadfile", "'"$1"'", "append"]}' | socat - "$MPV_SOCK" >/dev/null 2>&1
+}
+
+while [ "$#" -gt 0 ]; do
+    case "$(file --dereference --brief --mime-type "$1")" in
+        audio/x-mpegurl)
+            loadlist_sd "$1" && to_alt "$1" || continue
+            ;;
+        image/jpeg)
+            extinf_sd "$1" || continue
+            ;;
+        video/*)
+            f="$(realpath "$1")"
+            loadfile_sd "$f" || continue
+            ;;
+        text/*)
+            case "$1" in
+                http*://*)
+                    loadfile_sd "$1" || continue
+                    ;;
+                *)
+                    echo "Skipping unsupported text file: $1"
+                    ;;
+            esac
+            ;;
+        *)
+            loadfile_sd "$1" || continue
+            ;;
+    esac
+    shift
+done
+
+exit 0

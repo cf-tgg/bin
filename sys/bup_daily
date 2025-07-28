@@ -1,0 +1,72 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:33:13 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+# Backups journaliers (cron job)
+# Récupération avec : tar -xzvf <dossier_archive.tar.gz>
+
+# Définition du dossier de sauvegarde jounalier
+BDIR="$HOME/Documents/Backups/1-jour"
+
+# Création du dossier de sauvegarde journalier s'il n'existe pas
+[ -d "$BDIR" ] || mkdir -p "$BDIR"
+
+# Chemins des dossiers à sauvegarder
+set -- "$HOME/.config/shell" \
+    "$HOME/.config/x11" \
+    "$HOME/.emacs.d/init.el" \
+    "$HOME/.emacs.d/early-init.el" \
+    "$HOME/.emacs.d/eww-bookmarks" \
+    "$HOME/.emacs.d/bookmarks" \
+    "$HOME/.emacs.d/cf-lisp" \
+    "$HOME/.config/gh" \
+    "$HOME/.config/dunst" \
+    "$HOME/.config/nvim/init.lua" \
+    "$HOME/.config/nvim/lua" \
+    "$HOME/.config/nvim/filetype.lua" \
+    "$HOME/.config/nvim/after" \
+    "$HOME/.config/nvim/shortcuts.vim" \
+    "$HOME/.config/zsh" \
+    "$HOME/.config/tmux/tmux.conf" \
+    "$HOME/.config/mpv" \
+    "$HOME/.config/mpd" \
+    "$HOME/.config/lf"  \
+    "$HOME/.config/nsxiv" \
+    "$HOME/.config/pipe-viewer" \
+    "$HOME/.config/pulsemixer.cfg" \
+    "$HOME/.config/pipewire" \
+    "$HOME/.config/wireplumber" \
+    "$HOME/.config/abook" \
+    "$HOME/.config/yazi" \
+    "$HOME/.config/picom" \
+    "$HOME/.config/ncmpcpp" \
+    "$HOME/.config/polybar" \
+    "$HOME/.config/fontconfig" \
+    "$HOME/.config/newsboat" \
+    "$HOME/.config/ytfzf" \
+    "$HOME/.config/zathura" \
+    "$HOME/.config/qutebrowser/userscripts" \
+    "$HOME/.config/qutebrowser/config.py" \
+    "$HOME/.config/qutebrowser/quickmarks" \
+    "$HOME/.config/qutebrowser/bookmarks" \
+    "$HOME/.local/share/qutebrowser/blocked-hosts" \
+    "$HOME/.local/share/qutebrowser/userscripts" \
+    "$HOME/.local/share/applications" \
+    "$HOME/.local/share/mime" \
+    "$HOME/.local/share/calcurse" \
+    "$HOME/.local/src/dwm/config.h" \
+    "$HOME/.local/src/st/config.h" \
+    "$HOME/.local/src/dmenu/config.h" \
+    "$HOME/.local/src/dwmblocks/blocks.h" \
+    "$HOME/.local/src/xmouseless/config.h" \
+    "$HOME/.local/bin" \
+    "$HOME/Templates/settings" \
+    "$HOME/Templates/html/startpage" \
+    "$HOME/Templates/css"
+
+# Création de l'archive
+tar -zcvf "$BDIR/$(date +%Y-%m-%d).tar.gz" "$@" -P
+
+# Trouver les fichiers plus vieux que 7 jours et les supprimer
+find "$HOME/Documents/Backups/1-jour/" -type f -mtime +5 -delete

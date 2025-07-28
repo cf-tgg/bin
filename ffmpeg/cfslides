@@ -1,0 +1,113 @@
+#!/bin/bash
+
+RANGE_START=${1:-1}
+RANGE_END=${2}
+FILTERSEQ_END=$(((RANGE_END - RANGE_START) - 1))
+SEQ_END=$(((RANGE_END - RANGE_START) - 2))
+EDIT=${3:-$EDITOR}
+
+usage() {
+  echo "cfslides - Crossfade Slideshows"
+  echo ""
+  echo "Create a crossfade slideshow helper script using ffmpeg"
+  echo "Usage: $0 <start> <end> [-e <editor>]"
+  echo "Dependencies: ffmpeg, xclip (for copying to clipboard), and a text editor (default: \$EDITOR)"
+  echo "Description:"
+  echo "    Generates a bash script that uses ffmpeg to create a crossfade slideshow from a range of images."
+  echo "    It loops through the images in the specified range and applies fade and overlay filters to create a crossfade effect."
+  echo "    The script is made executable and is opened in the default text editor for parameter review and further processing before execution."
+  echo "    By default, the script is saved as cf_<start>-<end>.sh in the current directory and the output video is zero-padded <start>_<end>.mp4."
+  echo "    The script is copied to the clipboard for easy pasting into the terminal for execution."
+  echo "    Any further customization should be done directly in the script before execution."
+  echo "Options:"
+  echo "  -h    Display this help message"
+  echo "  -e    Set the editor to use"
+  echo "Examples:"
+  echo "    Generate a crossfade slideshow from images 1 to 5:"
+  echo "        $0 1 5"
+  echo "    # Default outputs: cf_01-05.sh script that generates 01_05.mp4 output video."
+  echo "    Generate a crossfade slideshow from images 1 to 5 and open the script in nano:"
+  echo "        $0 99 222 -e nano"
+  echo "    # will generate cf_099-222.sh executable script and 099_222.mp4 output video."
+  echo "    # The script will be opened in nano for review and customization."
+  echo ""
+  echo "Feel free to customize the script further to suit your needs."
+  echo "For more information, refer to the ffmpeg documentation: https://ffmpeg.org/documentation.html"
+  echo "Note: This script is provided as-is without any warranty."
+  echo ""
+  exit 1
+}
+
+if [ -z "$RANGE_END" ]; then
+  usage
+fi
+
+if [ "$RANGE_START" -gt "$RANGE_END" ]; then
+  echo "Error: Start must be less than or equal to End"
+  usage
+elif [ "$RANGE_START" -lt 1 ]; then
+  echo "Error: Start must be greater than or equal to 1"
+  usage
+elif [ "$RANGE_END" -gt 100 ]; then
+  echo "Warning: This script can be memory hungry and might fail on low-spec hardware with a large number of images."
+  echo "Are you sure you want to continue? (y/n)"
+  read -r response
+  if [ "$response" != "y" ]; then
+    exit 0
+  fi
+fi
+
+pad() {
+    pad=${#RANGE_END}
+    printf "%0${pad}d" "$1"
+}
+
+OUTPUT="$(pad "$RANGE_START")_$(pad "$RANGE_END").mp4"
+SCRIPT="cf_$(pad "$RANGE_START")-$(pad "$RANGE_END").sh"
+
+# Create the script
+echo "#!/bin/bash" > "$SCRIPT"
+echo "" >> "$SCRIPT"
+echo "cmd=\"ffmpeg \\" >> "$SCRIPT"
+cmd="ffmpeg "
+
+# Input
+for i in $(seq -w "$RANGE_START" "$RANGE_END"); do
+  echo "-loop 1 -t 5 -i $i.jpg \\" >> "$SCRIPT"
+  cmd+="-loop 1 -t 5 -i $i.jpg "
+done
+
+# Fade filters
+echo "-filter_complex \\\"" >> "$SCRIPT"
+cmd+=" -filter_complex \""
+for i in $(seq 1 ${FILTERSEQ_END}); do
+    start_time=$((i * 5))
+    echo "[$i]fade=d=1:t=in:alpha=1,setpts=PTS-STARTPTS+${start_time}/TB[f$((i-1))]; \\" >> "$SCRIPT"
+    cmd+="[$i]fade=d=1:t=in:alpha=1,setpts=PTS-STARTPTS+${start_time}/TB[f$((i-1))];"
+done
+
+# Overlay filters
+for i in $(seq 0 $((SEQ_END - 1))); do
+  if  [ "$i" -eq 0 ]; then
+    echo "[$i][f$i]overlay[bg$((i+1))]; \\" >> "$SCRIPT"
+    cmd+="[$i][f$i]overlay[bg$((i+1))];"
+  else
+    echo "[bg$i][f$i]overlay[bg$((i+1))]; \\" >> "$SCRIPT"
+    cmd+="[bg$i][f$i]overlay[bg$((i+1))];"
+  fi
+done
+
+# Output
+echo "[bg${SEQ_END}][f${SEQ_END}]overlay,format=yuv420p[v]\\\" -map \\\"[v]\\\" -r 25 ${OUTPUT}\"" >> "$SCRIPT"
+cmd+="[bg${SEQ_END}][f$SEQ_END]overlay,format=yuv420p[v]\" -map \"[v]\" -r 25 ${OUTPUT}"
+echo "$cmd" | xclip -selection clipboard
+echo "eval \"\$cmd\"" >> "$SCRIPT"
+chmod +x "$SCRIPT"
+eval "$EDIT \"$SCRIPT\""
+
+# Check for empty or unsuccessful script creation and attempt to open in the editor
+if [ ! -s "$SCRIPT" ] || ! eval "$EDIT \"$SCRIPT\""; then
+  [ ! -s "$SCRIPT" ] && rm -f "$SCRIPT"  # Remove if script is empty
+  echo "Error: Failed to create a valid script or open it in the editor." >&2
+  exit 1
+fi

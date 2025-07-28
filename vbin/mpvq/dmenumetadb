@@ -1,0 +1,12 @@
+#!/bin/sh
+
+search="$(dmenu -p "metadb search:")"
+[ -z "$search" ] && exit 0
+metadb_search() {
+  metadb="$HOME/Videos/yt/metadb.json"
+  search="$*"
+  jq -r '.[] | select(.title, .description | contains("'$search'"))' "$metadb" | jq -r '.path'| sort -u | nsxiv -
+}
+
+[ -n "$search" ] && metadb_search "$search"
+exit 0

@@ -1,0 +1,73 @@
+#!/bin/sh
+# Stream a real or virtual screen using RTP from linux box to Windows box
+
+DISPLAYS=/tmp/active_displays
+# Default target ip and port
+TARGET="10.0.0.177"
+PORT="5004"
+
+
+xrandr | grep 'eDP' | awk '{print "*"$1, $2, $4}' > ${DISPLAYS}
+
+for i in {0..2}; do
+	xrandr | grep "DisplayPort-${i}" | awk '{print $1,$2,$3}' >> ${DISPLAYS}
+done
+
+# Default streaming monitor (virtual DisplayPort-0)
+
+SIZE="$(cat ${DISPLAYS} | grep 'DisplayPort-1' | awk '{print $3}' | cut -d + -f1)"
+SPOS="$(cat ${DISPLAYS} | grep 'DisplayPort-1' | awk '{print $3}' | cut -d + -f2),$(cat /tmp/active_displays | grep 'DisplayPort-1' | awk '{print $3}' | cut -d + -f3)"
+
+# display a dwmblocks statusbar icon
+updateicon() { \
+    echo "$1" > /tmp/recordingicon
+    pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+}
+
+# -[s]elect an active monitor from available video sources
+if [ "$1" = '-s' ]; then
+    SCREEN=$(cat ${DISPLAYS} | awk '{print $1}' | dmenu -i -p "Quel écran?")
+    if [ -n "$SCREEN" ]; then
+        SIZE=$(cat ${DISPLAYS}| grep ${SCREEN} | awk '{print $3}' | cut -d+ -f1)
+        SPOS="$(cat ${DISPLAYS}| grep ${SCREEN} | awk '{print $3}' | cut -d+ -f2),$(cat ${DISPLAYS}| grep ${SCREEN} | awk '{print $3}' | cut -d+ -f3)"
+    else
+        echo "No screen selected. Exiting."
+        exit 1
+    fi
+fi
+
+# function to start streaming
+stream() { 
+    ffmpeg -f x11grab -s "${SIZE}" -i :0.0+${SPOS} \
+    -c:v h264 -preset ultrafast -tune zerolatency -x264opts "keyint=30:min-keyint=30:no-scenecut:subme=0" -b:v 4M -g 30 \
+    -an -f rtp_mpegts -muxdelay 0 -max_interleave_delta 0 -rtbufsize 64k \
+    -probesize 32 -analyzeduration 0 -flush_packets 1 \
+    -fflags nobuffer -flags low_delay \
+    udp://${TARGET}:${PORT} &
+    ffmpeg_pid=$!
+    echo "$ffmpeg_pid" > /tmp/recordingpid
+    updateicon " "
+}
+
+# start the stream
+stream
+
+killrecording() {
+    recpid="$(cat /tmp/recordingpid)"
+    kill -15 "$recpid"
+    rm -f /tmp/recordingpid
+    updateicon ""
+    pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+}
+
+# To view the stream, on target machine with ffplay:
+# ffplay -probesize 32 -fflags nobuffer -fflags low_delay udp://127.0.0.1:${PORT}
+
+# In vlc: open -> media -> network -> `rtp://@:${PORT}` -> play (Default: `rtp://@:5004`)
+
+# with vlc from a command line
+# & "path\to\vlc.exe" rtp://@:${PORT}
+
+# with mpv :
+# mpv udp://127.0.0.1:${PORT} --no-cache --profile=low-latency --untimed --no-demuxer-thread --vd-lavc-threads=1
+

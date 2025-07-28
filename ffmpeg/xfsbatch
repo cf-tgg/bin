@@ -1,0 +1,54 @@
+#!/bin/bash
+
+set -e
+
+usage() { echo "$0 usage: " && grep " .)\ #" $0 ; return 1; }
+
+# [ $# -eq 0 ] && usage
+
+while getopts ":hd:c:g:" arg; do
+    case $arg in
+        g) echo "Global extension is ${OPTARG}" ;;
+        d) D=${OPTARG} ;;
+        c) GRP=${OPTARG} ;;
+        h|*) usage ; exit 1 ;;
+    esac
+done
+
+FT=${g:-mp4}
+DEST=${D:-.}
+GRP=${c:-4}
+
+pad() { c=${2:-2} ; printf "%0${c}d" "$1" ; }
+
+t=$(find . -type f -name "*.$FT" | grep -c .)
+n=1; s=$(((t+GRP-1)/GRP))
+
+for i in $(seq 1 $s); do
+    b="batch_$(pad "$i")"
+    mkdir -p "$DEST/$b" 
+done
+
+n=1; c=1; 
+for f in *."$FT"; do
+    x=$(pad "$n" ${#t})
+    d=$(printf "batch_%02d" "$c")
+    cp "$f" "$d/$x.$FT"
+    n=$((n+1));
+    if [ $((n % GRP)) -eq 1 ]; then
+        c=$((c+1))
+    fi
+done
+
+# for i in $(seq 1 $s); do
+#     batch=$(printf "batch_%02d" "$i")
+#     next=$(printf "../batch_%02d" $((i + 1)))
+#     [ "$batch" = "batch_01" ] && cd "$batch"
+#     cfsmerge
+#     [ -d "$next" ] && { 
+#         lc=$(ls "$next" | sort -V | head -n1 | cut -d. -f1) ;
+#         low=$((lc-1)) ;
+#         newfirst=$(printf "%02d.mp4" "$low")
+#         mv -v "out.mp4" "$next/$newfirst" && cd "$next" 
+#     }
+# done

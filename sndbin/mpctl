@@ -1,0 +1,251 @@
+#!/bin/sh
+# Control MPC with speech-to-text pipeline
+
+STREAMS="$HOME/.cache/mpd-streams"
+TITLES="$HOME/.cache/mpd-title"
+HISTORY="$HOME/Downloads/albums/history.playmuse"
+MPC_LOG="$HOME/.cache/mpc_history.log"
+
+LANGUAGE=${1:-en}
+SIMPLE=${1:-0} 
+VERBOSE=${1:-1}
+
+settings() {
+  lang="$(setxkbmap -query | grep -oP 'layout:\s*\K\w+')"
+  [ "$lang" = "ca" ] && LANGUAGE="fr"
+  [ "$lang" = "us" ] && LANGUAGE="en"
+  if [ "$SIMPLE" = 0 ]; then
+    if [ "$LANGUAGE" = "en" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-small-en-us-0.15/"
+    elif [ "$LANGUAGE" = "fr" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-small-fr-0.22/"
+    fi
+  else
+    if [ "$LANGUAGE" = "en" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-en-us-0.22/"
+    elif [ "$LANGUAGE" = "fr" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-fr-0.22/"
+    fi
+  fi
+  vosk=$(basename "$VOSKDIR"|cut -d- -f3-)
+  echo "$LANGUAGE 🎙️"
+  [ "$VERBOSE" -eq 1 ] && echo "[::VERBOSE=$VERBOSE::SIMPLE=$SIMPLE::MODEL=$vosk::]"
+  if [ "$VERBOSE" -eq 1 ]; then
+    notify-send "[:::$vosk:::]" "$LANGUAGE 🎙️"
+  else
+    notify-send "$LANGUAGE 🎙️"
+  fi
+}
+
+[ "${LANGUAGE[1,2]}" = "fr" ] || [ "${LANGUAGE[1,2]}" = "en" ] || settings
+
+# ACAD=$(cat /sys/class/power_supply/ACAD/online)
+# SIMPLE=${ACAD:-0}
+# PLDIR="${XDG_CONFIG_HOME:-$HOME/.config}/mpd/playlists"
+# PLAYLIST="$PLDIR/streams.m3u"
+
+mplist() {
+  mpc playlist |nl| while read -r l ; do
+     ti="$(echo "$l"|awk '{print $2}')"
+     stream=$(grep -Fx "$title" "$STREAMS")
+     i=$(echo "$l"|awk '{print $1}')
+     if [ -n "$stream" ]; then
+        sid=$(grep -nFx "$ti" "$STREAMS" | awk -F: '{print $1}')
+        t=$(sed -n "${sid}p" "$TITLES")
+        printf "%s      %s\n" "$i" "$t"
+     else
+        printf "%s\n" "$l"
+    fi
+  done
+}
+
+mpc_del() {
+    index="$1"
+    [ -n "$index" ] || { echo "Specify an index" >&2; return 1 ; }
+    title=$(mpc playlist | sed -n "${index}p")
+    stream=$(grep -Fx "$title" "$HOME/.cache/mpd-streams")
+    if [ -n "$stream" ]; then
+       sid=$(grep -nFx "$title" "$HOME/.cache/mpd-streams" | awk -F: '{print $1}')
+       t=$(sed -n "${sid}p" "$HOME/.cache/mpd-title")
+       sed -i "${sid}d" ~/.cache/mpd-streams
+       sed -i "${sid}d" ~/.cache/mpd-title
+       printf "%s *removed*\n" "$t"
+     else
+       printf "%s *removed*\n" "$title"
+     fi
+     mpc del "${index}" >/dev/null 2>&1
+     mplist
+}
+
+
+quelleheure() { tts $(date +'%A le %e %B %H:%-M et %-S secondes')  ; }
+log_command() { echo "$(date '+%Y-%m-%d %H:%M:%S') | $1 | $2" >> "$MPC_LOG" ; }
+mpc_state() { mpc status | grep -E 'playing|paused' ; }
+mpc_repeat_on() { mpc status | grep -q 'repeat: on' || mpc repeat on >/dev/null ; }
+mpc_playlist_counts() { mpc playlist | wc -l ; }
+title_list() { if [ "$(mpc_playlist_counts)" -gt 1 ]; then mpc-playlist | nl ; else mpc-playlist; fi ; }
+trim_blanks() { sed -i '/^$/d' "$TITLES" ; sed -i '/^$/d' "$STREAMS" ; }
+PCOUNT=$(mpc_playlist_counts)
+CURRIDX=$(mpc_state|awk '{print $2}'|tr -d '#'|cut -d'/' -f1)
+
+feedback() {
+   notify-send -a "mpctl" -r 9998 -t 2000 "$@"
+   echo "$@"
+}
+
+mpc_play() { mpc status | grep -q 'playing' || mpc play ; }
+status() {
+  if [ "$PCOUNT" -eq 0 ]; then
+    feedback "Aucun titre dans la liste de lecture."
+  else
+   feedback "$(title_list)";
+   feedback "$(mpc status | grep -E 'playing|paused')"
+  fi
+}
+
+queue() {
+  stream=$(mpc queue)
+  idx=$(grep -nFx "$stream" "$STREAMS" | cut -d: -f1)
+  title="$(sed -n "${idx}p" "$TITLES")"
+  feedback "$title"
+  [ "$LANGUAGE" = "fr" ] && echo "$title" | tts &
+  [ "$LANGUAGE" = "en" ] && google_speech "$title" &
+}
+
+current() {
+  stream=$(mpc current)
+  idx=$(grep -nFx "$stream" "$STREAMS" | cut -d: -f1)
+  title="$(sed -n "${idx}p" "$TITLES")"
+  feedback "$title"
+  [ "$LANGUAGE" = "fr" ] && echo "$title" | tts  &
+  [ "$LANGUAGE" = "en" ] && google_speech "$title" &
+}
+
+delete() {
+  index="${1:-$PCOUNT}"
+  if [ -n "$(mpc-playlist|sed -n "${index}p")" ]; then
+    mpc del "$index"
+    t=$(mpc-playlist | sed -n "${index}p" |sed 's/^[[:space:]]\+//;s/[[:space:]]\+$//')
+    i=$(grep -i -F -n "$t" "$TITLES" | awk -F: '{print $1}')
+    sed -i "${i}d" "$TITLES"
+    sed -i "${i}d" "$STREAMS"
+    feedback "$t din poubelles."
+    [ "$VERBOSE" -eq 0 ] || feedback "$(title_list)"
+    return 0
+  else
+    return 1
+  fi
+}
+
+clear() {
+  if mpc clear && :> "$TITLES" && :> "$STREAMS"; then
+    [ "$VERBOSE" -eq 1 ] && feedback "clair.";
+    return 0
+  else
+    feedback "$(title_list)";
+    return 1
+  fi
+}
+
+download() {
+  index="${1:-$CURRIDX}"
+  [ -z "$index" ] && index="$CURRIDX"
+  if [ -n "$index" ]; then
+    title=$(sed -n "${index}p" "$TITLES")
+  else
+    stream=$(mpc current)
+    idx=$(grep -nFx "$stream" "$STREAMS" | cut -d: -f1)
+    title="$(sed -n "${idx}p" "$TITLES")"
+  fi
+  if [ -z "$title" ]||[ $# -gt 3 ]; then
+    indx="$(grep -nFx "$1" "$TITLES"| cut -d: -f1)"
+    title=$(sed -n "${indx}p" "$TITLES")
+  fi
+  link=$(grep -E "$title" "$HISTORY"|cut -d' ' -f1| head -n1)
+  [ -n "$link" ] && ydl -a "$link" &
+  retun 0
+}
+
+rdi() {
+  t="Ici Première"
+  s="https://rcavliveaudio.akamaized.net/hls/live/2006635/P-2QMTL0_MTL/adaptive_192/chunklist_ao.m3u8"
+  echo "$t" >> "$TITLES"
+  echo "$s" | tee -a "$STREAMS" | mpc add
+}
+
+get_volume() { mpc volume|cut -d':' -f2|tr -d '%' ; }
+
+set_volume() {
+  [ "$(get_volume)" -eq 100 ] && mpc volume 0 && get_volume && return 0
+  [ "$(get_volume)" -eq 0 ] && mpc volume 100 && get_volume && return 0
+  volume="$1"; [ -z "$volume" ] && volume=100
+  [ "$volume" -gt 100 ] && volume=100
+  [ "$volume" -lt 0 ] && volume=0
+  mpc volume "$volume" && get_volume
+  if [ "$volume" -ge 70 ]; then
+      icon="🔊"
+  elif [ "$volume" -ge 30 ]; then
+      icon="🔉"
+  elif [ "$volume" -ge 1 ]; then
+      icon="🔈"
+  else
+      icon="🔇"
+  fi
+  dunstify -a "mpctl" -u low -r 9998 -t 1000 "$icon" -h "int:value:$volume"
+}
+
+updateicon() {
+   echo "$1" > /tmp/recordingicon
+   pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+}
+
+record() {
+  mpc volume 20
+  updateicon "🎙️"
+  ffmpeg -y -f alsa -ac 1 -i hw:1 -c:a flac -t 3 ~/.cache/audio.flac
+  echo $! > /tmp/recordingpid
+  return 0
+}
+
+killrec() {
+  recpid=$(cat /tmp/recordingpid)
+  [ -n "$recpid" ] && kill -15 "$recpid"
+  [ -f "/tmp/recodingpid" ] && rm -f /tmp/recordingpid
+  updateicon ""
+  mpc volume 80
+  pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+  return 0
+}
+
+# Main
+[ -n "$(pgrep dunst)" ] || { killall dunst >/dev/null ; setsid -f dunst; } &
+record && killrec && vosk-transcriber -m "$VOSKDIR" -i ~/.cache/audio.flac -o ~/.cache/audio.txt
+read -r audio_in < ~/.cache/audio.txt
+[ -n "$audio_in" ] || exit 1
+[ "$VERBOSE" -eq 0 ] || feedback "$audio_in" &
+
+num="$(to_number "$audio_in")"
+case "$audio_in" in
+  un|oh|was|vas-y*|va*|jou*|lance*|la*|anweill*|démarre*|start*|commence*|reprend|go*)
+    if [ -n "$(mpc-playlist | sed -n "${num}p")" ]; then mpc play "$num" ; else mpc_play ; fi ;;
+  radio|ici|rad|radis|radio-canada) rdi && mpc_play ;;
+  status*|l\'est|statuts|liste*|list*|lisse*) status ;;
+  pause*|stop*|arrêt*|pose*|suspend*|suce*) mpc pause ;;
+  skip*|next*|passe*|prochain*|suivant*|bof*) mpc next ;;
+  back*|prev*|avant*|retour*|revient*|remonte*) mpc prev;;
+  heure*|"quelle heure"|quelle*|"what time*") quelleheure ;;
+  current*|live*|casser*|quoi*) current ;;
+  feu|que|cru|queue*|elf*|file*|fil*|"what's up") queue ;;
+  delete*|del*|remove*|prime*|supprime*|poubelle*|enlève*) delete "$num" | mpc del 0 ;;
+  clear|clair|claire|nettoie|vide|efface*|vidange*) clear ;;
+  save|sauvegarde*|*historique*|history) setsid -f "$TERMINAL" -e "$EDITOR" "$HISTORY" -c ':normal! G' ;;
+  download*|télécharge*) download "$num" ;;
+  edit*|*editer*|*éditer*|*édité*) setsid -f "$TERMINAL" -e "$EDITOR" "$HOME/Downloads/albums/playmuse.log" -c ':normal! G' ;;
+  volume*|volum) [ -n "$num" ] && set_volume "$num" && exit 0 ;;
+  ferme*|heul*|yeul*|farme-ta*|tayeul*|mute*|silence*|coupe*|sourd|sourdine) mpc volume 0 ;;
+  *) log_command "FAILED" "$audio_in $num";;
+esac
+log_command "SUCCESS" "$audio_in $num"
+mpc_repeat_on; trim_blanks
+
+exit 0

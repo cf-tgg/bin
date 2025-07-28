@@ -1,0 +1,26 @@
+#!/bin/sh
+# monitor your GPU
+
+#[root]# watch -n 0.5 cat /sys/kernel/debug/dri/0/amdgpu_pm_info
+
+echo "GPU's P-states:"
+cat /sys/class/drm/card0/device/pp_od_clk_voltage
+
+echo "GPU utilization:"
+cat /sys/class/drm/card0/device/gpu_busy_percent
+
+echo "GPU frequency:"
+cat /sys/class/drm/card0/device/pp_dpm_sclk
+
+echo "GPU temperature:"
+cat /sys/class/drm/card0/device/hwmon/hwmon*/temp1_input
+
+echo "VRAM frequency:"
+cat /sys/class/drm/card0/device/pp_dpm_mclk
+
+echo "VRAM usage:"
+cat /sys/class/drm/card0/device/mem_info_vram_used
+
+echo "VRAM size:"
+cat /sys/class/drm/card0/device/mem_info_vram_total
+

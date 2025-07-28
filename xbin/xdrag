@@ -1,0 +1,6 @@
+#!/bin/sh
+
+dragndrop -x -a "$1" --and-exit &
+sleep 0.2
+wmctrl -r 'dragon' -e 0,500,2,420,42
+xmousednd

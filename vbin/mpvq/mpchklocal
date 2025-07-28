@@ -1,0 +1,46 @@
+#!/bin/bash
+
+logntf() {
+ notify-send "$@"
+ echo "$@" >> ~/mpup.log 2>&1
+}
+
+vids="$HOME/Videos/.videos"
+
+findvideo() {
+  logntf "[$(date +"%Y-%m-%d %H:%M:%S")] findvideo function called."
+    find ~/Videos -type f -exec file --mime-type {} + | grep -iE 'video/' | cut -d: -f1 > "$vids"
+    wait
+    tmp=$(mktemp)
+    grep -v " # " "$vids" > "$tmp" && \
+    tmps=$(mktemp)
+    while read -r v; do
+        bname=$(basename "$v")
+        title=${bname%.*}
+        echo "$v # $title"
+    done < "$tmp" >> "$tmps"
+    wait
+    mv "$tmps" "$vids" && \
+      logntf "[$(date +"%Y-%m-%d %H:%M:%S")] findvideo script end."
+    [ -f "$tmp" ] && rm -f "$tmp"
+    [ -f "$tmps" ] && rm -f "$tmps"
+}
+
+checklocal() {
+  logntf "[$(date +"%Y-%m-%d %H:%M:%S")] chklocal function called."
+  tmp=$(mktemp)
+  : > "$tmp"
+  while IFS= read -r line; do
+    title="$(echo "$line" | awk -F' # ' '{print $2}')"
+    local_path=$(grep -iE "$title" "$vids" | awk '{print $0}')
+    [ -n "$local_path" ] && echo "${local_path}" >> "$tmp" && logntf "Local: $local_path"
+    [ -z "$local_path" ] && echo "$line" >> "$tmp" && logntf "Remote: $line"
+  done < "$MPVQ_PLAYLIST"
+  mv "$tmp" "$MPVQ_PLAYLIST" || rm "$tmp" && return 1
+  logntf "[$(date +"%Y-%m-%d %H:%M:%S")] chklocal script end."
+  return 0
+}
+findvideo && checklocal && logntf "[$(date +"%Y-%m-%d %H:%M:%S")] mpchklocal script end."
+[ -f "$tmp" ] && rm -f "$tmp"
+[ -f "$tmps" ] && rm -f "$tmps"
+exit 0

@@ -1,0 +1,202 @@
+#!/bin/sh -e
+# tts input preprocessor
+
+# Function to detect language based on keywords
+detect_language() {
+    local text="$1"
+    # echo "$text"
+    # Check for common English words
+    if echo "$text" | grep -qiE '\b(le|la|les|des|du|et|dans|à|pour|avec|par|en|sur|se|un|une|ce|cela)\b'; then
+        echo "fr"
+    elif echo "$text" | grep -qiE '\b(the|of|and|in|to|a|is|was|it|for|from|that|on|with|as|by|at)\b'; then
+            echo "en"
+    else
+        echo "unknown"
+    fi
+}
+
+# Check if another instance is running and kill it
+# check_and_kill_existing_instance() {
+#    # Get the current script's PID
+#     current_pid=$$
+
+#     # Find all processes with the same script name, excluding the grep command and the current script
+#     running_pids=$(pgrep -f "$(basename "$0")" | grep -vw "$current_pid")
+
+#     # If there are any PIDs found, kill them
+#     if [ -n "$running_pids" ]; then
+#         echo "Killing existing instance(s) with PID(s): $running_pids"
+#         kill "$running_pids"
+#     fi
+# }
+
+# kill_alsa_playback() {
+#     # Find the PID of the ALSA process using arecord or aplay
+#     alsa_pids=$(ps aux | grep -E 'aplay|arecord' | grep -v grep | awk '{print $2}')
+
+#     if [ -n "$alsa_pids" ]; then
+#         echo "Killing ALSA playback process(es) with PID(s): $alsa_pids"
+#         kill "$alsa_pids"
+#     fi
+# }
+# Check and kill existing instance
+# kill_alsa_playback
+
+# Initialize variables
+texte=""
+
+lang="unknown"
+
+
+# Parse command-line options
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -x | -xsel)
+            # Read from X selection clipboard
+            texte=$(xsel -o)
+            shift
+            ;;
+        -c | -clipboard)
+            # Read from clipboard
+            texte=$(xclip -selection clipboard -o)
+            shift
+            ;;
+        -l | -language)
+            # Set language manually
+            if [ -n "$2" ] && [ "$2" = "fr" ] || [ "$2" = "en" ]; then
+                lang="$2"
+                shift 2
+            else
+                echo "Invalid language option. Use 'fr' or 'en'."
+                exit 1
+            fi
+            ;;
+        *)
+            if [ -t 0 ]; then
+                # Check if stdin is from a terminal
+                if [ -z "$1" ]; then
+                    echo "Utilisation: Saisissez des chaînes en arguments ou via stdin (tous les arguments sont concaténés en chaînes)"
+                    exit 1
+                fi
+                texte=$(cat "$1")
+                shift
+            else
+                # L'entrée provient de stdin
+                texte=$(cat)
+                shift
+            fi
+            ;;
+    esac
+done
+
+# Detect language only if not manually overridden
+if [ "$lang" = "unknown" ]; then
+    lang=$(detect_language "$texte")
+fi
+
+# Function to convert day of the week to French
+day_of_week_to_french() {
+    case $1 in
+        Mon) echo "Lundi" ;;
+        Tue) echo "Mardi" ;;
+        Wed) echo "Mercredi" ;;
+        Thu) echo "Jeudi" ;;
+        Fri) echo "Vendredi" ;;
+        Sat) echo "Samedi" ;;
+        Sun) echo "Dimanche" ;;
+    esac
+}
+
+# Function to convert month to French
+month_to_french() {
+    case $1 in
+        Jan) echo "Janvier" ;;
+        Feb) echo "Février" ;;
+        Mar) echo "Mars" ;;
+        Apr) echo "Avril" ;;
+        May) echo "Mai" ;;
+        Jun) echo "Juin" ;;
+        Jul) echo "Juillet" ;;
+        Aug) echo "Août" ;;
+        Sep) echo "Septembre" ;;
+        Oct) echo "Octobre" ;;
+        Nov) echo "Novembre" ;;
+        Dec) echo "Décembre" ;;
+    esac
+}
+
+
+month_to_english(){
+    case $1 in
+        Jan) echo "January" ;;
+        Feb) echo "February" ;;
+        Mar) echo "March" ;;
+        Apr) echo "April" ;;
+        May) echo "May" ;;
+        Jun) echo "June" ;;
+        Jul) echo "July" ;;
+        Aug) echo "August" ;;
+        Sep) echo "September" ;;
+        Oct) echo "Octobrer" ;;
+        Nov) echo "November" ;;
+        Dec) echo "December" ;;
+    esac
+}
+
+# Function to convert and format the date
+convert_date() {
+    local date_str="$1"
+
+    # Extract components from the date string
+    local day_of_week=$(echo "$date_str" | awk '{print $1}' | sed 's/,//')
+    local day=$(echo "$date_str" | awk '{print $2}')
+    local month=$(echo "$date_str" | awk '{print $3}')
+    local time=$(echo "$date_str" | awk '{print $5}')
+    local hour=$(echo "$time" | awk -F: '{print $1}')
+    local minute=$(echo "$time" | awk -F: '{print $2}')
+
+    # Remove leading zeros
+    day=$(printf "%d" "$day")
+    hour=$(printf "%d" "$hour")
+
+    # Convert day of the week and month to French
+    local day_of_week_french=$(day_of_week_to_french "$day_of_week")
+    local month_french=$(month_to_french "$month")
+    local month_eng=$(month_to_english "$month")
+
+    # Format the date in French
+    local french_date="${day_of_week_french} le ${day} ${month_french}, ${hour}:${minute}"
+
+    if echo "$lang" | grep -q "fr"; then
+        echo "$french_date"
+    else
+        echo "${month_eng} ${day}, ${hour}:${minute}"
+    fi
+}
+
+# Process each line
+output=$(echo "$texte" | while IFS= read -r line; do
+    if echo "$line" | grep -q "^Date: "; then
+        # Extract the date part after "Date: "
+        date_part=$(echo "$line" | sed 's/^Date: //')
+
+        # Convert and format the date
+        formatted_date=$(convert_date "$date_part" "$time")
+
+        # Print the line with the formatted date
+        echo "$formatted_date"
+    else
+        # Print the original line minus additional filters.
+        echo "$line" | sed -E '/^(Feed:|Author:|Link:|Links:|\[|submitted)/d' | sed -E 's/(Title:) //g' | sed 's/\[\([0-9*]\+\)\]//g' | sed 's/\[\(comments\|links\|link\)\]//g'
+    fi
+done)
+
+echo "$output"
+
+if echo "$lang" | grep -q "fr"; then
+   echo "$output" | tts -t
+else
+    echo "$output"| tts -m en_US-amy-medium -t
+fi
+
+exit 0

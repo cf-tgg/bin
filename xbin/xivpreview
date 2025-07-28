@@ -1,0 +1,30 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:40:57 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+# Embed nsxiv in terminal window, used to stack 2 nsxiv instances in preview area in yazi.
+# Uses absolute positioning because I don't know how to automatically resize the embeded preview..
+# TODO: Figure out how to contain and scale nsxiv previews in terminals.
+
+xiv() {
+    rotdir "$1" | setsid -f nsxiv - -e "$WINDOWID"  -g "820x750+1430+10" -sw -a -b -o >/dev/null 2>&1
+}
+
+[ -n "$1" ] && xiv "$1"
+
+exit 0
+
+# xivembed() {
+#   find "$PWD" -maxdepth 1 -type l,f | while read -r f; do
+#     if file --dereference --brief --mime-type "$f" | grep -q "image"; then
+#       xiv "$f" && return 0
+#     fi
+#   done
+#   return 0
+# }
+# if [ -n "$1" ]; then
+# xiv "$1"
+# else
+#   xivembed
+# fi

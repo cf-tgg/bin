@@ -1,0 +1,16 @@
+#!/bin/sh
+# runit sv symlink helper
+# Usage: addsv <service_name>
+
+SV="$1"
+
+if [ -d /etc/runit/sv/"${SV}"]; then 
+	# Add a service:
+	ln -s /etc/runit/sv/"${SV}" /run/runit/service
+
+	# Start/stop/restart a service: sv <start/stop/restart> <service>
+	sv status "${SV}"
+else
+	echo "${SV} does not exist in /etc/runit/sv"
+	exit 1
+fi

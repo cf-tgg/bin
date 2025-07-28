@@ -1,0 +1,18 @@
+#!/bin/sh
+
+base="https://conjugaison.bescherelle.com"
+out="besherelle-verbes.list"
+tmp=$(mktemp)
+
+> "$out"
+
+for letter in a b c d e f g h i j k l m n o p q r s t u v w x y z; do
+    curl -sL "$base/verbes/$letter" |
+    grep -oE '/verbes/[a-z]+' |
+    sed 's|^/verbes/||' >> "$out"
+done
+
+# Clean and deduplicate
+sort -u "$out" -o "$out"
+
+echo "Saved verb list to: $out"

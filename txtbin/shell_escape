@@ -1,0 +1,29 @@
+#!/bin/sh
+# -*- mode: sh; -*-
+
+in=""
+ECHO=0
+
+while getopts "i:cepsh" opt ; do
+    case "$opt" in
+        e) ECHO=1 ;;
+        i) in=$(echo "$*" | sed "s/$1 //") ;;
+        c) in=$(xclip -selection clipboard -o) ;;
+        p) in=$(xclip -selection primary -o) ;;
+        s) in=$(xclip -selection secondary -o) ;;
+        h) echo "Usage: $0 -[i:cepsh] [-i <input_string>] [-c clipboard] [-p primary] [-s secondary]" ; exit 0 ;;
+    esac
+done
+
+shift $(($OPTIND - 1))
+
+[ -n "$in" ] || in=$(cat)
+out=$(printf '%s' "$in" | sed 's/[][ !@#$%^&*()\"+{}|:<>?\\]/\\&/g' | sed "s/'/\\\\'/g")
+
+if [ -n "$out" ]; then
+    [ $ECHO -gt 0 ] && printf '%s\n' "$out" || printf '%s' "$out"
+    exit 0
+else
+    echo "failed to produce escaped output" >&2
+    exit 1
+fi

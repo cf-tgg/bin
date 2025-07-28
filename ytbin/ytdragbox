@@ -1,0 +1,7 @@
+#!/bin/sh
+
+ytdnd &
+echo $! > ~/.ytdnd.pid
+sleep 0.5
+xdotool search --name 'YtDragBox' getwindowfocus key super+shift+space
+wmctrl -r YtDragBox -g 50,50 -e 0,900,5,150,35,0 -F

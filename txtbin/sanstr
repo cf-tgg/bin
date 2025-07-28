@@ -1,0 +1,5 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-17 15:02:50 cf>
+
+echo "$@" | sed -E 's/\([Ff]ull [Aa]lbum\)/-/g; s/\( [Ff]ull [Aa]lbum \)/-/g; s/[Ff]ull [Aa]lbum//g;s/\{\}/-/g;s/  / /g;s/ $//; s/-$//;'| sed -E 's/(\s|^)(18[0-9]{2}|19[0-9]{2}|20[0-9]{2})(\s|$)/\1(\2)\3/g'| sed 's/\xE2\x80\xB9\x0332//g' | perl -CSD -pe 's/\x{0332}//g'

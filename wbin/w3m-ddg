@@ -1,0 +1,7 @@
+#!/bin/sh -e
+# w3m duckduckgo search wrapper for use in vim.
+
+query="$1"
+browse="https://duckduckgo.com/?q=${query}"
+
+w3m -o auto_image=TRUE -F "$browse"

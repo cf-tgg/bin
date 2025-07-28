@@ -1,0 +1,4 @@
+#!/bin/sh
+
+sleep 1
+wmctrl -r 'dragon' -e 0,750,0,2,0

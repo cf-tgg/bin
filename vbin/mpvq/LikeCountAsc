@@ -1,0 +1,8 @@
+#!/bin/sh
+# Titles, Sorted by LikeCount (ascending)
+
+dir="${1:-$PWD}"
+d=$(realpath "$dir")
+cd "$d" || exit 1
+
+ls "$PWD" | parallel exifjpg -tl "{}" | awk '/Title: / {sub(/^Title: /, ""); title=$0} /LikeCount:/ {likecount=$0; print title", "likecount}' | sort -t':' -k2,2 -n > "$d/.bylikecount"

@@ -1,0 +1,17 @@
+#!/bin/sh
+
+owner_id=$(grep 'user:' "$HOME/.config/gh/hosts.yml" | awk -F'user:' '{print $2}')
+files="$@"
+repo_name="$1"
+repo_temp="$HOME/Templates/$repo_name"
+
+[ -d "$repo_temp" ] || mkdir -p "$repo_temp"
+
+for f in $files; do
+    [ -f "$f" ] && cp -u "$f" "$repo_temp" || continue
+done
+
+cd "$repo_temp" || exit 1
+{ git init ; git add . ; git commit -m 'Initial commit' ; } && \
+   gh repo create "$owner_id"/"$repo_name" --public --source=. --push --remote=origin
+git status

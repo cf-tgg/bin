@@ -1,0 +1,5 @@
+#!/bin/sh
+
+[ -L "$1" ] && f="$(readlink -f "$1")" || f=$(realpath "$1") || f="$1"
+url=$(exifjpg -u "$f")
+[ -n "$url" ] && printf "%s\n" "$url"

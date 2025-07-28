@@ -1,0 +1,22 @@
+#!/bin/sh
+
+[ $# -ge 1 ] || { echo "No input provided." >&2 ; exit 1 ; }
+DOWNLOAD_DIR="$HOME/Downloads/albums"
+for link in "$@" ; do 
+    title=$(yt-dlp --skip-download --simulate --get-title --no-warnings --ignore-errors "$link")
+    echo "processing $title from $link"
+    yt-dlp \
+        --quiet \
+        --ignore-errors \
+        --no-abort-on-error \
+        --extract-audio \
+        --embed-metadata \
+        --embed-thumbnail \
+        --audio-format opus \
+        --audio-quality 0 \
+        --get-comments \
+        --no-warnings \
+        --output "${DOWNLOAD_DIR}/%(uploader)s/%(title)s.%(ext)s" \
+        "$link" >/dev/null 2>&1 && echo "$title" || continue
+    done
+

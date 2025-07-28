@@ -1,0 +1,80 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:39:52 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+MPV_PID="/tmp/mpvq.pid"
+MPV_SOCK="/tmp/mpv.sock"
+# MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.m3u8"
+# MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+DND_PLAYLIST="$HOME/.cache/mpvq/mpvq_playlist.dnd"
+DND_TITLES="$HOME/.cache/mpvq/mpvq_titles.dnd"
+# pcount="$(wc -l < "$MPVQ_PLAYLIST")"
+# tcount="$(wc -l < "$MPVQ_TITLES")"
+# MPCOUNT=$(((pcount/2)-1))
+# TCOUNTS=$((tcount-1))
+
+# Define file paths
+MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.m3u8"
+MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+
+# Temporary files for processing
+PLAYLIST_TITLES=$(mktemp)
+TEMP_TITLES=$(mktemp)
+
+# Calculate the expected counts
+echo "Calculating line counts for validation..."
+pcount="$(wc -l < "$MPVQ_PLAYLIST")"
+tcount="$(wc -l < "$MPVQ_TITLES")"
+MPCOUNT=$(((pcount / 2) - 1)) # Number of titles expected from MPVQ_PLAYLIST
+TCOUNTS=$((tcount - 1))       # Number of titles in MPVQ_TITLES
+
+echo "MPVQ_PLAYLIST has $MPCOUNT titles."
+echo "MPVQ_TITLES has $TCOUNTS titles."
+echo "--------------------------------"
+
+if [ "$MPCOUNT" -ne "$TCOUNTS" ]; then
+    echo "Warning: Title counts do not match!"
+    echo "MPVQ_PLAYLIST expects $MPCOUNT titles, but MPVQ_TITLES contains $TCOUNTS titles."
+    echo "This may result in unmatched titles or data loss during processing."
+    echo "Proceeding anyway..."
+else
+    echo "Validation successful: Title counts match."
+fi
+echo "--------------------------------"
+
+# Step 1: Extract titles from MPVQ_PLAYLIST
+echo "Extracting titles from $MPVQ_PLAYLIST..."
+awk -F, '/^#EXTINF:/ {print $2}' "$MPVQ_PLAYLIST" > "$PLAYLIST_TITLES"
+echo "Extracted titles:"
+cat "$PLAYLIST_TITLES"
+echo "--------------------------------"
+
+# Step 2: Match titles by index and remove non-matching titles
+echo "Comparing extracted titles with $MPVQ_TITLES..."
+paste -d '\n' "$PLAYLIST_TITLES" "$MPVQ_TITLES" | \
+awk 'NR % 2 == 1 {p=$0; next} {if (p == $0) print p}' > "$TEMP_TITLES"
+echo "Matching titles:"
+cat "$TEMP_TITLES"
+echo "--------------------------------"
+
+# Step 3: Replace MPVQ_TITLES with the matched titles
+echo "Updating $MPVQ_TITLES with matched titles..."
+mv "$TEMP_TITLES" "$MPVQ_TITLES"
+
+# Step 4: Cleanup temporary files
+echo "Cleaning up temporary files..."
+rm "$PLAYLIST_TITLES"
+
+# Final message
+echo "Processing completed. Updated $MPVQ_TITLES:"
+cat "$MPVQ_TITLES"
+
+export DND_PLAYLIST
+export DND_TITLES
+export MPV_PID
+export MPV_SOCK
+export MPVQ_PLAYLIST
+export MPVQ_TITLES
+export MPCOUNT
+export TCOUNTS

@@ -1,0 +1,180 @@
+#!/bin/sh
+#
+# virtmon permet de tester des résolutions de moniteurs soit pour 
+# "picture-in-picture" un moniteur existant ou pour en créer des virtuels.
+# Dépendances: Xserver xrandr cvt v4l2-ctl v4l2loopback ffmpeg 
+# Optionnelles, mais recommandées: mpv (ou autre lecteur vidéo) 
+#                                   feh (ou xwallpaper, nitrogen, etc.)
+#
+
+# Création des modes pour les tests
+cvt 1280 1024
+xrandr --newmode "1280x1024_60.00" 109.00 1280 1368 1496 1712 1024 1027 1034 1063 -hsync +vsync
+
+cvt 1680 1050
+xrandr --newmode "1680x1050_60.00" 146.25 1680 1784 1960 2240 1050 1053 1059 1089 -hsync +vsync
+
+cvt 1920 1200
+xrandr --newmode "1920x1200_60.00" 193.25 1920 2056 2256 2592 1200 1203 1209 1245 -hsync +vsync
+
+cvt 1920 1080
+xrandr --newmode "1920x1080_60.00" 173.00 1920 2048 2248 2576 1080 1083 1088 1120 -hsync +vsync
+
+cvt 2560 1440
+xrandr --newmode "2560x1440_60.00" 312.25 2560 2752 3024 3488 1440 1443 1448 1493 -hsync +vsync
+
+#############################################################################
+#                           Tests de résolutions                            #
+#############################################################################
+
+test1() {
+    xrandr --output eDP --mode 2256x1504 --pos 2560x0 --primary \
+           --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+           --output DisplayPort-1 --mode 2560x1440 --pos 4816x0
+
+    feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+}
+
+test2() {
+    xrandr --addmode DisplayPort-1 "1920x1080_60.00"
+    xrandr --addmode DisplayPort-0 "1680x1050_60.00"
+    xrandr --output eDP --mode 2256x1504 --pos 2560x0 --primary \
+           --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+           --output DisplayPort-1 --mode "1920x1080_60.00" --pos 4816x0 \
+           --output DisplayPort-0 --mode "1680x1050_60.00" --pos 5936x0
+
+    feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+}
+
+test3() {
+    xrandr --addmode DisplayPort-1 "1920x1080_60.00"
+    xrandr --addmode DisplayPort-0 "1920x1080_60.00"
+
+    xrandr --output eDP --mode 2256x1504 --pos 2560x0 --primary \
+           --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+           --output DisplayPort-1 --mode "1920x1080_60.00" --pos 4816x0 \
+           --output DisplayPort-0 --mode "1920x1080_60.00" --pos 5936x0
+
+    feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+}
+
+test4() {
+    xrandr --addmode DisplayPort-2 "1920x1200_60.00"
+    xrandr --addmode DisplayPort-1 "1680x1050_60.00"
+    xrandr --addmode DisplayPort-0 "1280x1024_60.00"
+
+    xrandr --output eDP --mode 2256x1504 --pos 1920x0 --primary \
+           --output DisplayPort-2 --mode "1920x1200_60.00" --pos 0x0 \
+           --output DisplayPort-1 --mode "1680x1050_60.00" --pos 4176x0 \
+           --output DisplayPort-0 --mode "1280x1024_60.00" --pos 5856x0
+
+    feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+}
+
+test5() {
+    xrandr --addmode DisplayPort-1 "1920x1080_60.00"
+    xrandr --addmode DisplayPort-0 "1920x1080_60.00"
+
+    xrandr --output eDP --mode 2256x1504 --pos 2560x0 --primary \
+           --output DisplayPort-2 --mode 1980x1080 --pos 0x0 \
+           --output DisplayPort-1 --mode "1920x1080_60.00" --pos 3960x0 \
+           --output DisplayPort-0 --mode "1920x1080_60.00" --pos 5880x0
+}
+
+test6() {
+    xrandr --output eDP --mode 2256x1504 --pos 2560x0 --primary \
+           --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+           --output DisplayPort-1 --mode "2560x1440_60.00" --pos 4816x0 \
+           --output DisplayPort-0 --mode "2560x1440_60.00" --pos 6367x0
+
+    feh --bg-fill ~/Pictures/wals/0012_feu_marjo.jpg
+}
+
+# *** kernel modesetting requires this command be run by root/sudo ***
+# `[root]# modprobe v4l2loopback devices=4 video_nr=1,2,3 exclusive_caps=1,1,1,1 card_label="Loopback-1,Loopback-2,Loopback-3,Loopback-0"`
+
+# Pronostic
+LOOPBACK_DEVS=($(v4l2-ctl --list-devices | awk '{print $NF}' | grep '/dev/video' | tr -d '/dev/video'))
+set -- "${LOOPBACK_DEVS[@]}"
+LB_DEVCOUNT=$#
+
+CONNECTED_DP=($(xrandr | grep 'DisplayPort-' | grep ' connected ' | awk '{print $1}'))
+set -- "${CONNECTED_DP[@]}"
+CONNECTED_DP_COUNT=$#
+
+AVAILABLE_DPORTS=($(xrandr | grep 'DisplayPort-' | grep 'disconnected' | awk '{print $1}' | tr -d 'DisplayPort-' | awk '{print $NF}'))
+set -- "${AVAILABLE_DPORTS[@]}"
+AVDP_COUNT=$#
+
+DP_NAMES=($(xrandr | grep 'DisplayPort-' | grep 'disconnected' | awk '{print $1}'))
+set -- "${DP_NAMES[@]}"
+DP_NAMES_COUNT=$#
+
+# Affichage des résultats
+echo "Connected: ${CONNECTED_DP[@]}"
+
+echo "Disconnected DisplayPorts (${AVDP_COUNT}):"
+for dpn in "${DP_NAMES[@]}"; do
+    echo "                      $dpn"
+done
+
+echo "Available loopback devices (${LB_DEVCOUNT}):"
+for lbdv in "${LOOPBACK_DEVS[@]}"; do
+    echo "                      /dev/video$lbdv"
+done
+
+# Création du dossier de scripts
+SCRIPT_DIR="${HOME}/Scripts/xrandr/"
+mkdir -p "${SCRIPT_DIR}"
+
+TEST_CHOICES=(
+    "1 - DisplayPort-2 2560x1440 | eDP 2256x1504 | DisplayPort-1 2560x1440"
+    "2 - DisplayPort-2 2560x1440 | eDP 2256x1504 | DisplayPort-1 1920x1080 | DisplayPort-0 1680x1050"
+    "3 - DisplayPort-2 2560x1440 | eDP 2256x1504 | DisplayPort-1 1920x1080 | DisplayPort-0 1920x1080"
+    "4 - DisplayPort-2 1920x1200 | eDP 2256x1504 | DisplayPort-1 1680x1050 | DisplayPort-0 1280x1024"
+    "5 - DisplayPort-2 1980x1080 | eDP 2256x1504 | DisplayPort-1 1920x1080 | DisplayPort-0 1920x1080"
+    "6 - DisplayPort-2 2560x1440 | eDP 2256x1504 | DisplayPort-1 2560x1440 | DisplayPort-0 2560x1440"
+)
+SELECTED_TEST=
+
+# Affichage des options de tests
+PS3='Entrez le numéro du test que vous voulez exécuter : '
+select TEST_OPTION in "${TEST_CHOICES[@]}"; do
+    case $REPLY in
+        1) SELECTED_TEST="test1" ;;
+        2) SELECTED_TEST="test2" ;;
+        3) SELECTED_TEST="test3" ;;
+        4) SELECTED_TEST="test4" ;;
+        5) SELECTED_TEST="test5" ;;
+        6) SELECTED_TEST="test6" ;;
+        *) echo "Option invalide. Veuillez choisir un numéro valide." ;;
+    esac
+    [ -n "$SELECTED_TEST" ] && break
+done
+
+# Exécution du test sélectionné
+if [ -n "$SELECTED_TEST" ]; then
+    echo "Exécution du test ${REPLY}..."
+    $SELECTED_TEST
+else
+    echo "Aucun test sélectionné. Le script va se terminer."
+fi
+
+# Création de la playlist vidéo
+for TEST in $(seq 1 6); do
+    echo "ffmpeg -f x11grab -s 2560x1440 -framerate 30 -i :0.0+0,0 -c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p ~/Videos/monitor_test_${TEST}.mp4" > "${SCRIPT_DIR}/test${TEST}.sh"
+    chmod +x "${SCRIPT_DIR}/test${TEST}.sh"
+done
+
+# Gestion des alias
+ALIAS_FILE="${HOME}/.config/shell/aliases"
+if [ -f "$ALIAS_FILE" ]; then
+    echo "alias test1='$SCRIPT_DIR/test1.sh'" >> "$ALIAS_FILE"
+    echo "alias test2='$SCRIPT_DIR/test2.sh'" >> "$ALIAS_FILE"
+    echo "alias test3='$SCRIPT_DIR/test3.sh'" >> "$ALIAS_FILE"
+    echo "alias test4='$SCRIPT_DIR/test4.sh'" >> "$ALIAS_FILE"
+    echo "alias test5='$SCRIPT_DIR/test5.sh'" >> "$ALIAS_FILE"
+    echo "alias test6='$SCRIPT_DIR/test6.sh'" >> "$ALIAS_FILE"
+else
+    echo "Le fichier d'alias '$ALIAS_FILE' n'existe pas."
+fi

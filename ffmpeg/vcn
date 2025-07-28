@@ -1,0 +1,22 @@
+#!/bin/bash
+
+SCRN="$1"
+DEV="$2"
+
+dspy() { xrandr | grep 'mm' | awk '{if ($3 == "primary") {print $1, $4} else {print $1, $3}}' ; }
+sze(){ dspy | grep "$SCRN" | awk '{print $2}' ; }
+
+RES=$(sze | cut -d+ -f1)
+POS=$(sze | cut -d+ -f2-3|sed 's/+/,/')
+
+clean() {
+    kill "$ffmpeg_pid $mpv_pid" 2>/dev/null
+}
+
+ffmpeg -f x11grab -s "$RES" -i :0.0+"$POS" -f v4l2 /dev/video"$DEV" &
+ffmpeg_pid=$!
+sleep 2
+mpv av://v4l2:/dev/video"$DEV" --load-scripts=no --no-resume-playback --profile=low-latency --untimed --title="$SCRN"
+mpv_pid=$!
+
+trap 'clean' EXIT

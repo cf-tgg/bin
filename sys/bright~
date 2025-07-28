@@ -1,0 +1,106 @@
+#!/bin/sh
+#     __         _       __    __
+#    / /_  _____(_)___ _/ /_  / /_
+#   / __ \/ ___/ / __ `/ __ \/ __/
+#  / /_/ / /  / / /_/ / / / / /_
+# /_.___/_/  /_/\__, /_/ /_/\__/
+#              /____/
+
+backlight_dir=$(find /sys/class/backlight/*/brightness -exec dirname {} \;)
+
+DBG=0
+while getopts "vh" opts ; do
+    case "$OPT" in
+        v*) DBG=1 ;;
+        h||\?||*) usage ;;
+    esac
+done
+
+[ "$DBG" -gt 0 ] && {
+    find "$backlight_dir" -exec realpath {} \; | \
+        while read -r f ; do
+            s=$(stat -c '%a %n' "$f")
+            c=$(cat "$f")
+            printf "%s:\r\t%s\n" "$s" "$c"
+        done
+}
+
+max_f="$backlight_dir/max_brightness"
+brightness_f="$backlight_dir/brightness"
+
+max=$(cat "$max_f")
+current=$(cat "$brightness_f")
+percent=$((max / 100))
+
+# Generate equal steps to max value
+h2t() {
+    [ $# -eq 2 ] || { echo "Usage: h2t <max> <step_count>" ; }
+    m=$1 ; t=$2 ; [ "$m" -lt "$t" ] && m=$2 && t=$1 ;
+    s=$((m / t)) ; r=$((m % t)) ;
+    for i in $(seq 1 "$t") ; do
+        v=$((i * s + (i * r / t)))
+        printf " $v"
+    done
+}
+brightness_steps=""
+brightness_steps=$(h2t "$max" 100)
+
+input="$1"
+
+if [ -z "$input" ]; then
+    echo "Usage: ${0##*/} <val>"
+    exit 1
+fi
+
+find_nearest_step() {
+    target="$1"
+    nearest=""
+    smallest_diff=""
+
+    for step in $brightness_steps; do
+        diff=$((step > target ? step - target : target - step))
+        if [ -z "$nearest" ] || [ "$diff" -lt "$smallest_diff" ]; then
+            nearest="$step"
+            smallest_diff="$diff"
+        fi
+    done
+    echo "$nearest"
+}
+
+case "$input" in
+    +*|-*)
+        val=${input#*[+-]}
+        [ "$val" -gt 100 ] && val=100
+        delta=$((val * percent))
+        if [ "${input%${val}}" = "-" ]; then
+            new_level=$((current - delta))
+        else
+            new_level=$((current + delta))
+        fi
+        ;;
+    *)
+        if [ "$input" -ge -100 ] && [ "$input" -le 100 ]; then
+            new_level=$((input * percent))
+        else
+            new_level=$(find_nearest_step "$input")
+        fi
+        ;;
+esac
+
+[ "$new_level" -ge "$max" ] && new_level="$max"
+[ "$new_level" -le 0 ] && new_level=0
+final_level=$(find_nearest_step "$new_level")
+echo "$final_level" | sudo tee "$brightness_f" >/dev/null
+final_percent=$((final_level * 100 / max))
+echo "Brightness set to ${final_percent}%"
+
+# Icon logic
+if [ "$final_percent" -lt 30 ]; then
+    icon=""
+else
+    icon="💡"
+fi
+
+dunstify -t 1000 -a "bright" -u low -r 4444 \
+         -h string:x-canonical-private-synchronous:brightness "$icon" \
+         -h int:value:"$final_percent"

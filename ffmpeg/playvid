@@ -1,0 +1,31 @@
+#!/bin/sh
+
+VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-fr-0.22/"
+INVINST="https://vid.puffyan.us"
+
+# stop current song, clear playlist
+mpc stop
+mpc clear
+
+# mic input
+ffmpeg -y -f alsa -ac 1 -i hw:1 -c:a flac -t 5 ~/.cache/audio.flac 
+
+# convert to text
+vosk-transcriber -m "$VOSKDIR" -i ~/.cache/audio.flac -o ~/.cache/audio.txt
+read -r audio_in < ~/.cache/audio.txt
+
+# confirm input notification
+google_speech "$audio_in" &
+
+# yt query
+query="$(printf '%s' "playlist $audio_in" | tr ' ' '+' )"
+id="$(curl -s "$INVINST/search?q=$query" | grep -Eo "/watch\?v=.{11}" | head -n1)"
+url="https://youtube.com/$id"
+
+# play
+mpv "$url"
+
+# notify 
+title=$(yt-dlp --get-title "$url")
+notify-send "$title"
+

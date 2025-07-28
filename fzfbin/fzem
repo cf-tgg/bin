@@ -1,0 +1,127 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#{{{ DEPENDENCIES
+figlet=$(command -v figlet || { echo 'figlet was not found. Is it installed?' >&2 ; exit 1 ; })
+#}}}
+
+#{{{ ENVIRONMENT VARIABLES
+TARGET=""
+PROGN=""
+ALL=0
+VERBOSE=0
+FIGHD=0
+BODY=0
+USAGE=0
+#}}}
+
+#{{{ Functions
+figlets() {
+    string="$*"
+    fonts=(banner block digital lean mnemonic shadow small smshadow standard big bubble ivrit mini script slant smscript smslant term)
+    for font in $fonts; do
+        echo "$font"
+        figlet -f "$font" "$string"
+        echo
+    done
+}
+
+cd() {
+    t="$1"
+    { [ -f "$t" ] && builtin cd "$(dirname "$t")" ;
+      [ -d "$t" ] && builtin cd "$t" ;
+      return 0 ;
+    } || { printf '%s does not exist; create it now? [y/N] ' "$t"
+           stty -echo -icanon
+           dd bs=1 count=1 2>/dev/null | grep -qiE "y" && mkdir -pv "$t" && builtin cd "$t"
+           stty sane
+    } || return 1
+    return 0
+}
+
+sh_print_mode_line() {
+    printf '#!/bin/sh\n# -*- mode: sh; -*- vim:ft=sh:ts=2:sw=2:et:\n\n'
+}
+
+sh_print_usage() {
+    progname=${1:-'${SCRIPT_NAME}'}
+    timestamp=$(date +%Y)
+    printf "usage() {\n\tenv SCRIPT_NAME=$0 envsubst <<-'MAN'\n\n\tNAME\n\t\n\n\tSYNOPSIS\n\t\n\n\tOPTIONS\n\t\n\n\tRATIONALE\n\t\n\n\tEXAMPLES\n\t\n\n\tEXTENDED DESCRIPTION\n\t\n\n\tOUTPUT FILES\n\t\n\n\tSTDERR\n\t\n\n\tENVIRONMENT VARIABLES\n\t\n\n\tINPUT FILES\n\t\n\n\tSTDIN\n\t\n\n\tOPERANDS\n\t\n\n\tSEE ALSO\n\t\n\n\tCOPYRIGHT\n\t\n%-20s%-20s%-20s\nMAN\n}\n\n" "$progname" "$timestamp" "$progname"
+}
+
+sh_print_fighead() {
+    [ -n "$1" ] && { figlet -f smslant "$1" | while read -r l ; do printf '#    %s\n' "$l" ; done ; printf '#    %s --- $0 \n' "$1" ; }
+}
+
+sh_print_body() {
+    printf '#{{{ Variables\n\n#}}}\n\n\n#{{{ Functions\n\n#}}}\n\n\n#{{{ Options\n\nwhile getopts "<++>h" opt ; do\n\tcase "$opt" in\n\t\th) usage >&2 ; exit 0 ;;\n\tesac\n\tdone\nshift $(($OPTIND - 1))\n\nexit 0\n'
+}
+
+sh_print_vfd() {
+  t="$1";
+  d=$(dirname "$t")
+  r=$(realpath "$t")
+  n=$(basename "$r")
+  dn=$(basename "$d")
+  printf 't="$1"              => target:      %s\n' "$t"
+  printf 'r=$(realpath "$t")  => realpath:    %s\n' "$r"
+  printf 'd=$(dirname "$t")   => dirname:     %s\n' "$d"
+  printf 'n=$(basename "$r")  => basename:    %s\n' "$n"
+  printf 'dn=$(basename "$d") => dirbasename: %s\n' "$dn"
+  return 0
+}
+
+usage() {
+    env SCRIPT_NAME=$0 envsubst <<-'MAN'
+    NAME
+         ${SCRIPT_NAME}
+    USAGE
+    OPTIONS
+    EXAMPLES
+    AUTHOR
+    COPYING
+MAN
+}
+
+while getopts "t:n:p:afbuvh" opt ; do
+    case "$opt" in
+        p|t) TARGET="$OPTARG" ;;
+        n) PROGN="$OPTARG" ;;
+        f) FIGHD=1 ;;
+        u) USAGE=1 ;;
+        b) BODY=1 ;;
+        v) VERBOSE=1 ;;
+        a) ALL=1 ;;
+        h) usage >&2 ; exit 1 ;;
+    esac
+done
+shift $(($OPTIND - 1))
+
+[ -n "$TARGET" ] || TARGET="$1"
+[ $VERBOSE -eq 1 ] && sh_print_vfd  "$TARGET"
+[ -n "$PROGN" ]  || PROGN=${TARGET##*/}
+
+if [ -e "$TARGET" ] ; then
+    printf 'file already exists. open it? [y/N] ' ;
+    stty -echo -icanon ;
+    dd bs=1 count=1 2>/dev/null | grep -qivE '^n' || { stty sane ; exit 1 ; }
+    stty sane
+    emc "$TARGET" || exit 1
+    exit 0
+else
+    {    if [ $ALL -eq 1 ] ; then
+             sh_print_mode_line
+             sh_print_fighead "$PROGN"
+             sh_print_usage "$PROGN"
+             sh_print_body
+         else
+             sh_print_mode_line
+             [ $FIGHD -eq 1 ] && sh_print_fighead "$PROGN"
+             [ $USAGE -eq 1 ] && sh_print_usage "$PROGN"
+             [ $BODY -eq 1 ] && sh_print_body
+         fi
+    } | tee -a "$TARGET" || { echo "failed to create template" >&2 ; exit 1 ; }
+    [ -f "$TARGET" ] && "$EDITOR" "$TARGET" || { echo "failed to open $TARGET" >&2 ; exit 1 ; }
+fi
+
+exit 0

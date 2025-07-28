@@ -1,0 +1,60 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+# Displays today's precipication chance (☔), and daily low (🥶) and high (🌞).
+# Usually intended for the statusbar.
+
+url="${WTTRURL:-wttr.in}"
+LOCATION="Montréal"
+weatherreport="${XDG_CACHE_HOME:-$HOME/.cache}/weatherreport"
+
+getforecast() {
+    timeout --signal=1 2s curl -sf "$url/$LOCATION" > "$weatherreport" || exit 1
+}
+
+# Get a weather report from 'wttr.in' and save it locally.
+# Forecast should be updated only once a day.
+checkforecast() {
+    [ -s "$weatherreport" ] && [ "$(stat -c %y "$weatherreport" 2>/dev/null | cut -d' ' -f1)" = "$(date '+%Y-%m-%d')" ]
+}
+
+getprecipchance() {
+    # Extract precipitation chance from weather data.
+    echo "$weatherdata" | sed '16q;d' | grep -wo "[0-9]*%" | sort -rn | head -1
+}
+
+getdailyhighlow() {
+    low=$(echo "$weatherdata" | sed '13q;d' | grep -o "m\\([-+]\\)*[0-9]\\+" | sed 's/[+m]//g' | sort -n | head -1)
+    high=$(echo "$weatherdata" | sed '13q;d' | grep -o "m\\([-+]\\)*[0-9]\\+" | sed 's/[+m]//g' | sort -n | tail -1)
+    echo "$low $high"
+}
+
+readfile() {
+	weatherdata="$(cat "$weatherreport")"
+}
+
+showweather() {
+    readfile
+    precip=$(getprecipchance)
+    temps=$(getdailyhighlow)
+    if [ -n "$precip" ] && [ -n "$temps" ]; then
+	printf "☔%s 🥶%s° 🌞%s°\n" "$precip" "$(echo "$temps" | cut -d' ' -f1)" "$(echo "$temps" | cut -d' ' -f2)"
+    fi
+}
+
+# Check if the forecast is up to date or needs refreshing.
+checkforecast || getforecast
+
+# Handle block button events (left-click, middle-click, etc.)
+case "$BLOCK_BUTTON" in
+    1) "$TERMINAL" -e less -Sf "$weatherreport" >/dev/null 2>&1
+       ;;
+    2) getforecast && showweather
+       ;;
+    3) dmeteo
+       ;;
+    6) "$EDITOR" "$0" || "$TERMINAL" -e "$EDITOR" "$0"
+       ;;
+esac
+
+showweather

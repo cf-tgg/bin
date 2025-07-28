@@ -1,0 +1,23 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-07 04:19:25 cf>
+
+# Displays number of unread mail and an loading icon if updating.
+# When clicked, brings up `neomutt`.
+
+case $BLOCK_BUTTON in
+	1) setsid -f "$TERMINAL" -e neomutt ;;
+	2) setsid -f mw -Y >/dev/null ;;
+	3) notify-send "📬 Module courriels" "\
+- Dénombre les courriels non-lus
+- Affiche 🔃lors des mises à jour
+- Clic gauche ouvre le client neomutt
+- Clic-molette pour mettre à jour" ;;
+	6) emc "$0" ;;
+esac
+
+unread="$(find ${XDG_DATA_HOME:-$HOME/.local/share}/mail/*/INBOX/new/* -type f | wc -l 2>/dev/null)"
+
+pidof mbsync >/dev/null 2>&1 && icon="🔃"
+
+[ "$unread" = "0" ] && [ "$icon" = "" ] || echo "📬$unread$icon"

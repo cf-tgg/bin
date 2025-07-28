@@ -1,0 +1,68 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-25 14:56:44 cf>
+# Box: [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+A="$1"
+B="$2"
+pattern="$3"
+
+sA="/tmp/sizes_A"
+sB="/tmp/sizes_B"
+hA="/tmp/hashes_A"
+hB="/tmp/hashes_B"
+only_sizes="/tmp/only_sizes"
+only_hashes="/tmp/only_hashes"
+
+[ -d "$A" ] && [ -d "$B" ] || {
+    echo "Requires two directory arguments"
+    echo "Usage: $0 <dir_A> <dir_B> [file_glob_pattern]"
+    exit 2
+}
+
+if [ -n "$pattern" ]; then
+    find "$A" -type f -iname "$pattern" -exec stat -c '%s %n' {} + | sort > "$sA"
+    find "$B" -type f -iname "$pattern" -exec stat -c '%s %n' {} + | sort > "$sB"
+else
+    find "$A" -type f -exec stat -c '%s %n' {} + | sort > "$sA"
+    find "$B" -type f -exec stat -c '%s %n' {} + | sort > "$sB"
+fi
+
+cut -d' ' -f1 "$sA" | sort | uniq > /tmp/sz_A
+cut -d' ' -f1 "$sB" | sort | uniq > /tmp/sz_B
+
+# List sizes only in A
+comm -23 /tmp/sz_A /tmp/sz_B > "$only_sizes"
+
+# Files in A with unmatched sizes
+grep -Ff "$only_sizes" "$sA" | cut -d' ' -f2- > /tmp/unmatched_by_size
+
+# For matched sizes, we now hash contents to find content differences
+# Find size-intersecting files only
+comm -12 /tmp/sz_A /tmp/sz_B > /tmp/matched_sizes
+
+# List files in A and B with same sizes
+grep -Ff /tmp/matched_sizes "$sA" | cut -d' ' -f2- > /tmp/cand_A
+grep -Ff /tmp/matched_sizes "$sB" | cut -d' ' -f2- > /tmp/cand_B
+
+# Hash both sets
+: > "$hA"
+: > "$hB"
+
+for f in $(cat /tmp/cand_A); do
+    [ -f "$f" ] && sha256sum "$f" >> "$hA"
+done
+
+for f in $(cat /tmp/cand_B); do
+    [ -f "$f" ] && sha256sum "$f" >> "$hB"
+done
+
+# Extract only the hashes
+cut -d' ' -f1 "$hA" | sort > /tmp/hash_A
+cut -d' ' -f1 "$hB" | sort > /tmp/hash_B
+
+# Hashes only in A (i.e. contents not in B)
+comm -23 /tmp/hash_A /tmp/hash_B > "$only_hashes"
+
+# Print paths in A with unique hashes
+grep -Ff "$only_hashes" "$hA" | cut -d' ' -f2-

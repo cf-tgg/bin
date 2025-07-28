@@ -1,0 +1,57 @@
+#!/bin/bash
+# logging for scripts
+
+# tstmplog() {
+#   while getopts "l:t:" opt; do
+#     case "$opt" in
+#       l) LOGFILE="$OPTARG" ;;
+#       t) TIMESTR="$OPTARG" ;;
+#     esac
+#   done
+#   FTIMESTR="$(date +%Y-%m-%d_%H%M-%S)"
+#   LTIMESTR="${TIMESTR:-$(date +"%Y-%m-%d %H:%M:%S")}"
+#   LOGFILE="${LOGFILE:-"$HOME/${0}_${FTIMESTR}.log"}"
+
+#   [ -z "$LOGFILE" ] && printf "[%s] %s\n" "$LTIMESTR" "$*" ||\
+#     printf "[%s] %s\0" "$timestr" "$*" >> "$LOGFILE"
+#   return 0
+# }
+
+log_script_execution() {
+  LOGFILE="${LOGFILE:-"$HOME/${0}_$(date +%Y-%m-%d_%H%M-%S).log"}"
+  TIMESTAMP_FORMAT="%Y-%m-%d %H:%M:%S"
+  START_TIME=$(date +%s)
+
+ log_message() {
+    local MSG="$1"
+    local TIMESTAMP
+    TIMESTAMP=$(date +"$TIMESTAMP_FORMAT")
+    printf "[%s] %s\n" "$TIMESTAMP" "$MSG" | tee -a "$LOGFILE"
+  }
+
+  log_step() {
+    local CMD="$1"
+    local STEP_START=$(date +%s)
+    log_message "START: $CMD"
+    eval "$CMD"
+    local EXIT_CODE=$?
+    local STEP_END=$(date +%s)
+    local DURATION=$((STEP_END - STEP_START))
+    if [ $EXIT_CODE -eq 0 ]; then
+      log_message "END: $CMD (Success) [Duration: ${DURATION}s]"
+    else
+      log_message "END: $CMD (Failure: Exit Code $EXIT_CODE) [Duration: ${DURATION}s]"
+    fi
+    return $EXIT_CODE
+  }
+
+  finish_logging() {
+    local END_TIME=$(date +%s)
+    local TOTAL_DURATION=$((END_TIME - START_TIME))
+    log_message "SCRIPT COMPLETED in ${TOTAL_DURATION}s"
+  }
+
+  trap 'log_message "SCRIPT INTERRUPTED"; finish_logging; exit 1' INT TERM
+
+  export -f log_message log_step
+}

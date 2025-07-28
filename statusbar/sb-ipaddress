@@ -1,0 +1,12 @@
+#!/bin/sh
+
+case $BLOCK_BUTTON in
+	1) notify-send "Ip Address" "$(ip a show dev wlan0)" ;;
+	2) setsid -f "$TERMINAL" -e htop ;;
+	3) notify-send "Ip module " "\- Shows ipconfig.
+- Click to show IP info.
+- Middle click to open nmtui-edit." ;;
+	6) emc "$0" ;;
+esac
+
+ip a show dev wlan0 | awk -F'[ /]' '/inet /{print $6}'

@@ -1,0 +1,52 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-10 01:44:19 cf>
+
+DEV="dg3"
+WLAN=0
+ORIENT="-north"
+ARGS="-big -clipcheck"
+FROM="-to"
+DPY=":0"
+KILL=0
+
+updateicon() {
+   echo "$1" >/tmp/x2xicon
+   pkill -RTMIN+21 "${STATUSBAR:-dwmblocks}"
+}
+
+while getopts "c:d:klfnsew" OPT ; do
+    case $OPT in
+        c) DEV="$OPTARG" ;;
+        k) KILL=1 ;;
+        l) WLAN=1 ;;
+        d) DPY="$OPTARG" ;;
+        f) FROM="-from" ;;
+        n) ORIENT="-north" ;;
+        s) ORIENT="-south" ;;
+        e) ORIENT="-east" ;;
+        w) ORIENT="-west" ;;
+    esac
+done
+shift $((OPTIND-1))
+
+[ $# -gt 0 ] && ARGS="${ARGS} $@"
+[ $WLAN -eq 1 ] && DEV="${DEV}s"
+
+#  if ethernet device active, use HOST, else use HOSTs
+#  Requires wireless HOST in `~/.ssh/config` to have `s` suffix.
+#  Example
+#       ```
+ifconfig | grep eth0 -A 1 | grep -q inet || DEV="${DEV}s"
+
+if [ $KILL -eq 1 ]; then
+    ( ssh -f "${DEV}" "pgrep x2x | xargs kill -9 ; exit \$?" && echo "connection to ${DEV} killed" && updateicon "" && exit 0 ) || \
+        { echo "${DEV} is stayin alive" >&2 ; exit 1 ; }
+elif [ ! -z "$(ssh -f "${DEV}" "pgrep x2x")" ]; then
+    printf 'ongoing x2x connection to %s ... ' "${DEV}" >&2
+    ( ssh -f "${DEV}" "pgrep x2x | xargs kill -9 ; exit \$?" && echo "killed" && updateicon "" && exit 0 ) || \
+        { echo "stayin alive" >&2 ; exit 1 ; }
+else
+    ( ssh -f "${DEV}" "x2x "${FROM}" "${DPY}" "${ORIENT}" ; exit \$?" && echo "connected to ${DEV}" && updateicon " " exit 0 ) || \
+        { echo "connection failed" >&2 ; exit 1 ; }
+fi

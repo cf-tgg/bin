@@ -1,0 +1,20 @@
+#!/bin/sh
+
+awk '
+BEGIN {
+    FS = "[:\n]"
+    in_body = 0
+    title = ""
+}
+
+/^Feed:/ { next }
+/^Title:/ { title = substr($0, index($0, $2)); next }
+/^Author:/ { next }
+/^Date:/ { next }
+/^Link:/ { next }
+/^Links:/ { next }
+/^submitted by/ { next }
+/^\[/ { next }
+/^$/ { if (in_body) exit }
+/./ { if (title != "") { print title "\n"; title = ""; } in_body = 1; print }
+' <&0

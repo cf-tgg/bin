@@ -1,0 +1,10 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-08 10:32:29 cf>
+
+WATCH_DIR="$HOME/.local/mail"
+LOG="$HOME/.local/var/log/msgnotify.log"
+
+inotifywait -m -e open --format '%w%f' "$WATCH_DIR" | while IFS= read -r filepath; do
+    notify-send "You've got mail"
+done

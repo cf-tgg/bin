@@ -1,0 +1,331 @@
+#!/bin/sh
+#
+# virtmon permet de tester des résolutions de moniteurs soit pour 
+# "picture-in-picture" un moniteur existant ou pour en créer des virtuels.
+# dépendances: Xserver xrandr cvt v4l2-ctl v4l2loopback ffmpeg 
+# optionnelles, mais recommandées:  mpv (ou autre lecteur vidéo) 
+#                                   feh (ou xwallpaper, nitrogen, etc.)
+#
+
+
+# Création des modes pour les tests
+
+cvt 1280 1024 > /dev/null
+xrandr --newmode "1280x1024_60.00"  109.00  1280 1368 1496 1712  1024 1027 1034 1063 -hsync +vsync > /dev/null
+
+cvt 1680 1050 > /dev/null
+xrandr --newmode "1680x1050_60.00"  146.25  1680 1784 1960 2240  1050 1053 1059 1089 -hsync +vsync > /dev/null
+
+cvt 1920 1080 > /dev/null
+xrandr --newmode "1920x1080_60.00"  173.00  1920 2048 2248 2576  1080 1083 1088 1120 -hsync +vsync > /dev/null
+
+cvt 2560 1440 > /dev/null
+xrandr --newmode "2560x1440_60.00"  312.25  2560 2752 3024 3488  1440 1443 1448 1493 -hsync +vsync > /dev/null
+
+#############################################################################
+#                           Tests de résolutions                            #
+#############################################################################
+
+#############################################################################
+# Test_01: xrandr avec DP2 et DP1 connectés; déconnecter DP1 après.         #
+# DP2: 2560x1440 | eDP: 2256x1504 | DP1: 2560x1440                          #
+#############################################################################
+
+test1() {
+    xrandr --output eDP --mode 2256x1504 --pos 2560x0 --primary \
+           --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+           --output DisplayPort-1 --mode 2560x1440 --pos 4816x0
+
+    feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+}
+
+#############################################################################
+# Test_02: eDP et DP2 connectés; DP1 et DP0 virtuels                        #
+# DP2: 2560x1440 | eDP: 2256x1504 | DP1: 1920x1080 | DP0: 1680x1050         #
+#############################################################################
+
+test2() {
+    xrandr --addmode DisplayPort-1 "1920x1080_60.00"
+    xrandr --addmode DisplayPort-0 "1680x1050_60.00"
+    xrandr --output eDP --mode 2256x1504 --pos 2560x0 --primary \
+           --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+           --output DisplayPort-1 --mode "1920x1080_60.00" --pos 4816x0 \
+           --output DisplayPort-0 --mode "1680x1050_60.00" --pos 6736x0
+    feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+}
+
+#############################################################################
+# Test_03: eDP et DP2 connectés; DP1 et DP0 virtuels                        #
+# DP2: 2560x1440 | eDP: 2256x1504 | DP1: 1920x1080 | DP0: 1920x1080         #
+#############################################################################
+
+test3() {
+    xrandr --addmode DisplayPort-1 "1920x1080_60.00"
+    xrandr --addmode DisplayPort-0 "1920x1080_60.00"
+
+    xrandr --output eDP --mode 2256x1504 --pos 2560x0 --primary \
+           --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+           --output DisplayPort-1 --mode "1920x1080_60.00" --pos 4816x0 \
+           --output DisplayPort-0 --mode "1920x1080_60.00" --pos 6736x0
+
+    feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+}
+
+#############################################################################
+# Test_04: Proposé par Mr. GPT: weird 4 différentes résolutions             #
+#     4.1: eDP et DP2 connectés; DP1 et DP0 virtuels                        #
+#     4.2: eDP connecté; DP2, DP1 et DP0 virtuels                           #
+# DP2:1920x1200 | eDP: 2256x1504 | DP1: 1680x1050 | DP0: 1280x1024          #
+#############################################################################
+
+test4() {
+    xrandr --addmode DisplayPort-2 "1920x1080_60.00"
+    xrandr --addmode DisplayPort-1 "1680x1050_60.00"
+    xrandr --addmode DisplayPort-0 "1280x1024_60.00"
+
+    xrandr --output eDP --mode 2256x1504 --pos 1920x0 --primary \
+           --output DisplayPort-2 --mode "1920x1080_60.00" --pos 0x0 \
+           --output DisplayPort-1 --mode "1680x1050_60.00" --pos 4176x0 \
+           --output DisplayPort-0 --mode "1280x1024_60.00" --pos 5856x0
+
+    feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+}
+
+#############################################################################
+# Test_05: eDP et DP2 (non-native) connectés, DP1 et DP0 virtuels           #
+# DP2:1980x1080 | eDP: 2256x1504 | DP1: 1920x1080 | DP0: 1920x1080          #
+#############################################################################
+
+test5() {
+    xrandr --addmode DisplayPort-1 "1920x1080_60.00"
+    xrandr --addmode DisplayPort-0 "1920x1080_60.00"
+
+    xrandr --output eDP --mode 2256x1504 --pos 1920x0 --primary \
+           --output DisplayPort-2 --mode 1920x1080 --pos 0x0 \
+           --output DisplayPort-1 --mode "1920x1080_60.00" --pos 4176x0 \
+           --output DisplayPort-0 --mode "1920x1080_60.00" --pos 6096x0
+
+    feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+}
+
+#############################################################################
+# Test_05: eDP et DP2 connectés, DP1 et DP0 virtuels                        #
+# DP2: 2560x1440 | eDP: 2256x1504 | DP1: 1920x1080 | DP0: 1920x1080         #
+#############################################################################
+
+test6() {
+
+    xrandr --output eDP --mode 2256x1504 --pos 2560x180 --primary \
+           --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+           --output DisplayPort-1 --mode "2560x1440_60.00" --pos 4816x0 \
+           --output DisplayPort-0 --mode "2560x1440_60.00" --pos 7376x0
+
+    feh --bg-fill ~/Pictures/wals/0012_feu_marjo.jpg
+}
+
+test7() {
+
+    xrandr --output eDP --mode 2256x1504 --pos 1920x0 --primary \
+           --output DisplayPort-2 --mode 1920x1080 --pos 4176x212 \
+           --output DisplayPort-1 --mode "1920x1080_60.00" --pos 6096x212 \
+           --output DisplayPort-0 --mode "1920x1080_60.00" --pos 0x212
+
+    feh --bg-fill ~/Pictures/wals/0012_feu_marjo.jpg
+}
+# *** kernel modesetting require this command be run by root/sudo ***
+# `[root]# modprobe v4l2loopback devices=4 video_nr=1,2,3 exclusive_caps=1,1,1,1 card_label="Loopback-1,Loopback-2,Loopback-3,Loopback-0"
+
+
+# Pronostic
+LOOPBACK_DEVS=($(v4l2-ctl --list-devices | awk '{print $NF}'|grep '/dev/video' | tr -d '/dev/video'))
+set -- $LOOPBACK_DEVS
+LB_DEVCOUNT=$#
+
+CONNECTED_DP=($(xrandr | grep 'DisplayPort-' | grep ' connected ' | awk '{print $1}'))
+set -- $CONNECTED_DP
+CONNECTED_DP_COUNT=$#
+
+AVAILABLE_DPORTS=($(xrandr | grep 'DisplayPort-' | grep 'disconnected' | awk '{print $1}' | tr -d 'DisplayPort-' | awk '{print $NF}'))
+set -- $AVAILABLE_DPORTS
+AVDP_COUNT=$#
+
+DP_NAMES=($(xrandr | grep 'DisplayPort-' | grep 'disconnected' | awk '{print $1}'))
+set -- $DP_NAMES
+DP_NAMES_COUNT=$#
+
+# Affichage des résultats
+echo "connected: ${CONNECTED_DP}"
+
+echo "disconnected DisplayPorts(${AVDP_COUNT}):"
+for dpn in $DP_NAMES; do
+    echo "                      $dpn"
+done
+
+echo "available loopback devices(${LB_DEVCOUNT}):"
+for lbdv in $LOOPBACK_DEVS; do
+    echo "                      /dev/video$lbdv"
+done
+
+
+# Création du dossier de scripts
+SCRIPT_DIR="${HOME}/Scripts/xrandr/"
+mkdir -p ${SCRIPT_DIR}
+
+TEST_CHOICES=(
+    "1 - DisplayPort-2 2560x1440 | eDP 2256x1504 | DisplayPort-1 2560x1440"
+    "2 - DisplayPort-2 2560x1440 | eDP 2256x1504 | DisplayPort-1 1920x1080 | DisplayPort-0 1680x1050"
+    "3 - DisplayPort-2 2560x1440 | eDP 2256x1504 | DisplayPort-1 1920x1080 | DisplayPort-0 1920x1080"
+    "4 - DisplayPort-2 1920x1080 | eDP 2256x1504 | DisplayPort-1 1680x1050 | DisplayPort-0 1280x1024"
+    "5 - DisplayPort-2 1920x1080 | eDP 2256x1504 | DisplayPort-1 1920x1080 | DisplayPort-0 1920x1080"
+    "6 - DisplayPort-2 2560x1440 | eDP 2256x1504 | DisplayPort-1 1920x1080 | DisplayPort-0 1920x1080"
+    "7 - DisplayPort-2 1920x1080 | eDP 2256x1504 | DisplayPort-1 1920x1080 | DisplayPort-0 1920x1080"
+)
+
+
+# Join the array elements into a single string
+CHOICES=$(printf "%s\n" "${TEST_CHOICES[@]}")
+
+# Display the menu and capture the selected item
+TEST_NUM=$(echo "$CHOICES" | dmenu -l 7 -p "cfg # :" -i | awk '{print $1}')
+# echo "[dbg]# --> $TEST_NUM"
+
+TEST=test${TEST_NUM}
+echo "$TEST"
+${TEST}
+
+SCRIPT_DIR="${HOME}/Scripts/virtmon"
+mkdir -p ${SCRIPT_DIR}
+
+case "$TEST_NUM" in
+    1)
+        mon=(
+            "DisplayPort-2 2560x1440 0,0"
+            "eDP 2256x1504 2560,0"
+            "DisplayPort-1 2560x1440 4816,0"
+        )
+        ;;
+    2)
+        mon=(
+            "DisplayPort-2 2560x1440 0,0"
+            "eDP 2256x1504 2560,0"
+            "DisplayPort-1 1920x1080 4816,0"
+            "DisplayPort-0 1680x1050 6736,0"
+        )
+        ;;
+    3)
+        mon=(
+            "DisplayPort-2 2560x1440 0,0"
+            "eDP 2256x1504 2560,0"
+            "DisplayPort-1 1920x1080 4816,0"
+            "DisplayPort-0 1920x1080 6736,0"
+        )
+        ;;
+    4)
+        mon=(
+            "DisplayPort-2 1920x1080 0,0"
+            "eDP 2256x1504 1920,0"
+            "DisplayPort-1 1680x1050 4176,0"
+            "DisplayPort-0 1280x1024 5856,0"
+        )
+        ;;
+    5)
+        mon=(
+            "DisplayPort-2 1920x1080 0,0"
+            "eDP 2256x1504 1920,0"
+            "DisplayPort-1 1920x1080 4176,0"
+            "DisplayPort-0 1920x1080 6096,0"
+        )
+        ;;
+    6)
+        mon=(
+            "DisplayPort-2 2560x1440 0,0"
+            "eDP 2256x1504 2560,0"
+            "DisplayPort-1 1920x1080 4816,0"
+            "DisplayPort-0 1920x1080 6736,0"
+        )
+        ;;
+    7)
+        mon=(
+            "DisplayPort-2 1920x1080 4176,212"
+            "eDP 2256x1504 1920,0"
+            "DisplayPort-1 1920x1080 6096,212"
+            "DisplayPort-0 1920x1080 0,212"
+        )
+        ;;
+    *)
+        echo "C'tait pas un choix ça"
+        exit 1
+        ;;
+esac
+
+# Define the devices and their corresponding /dev/video mappings
+declare -A DEVICE_MAP
+DEVICE_MAP=(
+    [DisplayPort-0]=3
+    [DisplayPort-1]=1
+    [DisplayPort-2]=2
+)
+
+# Directory and Test setup
+TESTDIR=${SCRIPT_DIR}/${TEST}
+mkdir -p ${TESTDIR}
+
+add_vscreen() {
+    local VSCREEN=${DP}
+    local PLAYBACK=${TESTDIR}/${VSCREEN}
+    touch ${PLAYBACK}
+    local ALIASFILE=${TESTDIR}/${TEST}_aliases
+    local DEV=${DEV}
+
+    echo "generating playback script for /dev/video${DEV}"
+
+    echo '#!/bin/sh' > ${PLAYBACK}
+    echo "# ${TEST} - ${DP} loopback on /dev/video${DEV}" >> ${PLAYBACK}
+    echo ''
+    echo "ffmpeg -f x11grab -s ${RES} -i :0.0+${POS} -fflags nobuffer -flags low_delay -probesize 32 -f v4l2 /dev/video${DEV} &" >> ${PLAYBACK}
+    echo 'ffmpeg_pid=$!' >> ${PLAYBACK}
+    echo ''
+    echo 'sleep 1' >> ${PLAYBACK}
+    echo ''
+    echo 'cleanup() {' >> ${PLAYBACK}
+    echo '    echo "On nettoie ca..."' >> ${PLAYBACK}
+    echo '    kill $ffmpeg_pid' >> ${PLAYBACK}
+    echo '}' >> ${PLAYBACK}
+    echo ''
+    echo 'trap cleanup EXIT' >> ${PLAYBACK}
+    echo '' >> ${PLAYBACK}
+    echo "mpv av://v4l2:/dev/video${DEV} --no-cache --profile=low-latency --untimed --no-demuxer-thread --vd-lavc-threads=1 --title=\"${DEV}\"" >> ${PLAYBACK}
+    echo '' >> ${PLAYBACK}
+    echo " $(date +"%Y-%m-%d %H:%M:%S") [${USER}] virtmon autogen script"
+
+    chmod u+x ${PLAYBACK}
+    echo "alias vd${DEV}='${PLAYBACK}'" >> ${ALIASFILE}
+    echo "${PLAYBACK} aliased to vd${DEV} source ${ALIASFILE} to enable"
+    echo "source ${ALIASFILE}" | xclip -in -selection clipboard
+}
+
+DEVICE_COUNT=${#DEVICE_MAP[@]}
+
+for ((i = 0; i < DEVICE_COUNT; i++)); do
+    DEV=""
+    DP=""
+
+    case $i in
+        0) DEV="3"; DP="DisplayPort-0" ;;
+        1) DEV="1"; DP="DisplayPort-1" ;;
+        2) DEV="2"; DP="DisplayPort-2" ;;
+    esac
+
+    if [ -n "$DP" ]; then
+        echo "Processing device ${DEV} (${DP})..."
+        for entry in "${mon[@]}"; do
+            # Read the parameters from the array
+            RES=$(echo "$entry" | awk '{print $2}')
+            POS=$(echo "$entry" | awk '{print $3}')
+            if [[ "$DP" == "$(echo "$entry" | awk '{print $1}')" ]]; then
+                echo "Adding virtual screen ${DP} with resolution ${RES} and position ${POS} to device /dev/video${DEV}..."
+                add_vscreen
+            fi
+        done
+    fi
+done

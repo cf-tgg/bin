@@ -1,0 +1,109 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Toggle picom configs
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/picom"
+CONFIG_FILE="${CONFIG_DIR}/picom.conf"
+NOBLUR_FILE="${CONFIG_DIR}/picom.conf.noblur"
+CURR_CONF="${CONFIG_DIR}/current"
+
+CONF_IDX=$(find "$CONFIG_DIR" -type f -name "picom.conf.[1-9]*" | sed -n 's/.*picom\.conf\.//p' | sort -n)
+CONF_COUNT=$(printf "%s\n" "$CONF_IDX" | wc -l)
+CURR_IDX=$(cat "$CURR_CONF" 2>/dev/null)
+
+[ "$CURR_IDX" -ge 1 ] 2>/dev/null || CURR_IDX=1
+[ -f "$CURR_CONF" ] || printf "%s\n" "$CURR_IDX" > "$CURR_CONF"
+
+PREV_IDX=$((CURR_IDX - 1))
+NEXT_IDX=$((CURR_IDX + 1))
+
+usage() {
+  env SC=$0 envsubst <<-'MAN'
+
+  ${SC} --- toggle picom configs
+
+  USAGE
+      ${SC} [-n] [-p] [-i INDEX] [-t] [-h]
+
+  OPTIONS
+      -n    next config
+      -p    previous config
+      -i    set to specific config index
+      -t    toggle blur on/off
+      -h    show this help message
+
+  SEE ALSO
+      picom(1)
+MAN
+}
+
+# If no arguments are passed, default to toggle blur
+if [ $# -eq 0 ]; then
+  if cmp -s "$CONFIG_FILE" "$NOBLUR_FILE"; then
+    if [ -f "${CONFIG_FILE}~" ]; then
+      cp -f "${CONFIG_FILE}~" "$CONFIG_FILE"
+    elif [ -f "${CONFIG_FILE}.1" ]; then
+      cp -f "${CONFIG_FILE}.1" "$CONFIG_FILE"
+    else
+      echo "No backup config found to restore blur" >&2
+      exit 1
+    fi
+  else
+    cp -f "$NOBLUR_FILE" "$CONFIG_FILE"
+  fi
+  pkill picom
+  sleep 0.1
+  picom -b
+  exit 0
+fi
+
+while getopts "npti:h" OPT; do
+  case $OPT in
+    i) CURR_IDX="$OPTARG" ;;
+    p) CURR_IDX="$PREV_IDX" ;;
+    n) CURR_IDX="$NEXT_IDX" ;;
+    t)
+      if cmp -s "$CONFIG_FILE" "$NOBLUR_FILE"; then
+        if [ -f "${CONFIG_FILE}~" ]; then
+          cp -f "${CONFIG_FILE}~" "$CONFIG_FILE"
+        elif [ -f "${CONFIG_FILE}.1" ]; then
+          cp -f "${CONFIG_FILE}.1" "$CONFIG_FILE"
+        else
+          echo "No backup config found to restore blur" >&2
+          exit 1
+        fi
+      else
+        cp -f "$NOBLUR_FILE" "$CONFIG_FILE"
+      fi
+      pkill picom
+      sleep 0.1
+      picom -b
+      exit 0
+      ;;
+    h) usage >&2; exit 0 ;;
+    *) usage >&2; exit 1 ;;
+  esac
+done
+shift $((OPTIND - 1))
+
+echo "$CONF_IDX" | grep -q "^$CURR_IDX\$" || {
+  echo "No config found for index $CURR_IDX" >&2
+  CURR_IDX=$(printf "%s\n" "$CONF_IDX" | dmenu -p 'picom.conf index:')
+  [ -n "$CURR_IDX" ] && echo "$CONF_IDX" | grep -q "^$CURR_IDX\$" || {
+    echo "Bad index: $CURR_IDX" >&2
+    exit 1
+  }
+}
+
+NEW_CONF="${CONFIG_FILE}.${CURR_IDX}"
+cp -f "$NEW_CONF" "$CONFIG_FILE" &&
+  printf "%s\n" "$CURR_IDX" > "$CURR_CONF" || {
+    echo "Failed to apply config index $CURR_IDX" >&2
+    exit 1
+  }
+
+pkill picom
+sleep 0.1
+picom -b
+
+exit 0

@@ -1,0 +1,41 @@
+#!/bin/bash
+
+
+embedJsonJpg() {
+    local json_file="$1"
+    local image_file="$2"
+    local json_data
+
+    if [[ ! -f "$json_file" ]]; then
+        echo "JSON file $json_file does not exist."
+        return 1
+    fi
+
+    json_data=$(<"$json_file")
+
+    if exiftool -overwrite_original -UserComment="$json_data" "$image_file"; then
+        echo "$image_file JSONembedded."
+        return 0
+    else
+        echo "Failed to embed $image_file."
+        return 1
+    fi
+}
+
+dir="${1:-.}"
+[ -d "$dir" ] || { echo "Directory $dir does not exist."; exit 1; }
+tdir="$dir/thumbs"
+[ -d "$tdir" ] || mkdir -pv "$tdir"
+
+find "$dir" -type f -name "*-thumbnail.jpg" | while read -r thumbnail; do
+    basename=$(basename "$thumbnail" -thumbnail.jpg)
+    full_image="${basename}.jpg"
+    json_file="${basename}.json"
+    if magick "$thumbnail" -fuzz 10% -trim +repage -quality 100 "$full_image"; then
+        echo "$full_image converted to jpg."
+        embedJsonJpg "$json_file" "$full_image"
+        mv "$full_image" "$tdir"
+    else
+        echo "$thumbnail embedding failed."
+    fi
+done

@@ -1,0 +1,50 @@
+#!/bin/bash
+
+# Function to toggle reverse video mode
+function toggle_reverse_video() {
+    if [[ "$REVERSE_VIDEO" == "on" ]]; then
+        printf "\e[27m"  # Disable reverse video mode
+        REVERSE_VIDEO="off"
+    else
+        printf "\e[7m"  # Enable reverse video mode
+        REVERSE_VIDEO="on"
+    fi
+}
+
+# Initialize reverse video mode status
+REVERSE_VIDEO="off"
+
+# Function to clear screen
+function clear_screen() {
+    printf "\033c"
+}
+
+# Function to simulate vi visual mode selection
+function simulate_vi_selection() {
+    clear_screen
+    echo "Visual Line Selection Mode"
+    echo "Press 'Ctrl-v' to toggle reverse video mode."
+    echo "Use 'h', 'j', 'k', 'l' to navigate."
+    echo "Press 'Esc' to toggle reverse video mode and exit selection mode."
+}
+
+simulate_vi_selection
+while true; do
+    # Read single key input
+    IFS= read -rsn1 input
+
+    case $input in
+        'h') echo -e "\e[D" ;; # Move cursor left
+        'j') echo -e "\e[B" ;; # Move cursor down
+        'k') echo -e "\e[A" ;; # Move cursor up
+        'l') echo -e "\e[C" ;; # Move cursor right
+        $'\x16') # Ctrl-v (ASCII 22)
+            toggle_reverse_video
+            ;;
+        $'\e') # Esc key
+            toggle_reverse_video
+            break
+            ;;
+        *) ;;
+    esac
+done

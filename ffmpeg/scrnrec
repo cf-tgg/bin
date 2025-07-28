@@ -1,0 +1,132 @@
+#! /bin/sh
+
+SCREEN_SOURCE=$(xrandr | grep ' connected ' | awk '{print $1}' | dmenu -p 'Source vidéo:')
+AUDIO_SOURCE=$(pactl list short sources | grep RUNNING | awk '{print $2}') 
+
+SIZE=$(xrandr | grep "$SCREEN_SOURCE" | tr -d 'primary' | awk '{print $3}' | cut -d'+' -f1)
+SPOS=$(xrandr | grep "$SCREEN_SOURCE" | tr -d 'primary' | awk '{print $3}' | cut -d'+' -f2 | tr -s '+' ',')
+ARECORD=$(arecord -l | grep "^card" | awk '{print $2","$7}' | tr -d ':' | awk '{print "hw:"$0}')
+OUTPUT="screencast_$(date +%Y-%m-%d_%H%M%S).mkv"
+
+updateicon() { \
+    echo "$1" > /tmp/recordingicon
+    pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+}
+
+asktoend() { \
+    response=$(printf "Non\\nOui" | dmenu -i -p "Ça roule encore, on recommençe?") &&
+    [ "$response" = "Oui" ] &&  killrecording
+}
+
+killrecording() {
+    recpid="$(cat /tmp/recordingpid)"
+    kill -15 "$recpid"
+    rm -f /tmp/recordingpid
+    updateicon ""
+    pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+}
+
+video() {
+    ffmpeg \
+    -f x11grab \
+    -framerate 30 \
+    -s "$SIZE" \
+    -i ":0.0+$SPOS" \
+    -f pulse -i "$AUDIO_SOURCE" \
+    -c:v libx264 -qp 0 -r 30 \
+    "$HOME/video-$(date '+%y%m%d-%H%M-%S').mkv" &
+    echo $! > /tmp/recordingpid
+    updateicon "📺"
+}
+
+webcamhidef() {
+    ffmpeg \
+    -f v4l2 \
+    -i /dev/video0 \
+    -video_size 1920x1080 \
+    "$HOME/webcam-$(date '+%y%m%d-%H%M-%S').mkv" &
+    echo $! > /tmp/recordingpid
+    updateicon "🎥"
+}
+
+webcam() {
+    ffmpeg \
+    -f v4l2 \
+    -i /dev/video0 \
+    -video_size 640x480 \
+    "$HOME/webcam-$(date '+%y%m%d-%H%M-%S').mkv" &
+    echo $! > /tmp/recordingpid
+    updateicon "🎥"
+}
+
+audio() { \
+    ffmpeg \
+    -f alsa -i "$ARECORD" \
+    -c:a flac \
+    "$HOME/audio-$(date '+%y%m%d-%H%M-%S').flac" &
+    echo $! > /tmp/recordingpid
+    updateicon "🎙️"
+}
+
+askrecording() { \
+    choice=$(printf "screencast\\nvideo\\nvideo selected\\naudio\\nwebcam\\nwebcam (hi-def)" | dmenu -i -p "Comment?")
+    case "$choice" in
+	screencast) screencast;;
+	audio) audio;;
+	video) video;;
+	*selected) videoselected;;
+	webcam) webcam;;
+	"webcam (hi-def)") webcamhidef;;
+    esac
+}
+
+videoselected()
+{
+    slop -f "%x %y %w %h" > /tmp/slop
+    read -r X Y W H < /tmp/slop
+    rm /tmp/slop
+
+    ffmpeg \
+    -f x11grab \
+    -framerate 30 \
+    -video_size "$W"x"$H" \
+    -i :0.0+"$X,$Y" \
+    -f pulse -i "$AUDIO_SOURCE" \
+    -r 30 \
+    -c:v h264 \
+    -crf 23 -preset fast \
+    -c:a aac -b:a 192k \
+    "$HOME/box-$(date '+%y%m%d-%H%M-%S').mkv" &
+    echo $! > /tmp/recordingpid
+    updateicon "🖥"
+}
+
+screencast() 
+{
+    ffmpeg -y \
+    -f x11grab \
+    -s "$SIZE" \
+    -i ":0.0+$SPOS" \
+    -f alsa -i "$ARECORD" \
+    -f pulse -i "$AUDIO_SOURCE" \
+    -r 24 \
+    -use_wallclock_as_timestamps 1 \
+    -filter_complex "[1:a]volume=1.5,aresample=async=1, aformat=sample_fmts=fltp:channel_layouts=stereo[a1];[2:a]volume=2.0,aresample=async=1, aformat=sample_fmts=fltp:channel_layouts=stereo[a2];[a1][a2]amerge=inputs=2[a]" \
+    -map 0:v:0 -map "[a]" \
+    -c:v h264 \
+    -crf 0 -preset ultrafast \
+    -c:a aac -b:a 192k \
+    -fps_mode cfr \
+    "$HOME/$OUTPUT" &
+    echo $! > /tmp/recordingpid
+    updateicon "💻🎙️"
+}
+
+case "$1" in
+    screencast) screencast;;
+    audio) audio;;
+    video) video;;
+    *selected) videoselected;;
+    kill) killrecording;;
+    *) ([ -f /tmp/recordingpid ] && asktoend && exit) || askrecording;;
+esac

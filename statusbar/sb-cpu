@@ -1,0 +1,30 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-02 12:39:30 cf>
+
+cava_send_key() {
+    [ -f "/tmp/cava.winid" ] && cava=$(cat /tmp/cava.winid)
+    [ -n "$cava" ] && xdotool key --window "$cava" "$@" || return 1
+    return 0
+}
+
+case $BLOCK_BUTTON in
+	1) notify-send "🖥 CPU hogs" "$(ps axch -o cmd:15,%cpu --sort=-%cpu | head)\\n(100% per core)" ;;
+	2) if [ -f "/tmp/cava.winid" ]; then
+               cava=$(cat /tmp/cava.winid)
+               ( [ ! -f "/tmp/cava.hidden" ] && xdo hide "$cava" && echo "$cava" >/tmp/cava.hidden ) || { xdo show "$cava" && rm -f "/tmp/cava.hidden" ; }
+           fi
+           ;;
+	3) "$TERMINAL" -e htop ;;
+        4) cava_send_key Left  ;;
+        5) cava_send_key Right ;;
+	6) emc "$0" ;;
+esac
+
+
+sensors | awk '/Tctl/ {print "🌡" $2}'
+
+
+#  notify-send "🖥 CPU module " "\- Shows CPU temperature.
+#  - Click to show intensive processes.
+#  - Middle click to open htop."

@@ -1,0 +1,38 @@
+#!/bin/sh
+# exif data wrapper for adding to standard HLS playlist as:
+# ```
+# EXTINF:,{title}
+# {uri}
+# ```
+
+# get duration using yt-dlp
+fetch_ytdlp_duration(){
+  duration="$(yt-dlp -q --no-warnings --skip-downlaod --get-duration "$1")"
+  [ -n "$duration" ] && printf "%s" "$duration" || return 1
+  return 0
+}
+
+# extract title and uri from embedded exif data
+exif_mpv_str() {
+  fullpath="$(realpath "$1")"
+  playlist="${2:-$MPVQ_PLAYLIST}"
+  channel="$(basename "$(dirname "$fullpath")")"
+  uri=$(exifjpg -u "$fullpath" 2>/dev/null)
+  title=$(exifjpg -t "$fullpath" 2>/dev/null)
+  str=$(printf "#EXTINF:,%s\n%s\n" "$title" "$uri")
+  # optional notification with thumbnail image as icon
+  notify-send -a "ytdlp" -r 9999 -t 2000 -i "$fullpath" "$channel" "$title"
+  grep -qF "$str" "$playlist" || echo "$str" >> "$playlist"
+}
+
+for f in "$@"; do
+  if [ -f "$f" ]; then
+    exif_mpv_str "$f" && sb-mpvq >/dev/null
+    exit 0
+  elif [ -d "$f" ]; then
+    find "$f" -type f -exec sh -c 'exif_mpv_str "$0"' {} \; >/dev/null
+    exit 0
+  else
+    echo "Not a file or directory: $f" && exit 1
+  fi
+done

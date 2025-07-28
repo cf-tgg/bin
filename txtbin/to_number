@@ -1,0 +1,81 @@
+#!/bin/sh
+# Converts literal numbers to integers.
+# Used for calling commands with int type arguments from vosk transcripts.
+
+to_number() {
+  sed -E '
+    s/-/ /g;
+    s/\bzero\b/0/g;
+    s/\bone\b/1/g;
+    s/\btwo\b/2/g;
+    s/\bthree\b/3/g;
+    s/\bfour\b/4/g;
+    s/\bfive\b/5/g;
+    s/\bsix\b/6/g;
+    s/\bseven\b/7/g;
+    s/\beight\b/8/g;
+    s/\bnine\b/9/g;
+    s/\bten\b/10/g;
+    s/\beleven\b/11/g;
+    s/\btwelve\b/12/g;
+    s/\bthirteen\b/13/g;
+    s/\bfourteen\b/14/g;
+    s/\bfifteen\b/15/g;
+    s/\bsixteen\b/16/g;
+    s/\bseventeen\b/17/g;
+    s/\beighteen\b/18/g;
+    s/\bnineteen\b/19/g;
+    s/\btwenty\b/20/g;
+    s/\bthirty\b/30/g;
+    s/\bforty\b/40/g;
+    s/\bfifty\b/50/g;
+    s/\bsixty\b/60/g;
+    s/\bseventy\b/70/g;
+    s/\beighty\b/80/g;
+    s/\bninety\b/90/g;
+    s/\bhundred\b/100/g;
+    s/\bthousand\b/1000/g;
+    s/\bzéro\b/0/g;
+    s/\bun\b/1/g;
+    s/\bdeux\b/2/g;
+    s/\btrois\b/3/g;
+    s/\bquatre\b/4/g;
+    s/\bcinq\b/5/g;
+    s/\bsix\b/6/g;
+    s/\bsept\b/7/g;
+    s/\bhuit\b/8/g;
+    s/\bneuf\b/9/g;
+    s/\bdix\b/10/g;
+    s/\bonze\b/11/g;
+    s/\bdouze\b/12/g;
+    s/\btreize\b/13/g;
+    s/\bquatorze\b/14/g;
+    s/\bquinze\b/15/g;
+    s/\bseize\b/16/g;
+    s/\bdix-sept\b/17/g;
+    s/\bdix-huit\b/18/g;
+    s/\bdix-neuf\b/19/g;
+    s/\bvingt\b/20/g;
+    s/\btrente\b/30/g;
+    s/\bquarante\b/40/g;
+    s/\bcinquante\b/50/g;
+    s/\bsoixante\b/60/g;
+    s/\bsoixante-dix\b/70/g;
+    s/\bquatre-vingt\b/80/g;
+    s/\bquatre-vingt-dix\b/90/g;
+    s/\bcent\b/100/g;
+    s/\bmille\b/1000/g;
+    s/\bvingt huit\b/28/g;
+    s/\bvingts\b/20/g;
+    s/\btwenty eight\b/28/g;
+    s/\bthirty one\b/31/g;
+    s/\s+/ /g;
+    s/^\s+|\s+$//g;
+  '
+}
+
+if [ -t 0 ]; then
+  [ -n "$*" ] && echo "$*" | to_number | tr ' ' '+' | bc
+else
+  cat | to_number | tr ' ' '+' | bc
+fi

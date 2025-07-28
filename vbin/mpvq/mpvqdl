@@ -1,0 +1,43 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+DOWNLOAD_QUEUE="$HOME/Videos/downloads/download_queue"
+MPVQ_PLAYLIST="${XDG_CACHE_HOME:-$HOME/.cache}/mpvq/mpvq.m3u8"
+queue=$(mktemp) || exit 1
+trap 'rm -f ${queue}' EXIT TERM HUP QUIT
+
+find ~/Videos/yt/* -type l -print0 | uefzf | parallel -0 -I{} exifjpg -M "{}" | tee -a "$MPVQ_PLAYLIST" > "$queue"
+pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+
+[ $(wc -l < "$queue") -ge 1 ] || { [ -f "$queue" ] && rm -f "$queue" 2>/dev/null ; exit 1 ; }
+
+if [ -t 1 ]; then
+    w="$WINDOWID"
+    [ -n "$w" ] && {
+        xdo hide "$w" ;
+        "${EDITOR:-emc}" "$queue"
+        xdo show "$w"
+        unset w
+    } || "$EDITOR" "$queue"
+else
+    "$TERMINAL" -e "$EDITOR" "$queue"
+fi
+
+[ "$(grep -c . "$queue")" -ge 1 ] || { rm -f "$queue" 2>/dev/null ; exit 1 ; }
+grep -E '^https' "$queue" > "$DOWNLOAD_QUEUE"
+
+if [ -f "$DOWNLOAD_QUEUE" ]; then
+    [ -f "$queue" ] && rm -f "$queue"
+    ( [ -t 1 ] && echo "starting queue downloads.." ) || notify-send "[mpvqdl]" "starting queue downloads.."
+    ulimit -n 1024
+    parallel -j0 -N"$(nproc)" \
+             --verbose \
+             --joblog "$HOME/.local/var/log/ydl_download_queue.log" \
+             --progress \
+             ::: ydl \
+             :::: "$DOWNLOAD_QUEUE"
+fi
+
+[ -f "$DOWNLOAD_QUEUE" ] && rm -f "$DOWNLOAD_QUEUE"
+
+exit 0

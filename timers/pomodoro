@@ -1,0 +1,20 @@
+#!/bin/sh
+# -*- mode: sh; -*-
+# Time-stamp: <2025-07-01 21:03:40 cf>
+
+# Launcher wrapper for `timer':
+#     Reads timer duration with dmenu then displays countdown in dwmbar' embeded st terminal window.
+# Dependencies: dwm dmenu xwininfo date bash xorg-server awk
+
+time=$(dmenu -p "minuterie:")
+
+[ -n "$time" ] || { echo "Usage: pomodoro <HH:MM:SS>" ; exit 1 ; }
+
+wininfo=$(xwininfo -root -tree | grep '("dwm" "dwm")')
+winid=$(echo "$wininfo" | awk '{print $1}')
+win_g=$(echo "$wininfo" | awk '{print $7}')
+win_h=$(echo "$win_g" | cut -d+ -f1 | cut -d 'x' -f2)
+
+setsid -f st -w "$winid" -g 11x1+2128+2 -i -e timer "$time"
+
+exit 0

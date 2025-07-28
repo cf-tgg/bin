@@ -1,0 +1,120 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-05 12:17:21 cf>
+
+#                       __
+#   _______ __  _____ _/ /  ___ _____
+#  / __/ _ `/ |/ / _ `/ _ \/ _ `/ __/
+#  \__/\_,_/|___/\_,_/_.__/\_,_/_/
+
+#  Name: cavabar
+#  Version: 0.1.0
+
+#  Copyright (C) 2025 cf dot gg
+
+#  Author: cf <cf.gg.tty@protonmail.com>
+#  Github: <https://github.com/cf-tgg/>
+#  Gitlab: <https://gitlab.com/cf-gg/>
+#  Codeberg: <https://codeberg.org/cfggtty/>
+
+#  NAME
+#      cavabar --- cava visualizer controller for X11 WM's
+#
+#  SYNOPSIS
+#       Generate and control a cava instance in an embedded terminal.
+#       Used for creating and managing the embedded terminal instance:
+#        - Move, show/hide, resize the window.
+#        - Send valid cava keys for visualizer adjustments.
+#
+#  DEPENDENCIES
+#       Required: cava wmctrl xwindinfo xdo xdotool st (or another xterm)
+#
+#       Also requires a working sound configuration:
+#         (recommended)  pulseaudio pipewire alsa wireplumber
+#
+#       And a media player:
+#         (recommended)  mpd mpc mpv vlc
+
+CAVAWIN="/tmp/cava.winid"
+CAVASHW="/tmp/cava.hidden"
+CAVAINS=$(cat "$CAVAWIN")
+CAVALOG="$HOME/.local/var/log/cavabar.log"
+# dwm bar on top
+TOPBAR=1
+# bar height in pixels
+BAR_H=45
+# fullscreen width (e.g. 1920 for 1920x1080 resolution)
+BAR_W=2256
+
+
+logerr() { ts=$(date +"%F %H:%M:%S") ; printf '[%s] %s' "$ts" "$*" >> "$CAVALOG" ; }
+
+cava_visualizer() {
+    barwin=$(xwininfo -root -tree | awk '/("dwm" "dwm")/ {print $1}')
+    if ! pidof -xs cava >/dev/null 2>&1; then
+        st -n "cavaviz" -w "$barwin" -t "cavaviz" -g 14x2+800+1 -e cava &
+        cava_pid=$!
+        echo "$cava_pid" >/tmp/cava.pid
+        sleep 0.2
+        cavawid=$(xwininfo -tree -id "$barwin" | awk '/cavaviz/ {print $1}')
+        [ -n "$cavawid" ] && echo "$cavawid" >"$CAVAWIN"
+    else
+        pid=$(cat "$cava_pid") ; kill -15 "$cava_pid" || {
+            ps aux | grep -v 'grep' | grep -E "cavaviz" | awk '{print $2}' | xargs kill 2>/dev/null
+        } ; [ -f "$cava_pid" ] && rm -f "$cava_pid"
+    fi
+}
+[ -f "$CAVAWIN" ] && [ -n "$CAVAINS" ] || cava_visualizer
+
+cava_send_key() { keys="$@" ; ( [ -n "$keys" ] && xdotool key --clearmodifiers --window "$CAVAINS" "$keys" ) || return 1 ; }
+cava_show_hide() { ( [ ! -f "$CAVASHW" ] && xdo hide "$CAVAINS" && echo "$CAVAINS" >"$CAVASHW" ) || { xdo show "$CAVAINS" && rm -f "$CAVASHW" ; } ; }
+
+toupper(){
+    echo "$@" | tr abcdefghijklmnopqrstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ
+}
+
+tolower(){
+    echo "$@" | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz
+}
+
+c_escape(){
+    echo "$*" | sed 's/["\\]/\\\0/g'
+}
+
+sh_quote(){
+    v=$(echo "$1" | sed "s/'/'\\\\''/g")
+    test "x$v" = "x${v#*[!A-Za-z0-9_/.+-]}" || v="'$v'"
+    echo "$v"
+}
+
+cleanws(){
+    echo "$@" | sed 's/^ *//;s/[[:space:]][[:space:]]*/ /g;s/ *$//'
+}
+
+cava_resize() {
+    x=2
+    y=0
+    w="${BAR_W}"
+    h="${BAR_H}"
+    F=0
+
+    while getopts "x:y:w:h:i:fs"  ; do
+        case "$1" in
+            s) cava_show_hide ;;
+            x) x="$OPTARG" ;;
+            y) y="$OPTARG" ;;
+            w) w="$OPTARG" ;;
+            h) h="$OPTARG" ;;
+            f) x=2 ; w="$BAR_W" ; h="$BAR_H" ; ;;
+            i) F="$OPTARG" ;;
+        esac
+    done
+    shift $(($OPTIND-1))
+    OPTIND=1
+    [ $F -gt 0 ] && w=$((BAR_W / F))
+    mvargs="0,${y},${x},${w},${h}"
+    wmctl -r "${CAVAWIN}" -i -e "${mvargs}"
+}
+
+
+exit 0

@@ -1,0 +1,4 @@
+#!/bin/sh
+
+xdotool getactivewindow windowactivate --sync %1 key --clearmodifiers super+shift+space
+exit 0

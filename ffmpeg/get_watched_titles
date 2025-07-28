@@ -1,0 +1,10 @@
+#!/bin/sh
+# This script is used to generate a history file for watched ytvideos
+# It reads the watched file and for each line it fetches the title of the video
+# and writes the line and the title to the history file
+# The watched file is a file containing the codes of watched videos
+
+while read -r line; do
+  title=$(yt-dlp -e -- "${line}" 2>/dev/null)
+  echo "${line} ${title}" >> history
+done < watched

@@ -1,0 +1,147 @@
+#!/bin/sh
+# dsurfraw wrapper for multiple elvi queries at once
+
+# Define elvi groups with corresponding elvi in space-separated strings
+acronyms="acronym wikipedia cia cite"
+pkgs="archpkg cpan aur finkpkg genportage github gitlab debpackages debpts debvcsbrowse openbsd"
+science="arxiv pubmed science deblists gcache mathworld ntrs pgdoc"
+searchengines="bing duckduckgo google yahoo"
+databases="amazon freedb gutenberg javasun mininova"
+musicdb="discogs lastfm musicbrainz jamendo"
+dev="f5 foldoc gmane ixquick l1sp macports mysqldoc oracle_search priberam pubmed rae rfc S scholar"
+programming="cpan cran cppreference tricks dart dbus debian docs rspec rubydoc sdl selenese solr sourceforge stackoverflow"
+webdocs="phpdoc react hugo css"
+dicts="wikipedia"
+docs="docker dockerhub dos equake git gitlab golang junit makefile man mongodb php pypi python redis ruby rust toml"
+vim="vim vimdocs"
+tech="arxiv bioinformatics biorxiv chemistry engadget newsfeed planetmath searchjournal"
+news="bbcnews bbc sport cnn foxnews huffpost news"
+cmdtools="commandlinefu bash bro cut dstat elvis fdupes ffmpeg fish fzf gawk htop jq less lolcat lsof lsblk mlocate mv nmap netstat ntfs-3g pgrep ping pkg xargs"
+sysadmin="commandlinefu apt aur bsd genpkg grep ifconfig journalctl lsof lsmod mount pkgadd"
+academia="arxiv citeseer cochrane core doi jstor math review"
+entertainment="amazon bookfinder discogs lastfm musicbrainz"
+misc="bugmenot acronym currency docdev exiftool ipfs"
+whatisthis="leodict "
+# List of available elvi groups
+elvi_groups="acronyms pkgs science searchdb dev programming docs tech musicdb news cmdtools sysadmin academia entertainment misc"
+
+# Parse command-line arguments
+# while [ -n "$1" ]; do
+#     case "$1" in
+#         -h|--help)
+#             echo "Usage: dq [elvi_group] [query]"
+#             echo "Available elvi groups:"
+#             for group in $elvi_groups; do
+#                 echo "  $group"
+#             done
+#             exit ;;
+#         acronyms|pkgs|science|searchengines|databases|dev|programming|docs|tech|musicdb|news|cmdtools|sysadmin|academia|entertainment|misc)
+#             elvi_group="$elvi_group $1" # Append valid elvi group to elvi_group
+#             shift ;;
+#         --*)
+#             break ;; # Stop on '--' argument
+#         *)
+#             elvi_group="$elvi_group $1" # Append custom elvi if not a valid group
+#             shift ;;
+#     esac
+# done
+
+# # Use default searchengines group if no specific elvi group is defined
+# if [ -z "$elvi_group" ]; then
+#     elvi_group="searchengines"
+# fi
+
+# # Collect the query as an unquoted string (no quotes around "$*")
+# query=$*
+# surfraw $(echo "$query" | sed 's/ "--"//') &
+# # Execute dsurfraw for each individual elvi in the provided elvi groups
+# for group in $elvi_group; do
+#     case "$group" in
+#         acronyms) elvis="$acronyms" ;;
+#         pkgs) elvis="$pkgs" ;;
+#         science) elvis="$science" ;;
+#         searchengines) elvis="$searchengines" ;;
+#         databases) elvis="$databases" ;;
+#         dev) elvis="$dev" ;;
+#         programming) elvis="$programming" ;;
+#         docs) elvis="$docs" ;;
+#         tech) elvis="$tech" ;;
+#         musicdb) elvis="$musicdb" ;;
+#         news) elvis="$news" ;;
+#         cmdtools) elvis="$cmdtools" ;;
+#         sysadmin) elvis="$sysadmin" ;;
+#         academia) elvis="$academia" ;;
+#         entertainment) elvis="$entertainment" ;;
+#         misc) elvis="$misc" ;;
+#         webdocs) elvis="$webdocs" ;;
+#         vim) elvis="$vim" ;;
+#         dicts) elvis="$dicts" ;;
+#         *) elvis="$group" ;; # Handle custom elvi
+#     esac
+
+#     for elvi in $elvis; do
+#         dsurfraw -e $elvi $query &
+#     done
+#        # surfraw $query &
+# done
+
+# Initialize an empty elvi_group variable
+elvi_group=""
+
+# Parse command-line arguments
+while [ -n "$1" ]; do
+    case "$1" in
+        -h|--help)
+            echo "Usage: dq [elvi_group] [query]"
+            echo "Available elvi groups:"
+            for group in $elvi_groups; do
+                echo "  $group"
+            done
+            exit
+            ;;
+        acronyms|pkgs|science|searchengines|databases|dev|programming|docs|tech|musicdb|news|cmdtools|sysadmin|academia|entertainment|misc)
+            shift
+            ;;
+        -q) shift
+            break
+            ;;
+        *) elvi_group="$elvi_group $1" # Append valid elvi group to elvi_group
+            shift
+            ;;
+    esac
+done
+
+[ -z "$elvi_group" ] && elvi_group="searchengines"
+query=$*
+# Execute dsurfraw for each individual elvi in the provided elvi groups
+for group in $elvi_group; do
+    case "$group" in
+        acronyms) elvis="$acronyms" ;;
+        pkgs) elvis="$pkgs" ;;
+        science) elvis="$science" ;;
+        searchengines) elvis="$searchengines" ;;
+        databases) elvis="$databases" ;;
+        dev) elvis="$dev" ;;
+        programming) elvis="$programming" ;;
+        docs) elvis="$docs" ;;
+        tech) elvis="$tech" ;;
+        musicdb) elvis="$musicdb" ;;
+        news) elvis="$news" ;;
+        cmdtools) elvis="$cmdtools" ;;
+        sysadmin) elvis="$sysadmin" ;;
+        academia) elvis="$academia" ;;
+        entertainment) elvis="$entertainment" ;;
+        misc) elvis="$misc" ;;
+        webdocs) elvis="$webdocs" ;;
+        vim) elvis="$vim" ;;
+        dicts) elvis="$dicts" ;;
+        *) elvis="$group" ;; # Handle custom elvi
+    esac
+
+    for elvi in $elvis; do
+        dsurfraw -e $elvi -q "$query" &
+    done
+done
+
+sr "$query" &
+wait

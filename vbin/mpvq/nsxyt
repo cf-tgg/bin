@@ -1,0 +1,23 @@
+#!/bin/bash
+
+METADB="$HOME/Videos/yt/metadb.json"
+PLAYLIST="$HOME/.playlist"
+
+# Ensure playlist file exists
+[ ! -f "$PLAYLIST" ] && touch "$PLAYLIST"
+
+search="$*"
+
+tmp=$(mktemp)
+jq -r --arg search "$search" '.[] | select(.title, .description | contains($search))' "$METADB" | jq -r '.path' | sort -u | nsxiv -tio >> "$tmp"
+
+while read -r f; do
+  [ -f "$f" ] || continue
+  entry=$(exifjpg -M "$f")
+  grep -qxF "$entry" "$PLAYLIST" || echo "$entry" >> "$PLAYLIST"
+done < "$tmp"
+rm -f "$tmp"
+
+if [ -s "$PLAYLIST" ]; then
+  stnvim "$PLAYLIST" && mpv --profile=fast --playlist="$PLAYLIST" &
+fi

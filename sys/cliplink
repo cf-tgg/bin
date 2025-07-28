@@ -1,0 +1,5 @@
+#!/bin/sh
+
+clipboard="$(xclip -selection clipboard -o)"
+linkhandler "$clipboard"
+notify-send -a "linkhandler" -i ~/Pictures/icons/dunst_icons/handup.png -t 1000 -r 8686 "linkhandler" "$clipboard"

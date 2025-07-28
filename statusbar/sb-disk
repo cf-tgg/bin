@@ -1,0 +1,55 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-08 19:42:53 cf>
+
+# Status bar module for disk space
+# $1 should be drive mountpoint, otherwise assumed /.
+
+location=${1:-/}
+
+[ -d "$location" ] || exit 1
+
+cava_visualizer() {
+    barwin=$(xwininfo -root -tree | awk '/("dwm" "dwm")/ {print $1}')
+    if ! pidof -xs cava >/dev/null 2>&1; then
+        st -n "cavaviz" -w "$barwin" -t "cavaviz" -g 14x2+1510+1 -e cava &
+        cava_pid=$!
+        echo "$cava_pid" >/tmp/cava.pid
+        sleep 0.2
+        cavawin=$(xwininfo -tree -id "$barwin" | awk '/cavaviz/ {print $1}')
+        [ -n "$cavawin" ] && echo "$cavawin" >/tmp/cava.winid
+    else
+        pid=$(cat "$cava_pid") ; kill -15 "$cava_pid" || {
+            ps aux | grep -v 'grep' | grep -E "cavaviz" | awk '{print $2}' | xargs kill 2>/dev/null
+        } ; [ -f "$cava_pid" ] && rm -f "$cava_pid"
+    fi
+}
+
+cava_send_key() {
+    [ -f "/tmp/cava.winid" ] || return 1
+    cava=$(cat /tmp/cava.winid)
+    [ -n "$cava" ] && xdotool key --window "$cava" "$@" || return 1
+    return 0
+}
+
+case $BLOCK_BUTTON in
+	1) notify-send "💽 libre" "$(df -h --output=target,used,size)" ;;
+        2) cava_visualizer ;;
+	3) key=$(printf "b\\nf\\nr\\nLeft\\nRight\\nUp\\nDown\\n" | dmenu -i -p '[cava]:')
+           [ -n "$key" ] && cava_send_key "$key" || exit 1 ;;
+        4) cava_send_key alt+shift+j || exit 1 ;;
+        5) cava_send_key alt+shift+k || exit 1 ;;
+	6) emc "$0" ;;
+esac
+
+case "$location" in
+	"/home"* ) icon="🏠" ;;
+	"/mnt"* ) icon="💾" ;;
+	*) icon=" ";;
+esac
+
+# used/total percentage
+# printf "%s\n" "$(df -h "$location" | awk ' /[0-9]/ {print $3 "/" $2 " " $5}')"
+
+# percentage only
+printf "%s %s\n" "$icon" "$(df -h "$location" | awk ' /[0-9]/ {print $5}')"

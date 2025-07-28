@@ -1,0 +1,20 @@
+#!/bin/sh
+
+ifinstalled ffmpeg yt-dlp mpv magick || { pacman -S magick ffmpeg mpv yt-dlp || apt install magick ffmpeg mpv yt-dlp ; }
+
+[ $# -gt 0 ] || { echo "must provide a minimal search string. (any character would do.)" ; exit 1 ; }
+
+temp=$(mktemp --suffix=".ytdlp")
+
+yt-dlp --embed-metadata -i -x -f bestaudio/best --write-thumbnail "ytsearch:$*" -o "$HOME/Downloads/music/%(title)s.%(ext)s" >"$temp"
+audio=$(grep "\.opus" "$temp" | awk -F " Destination:" '{print $2}' | sed -s "s/^ //;s/ $//")
+thumbnail=$(grep "\[info\] Writing video thumbnail" "$temp" | awk -F " to:" '{print $2}' | sed -s "s/^ //;s/ $//")
+
+echo -e "$audio\n$thumbnail" 
+# {
+#     rm -f "$temp"
+#     rm -f /tmp/*.ytdlp
+# }
+
+setsid -f mpv "$audio" >/dev/null 2>&1
+

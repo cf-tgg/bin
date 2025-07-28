@@ -1,0 +1,35 @@
+#!/bin/sh
+
+# Function to format mediainfo output
+format_mediainfo_output() {
+    mediainfo "$1" | awk -F ': ' '
+    BEGIN {
+        max_key_length = 0
+    }
+    {
+        if ($1 ~ /^[^:]+/) {
+            key = $1
+            gsub(/^ +| +$/, "", key)
+            if (length(key) > max_key_length) {
+                max_key_length = length(key)
+            }
+        }
+        lines[NR] = $0
+    }
+    END {
+        for (i = 1; i <= NR; i++) {
+            if (lines[i] ~ /^[^:]+: /) {
+                key = substr(lines[i], 1, index(lines[i], ":") - 1)
+                value = substr(lines[i], index(lines[i], ":") + 1)
+                gsub(/^ +| +$/, "", key)
+                gsub(/^ +| +$/, "", value)
+                printf "%-*s: %s\n", max_key_length + 1, key, value
+            } else {
+                print lines[i]
+            }
+        }
+    }'
+}
+
+# Usage
+format_mediainfo_output "$1"

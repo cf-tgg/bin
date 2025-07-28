@@ -1,0 +1,38 @@
+#!/bin/sh
+
+verb="$1"
+[ -z "$verb" ] && { echo "Usage: $0 <verb>"; exit 1; }
+
+LC_ALL=en_US.UTF-8 curl -sL "https://conjugaison.bescherelle.com/verbes/$verb" |
+iconv -f utf-8 -t utf-8 2>/dev/null |
+xmllint --html --xpath '//div[contains(@class,"card-type")]/div/h4 | //div[contains(@class,"card-body")]/h5 | //p' - 2>/dev/null |
+
+# Use ~ as sed delimiter and inject markers
+sed -e 's~<h4[^>]*>~\n#MODE# ~g' \
+    -e 's~<h5[^>]*>~\n#TENSE# ~g' \
+    -e 's~<personal-pronoun>~\n#PP# ~g' -e 's~</personal-pronoun>~~g' \
+    -e 's~<auxiliary>~ #AUX# ~g' -e 's~</auxiliary>~~g' \
+    -e 's~<verb>~ #V# ~g' -e 's~</verb>~~g' \
+    -e 's~<[^>]*>~~g' |
+sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/  */ /g' |
+awk -v verb="$verb" '
+BEGIN {
+    print "#+title: Conjugaison du verbe " verb
+}
+/^#MODE#/ {
+    sub(/^#MODE# /, "", $0)
+    print "\n* " $0
+    next
+}
+/^#TENSE#/ {
+    sub(/^#TENSE# /, "", $0)
+    print "\n** " $0 "\n"
+    next
+}
+{
+    gsub(/#PP# /, "", $0)
+    gsub(/#AUX# /, "", $0)
+    gsub(/#V# /, "", $0)
+    if (NF) print $0
+}
+' > "${verb}.org"

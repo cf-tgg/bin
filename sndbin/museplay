@@ -1,0 +1,148 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+INVINST="https://vid.puffyan.us"
+TITLES="$HOME/.cache/mpd-title"
+STREAMS="$HOME/.cache/mpd-streams"
+SCOUNT=$(grep -c . "$STREAMS")
+TCOUNT=$(grep -c . "$TITLES")
+HISTORY="$HOME/Downloads/albums/history.playmuse"
+PLAYLIST="${XDG_CONFIG_HOME:-$HOME/.config}/mpd/playlists/streams.m3u"
+TTS_VERBOSE=0
+VERBOSE=0
+
+[ $# -ge 1 ] || exit 1
+
+input="$*";
+
+find_link() { echo "$input" | grep -Eo "/watch\?v=.{11}" | head -n1 ; }
+yt_query() {
+    query="$(printf '%s' "$input" | tr ' ' '+' )"
+    input=$(curl -s "$INVINST/search?q=$query")
+    id="$(find_link)"
+    echo "$id"
+}
+
+mp() {
+  case "$1" in
+    -l|--list)
+      mplist ;
+      notify-send -a "mpctl" -r 9998 -t 2000 "$(mplist)" ;
+      return 0 ;;
+    -c|--clear)
+      :> ~/.cache/mpd-title
+      :> ~/.cache/mpd-streams
+      mpc clear && echo "clair."
+      return 0 ;;
+    -v|--voice)
+      playmuse
+      return 0 ;;
+    -n|--next)
+      mpc next >/dev/null 2>&1
+      return 0;;
+    -p|--prev)
+      mpc prev >/dev/null 2>&1
+      return 0 ;;
+    -d|--delete)
+      index="$2"
+      [ -n "$index" ] || { echo "Specify an index" >&2; return 1 ; }
+      title=$(mpc playlist | sed -n "${index}p")
+      stream=$(grep -Fx "$title" "$HOME/.cache/mpd-streams")
+      if [ -n "$stream" ]; then
+         sid=$(grep -nFx "$title" "$HOME/.cache/mpd-streams" | awk -F: '{print $1}')
+         t=$(sed -n "${sid}p" "$HOME/.cache/mpd-title")
+         sed -i "${sid}d" ~/.cache/mpd-streams
+         sed -i "${sid}d" ~/.cache/mpd-title
+         printf "%s *removed*\n" "$t"
+       else
+         printf "%s *removed*\n" "$title"
+       fi
+       mpc del "${index}" >/dev/null 2>&1
+       mplist
+       return 0 ;;
+    -dl|--download)
+      index="$2"
+      [ -n "$index" ] || { echo "Specify an index" >&2; return 1 ; }
+      title="$(mpc playlist | sed -n "${index}p")"
+      stream=$(grep -Fx "$title" "$HOME/.cache/mpd-streams")
+      if [ -n "$stream" ]; then
+         sid="$(grep -nFx "$title" "$HOME/.cache/mpd-streams" | awk -F: '{print $1}')"
+         t="$(sed -n "${sid}p" "$HOME/.cache/mpd-title")"
+         link=$(grep -F "$t" "$HOME/Downloads/albums/history.playmuse" | awk -F' # ' '{print $1}'| sort -u)
+         ydl -a "$link"
+       else
+         mplist
+         echo "$title is local."
+         return 1
+      fi
+      return 0 ;;
+    *) query="$*" ;;
+  esac
+  museplay "$query" >/dev/null && \
+  mplist
+  return 0
+}
+
+rdi() {
+  t="Ici Première"
+  s="https://rcavliveaudio.akamaized.net/hls/live/2006635/P-2QMTL0_MTL/adaptive_192/chunklist_ao.m3u8"
+  echo "$t" >> "$TITLES"
+  echo "$s" | tee -a "$STREAMS" | mpc add
+}
+
+mpc_play() { mpc status | grep -qE 'playing' || mpc play ; }
+
+case "$input" in
+  *youtube*) id=$(find_link) ;;
+  radio) rdi && mpc_play && exit 0 ;;
+  *) id=$(yt_query) ;;
+esac
+
+url="https://youtube.com$id"
+aurl="$(yt-dlp -q --no-warnings --skip-download -f bestaudio --get-url "$url")"
+title=$(yt-dlp  -q --no-warnings --skip-download --get-title "$url"|sed -E 's/\([Ff]ull [Aa]lbum\)/-/g; s/\( [Ff]ull [Aa]lbum \)/-/g; s/[Ff]ull [Aa]lbum//g;s/\{\}/-/g;s/  / /g;s/ $//; s/-$//;'| sed -E 's/(\s|^)(18[0-9]{2}|19[0-9]{2}|20[0-9]{2})(\s|$)/\1(\2)\3/g'| sed 's/\xE2\x80\xB9\x0332//g' | perl -CSD -pe 's/\x{0332}//g')
+# duration=$(yt-dlp -q --no-warnings --skip-download --get-duration "$url")
+uid=${id#/watch\?v=}
+
+tts_notify() { google_speech "$title" ; }
+notify() { notify-send -a "museplay" -r 9998 -t 3000 "$@" ; }
+# ytdlp_track_duration() { [ -n "$duration" ] && echo "$duration" | awk -F: '{print ($1 * 60) + $2}' ; }
+list_stream_titles() { [ -n "$TITLES" ] && [ "$TCOUNT" -gt 1 ] && nl "$TITLES" ; }
+
+mpc_current_playlist() { mpc status | grep -q 'playing|paused' | awk '{print $2}' ; }
+mpc_current_duration() { mpc status | grep -q 'playing|paused' | awk '{print $3}' ; }
+mpc_current_track_time() { mpc_current_duration | cut -d '/' -f1 ; }
+mpc_current_track_tduration() { mpc_current_duration | cut -d '/' -f2 ; }
+
+mpc_extinf() {
+  [ -n "$title" ] || return 1
+  printf "#EXTINF:,%s\n$aurl\n" "$title" >> "$PLAYLIST" || return 1
+  return 0
+}
+
+# mpc_extinf() {
+#   track_seconds=$(ytdlp_track_duration)
+#   [ -n "$track_seconds" ] && [ -n "$title" ] && [ -n "$uid" ] || return 1
+#   echo "#EXTINF:Duration,Title,ID" | tee -a "$PLAYLIST" &
+#   echo "#EXTINF:$track_seconds,$title,$uid" | tee -a "$PLAYLIST" &
+#   echo "$aurl" | tee -a "$PLAYLIST" &
+#   return 0
+# }
+
+add_link() {
+  [ -n "$title" ] && [ -n "$aurl" ] || return 1
+  echo "$title" >> "$TITLES"
+  echo "$aurl" >> "$STREAMS"
+  mpc add "$aurl" || return 1
+}
+
+# mpc playlist | grep -qFx "$aurl"
+[ "$TTS_VERBOSE" -eq 1 ] && tts_notify &
+[ -t 1 ] && echo "$title"
+# [ "$VERBOSE" -eq 1 ] && notify "$(mpc-playlist|nl)" &
+add_link && mpc_play && notify "$(mpc-playlist|nl)"
+mpc_extinf &
+# notify "$title" "$duration" &
+grep -qF "^$url*" "$HISTORY" || echo "$url # $uid # $title" >> "$HISTORY"
+
+exit 0

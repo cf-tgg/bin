@@ -1,0 +1,21 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+kb="$(setxkbmap -query | grep -oP 'layout:\s*\K\w+')" || exit 1
+
+if [ "$kb" = "us" ]; then
+    kb="ca"
+else
+    kb="us"
+fi
+
+setxkbmap "$kb"
+pkill -RTMIN+30 "${STATUSBAR:-dwmblocks}"
+
+[ $(xset -q | grep rate | awk '{print $4+$7}') -eq 466 ] || remaps
+
+notify-send -a "kb-toggle" -t 1000 -r 3333 -i "$HOME/Pictures/icons/dunst_icons/kb.png" "$kb"
+
+[ -t 1 ] && echo "$kb"
+
+exit 0 ;

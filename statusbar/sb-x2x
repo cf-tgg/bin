@@ -1,0 +1,57 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:30:00 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+#  Copyright (C) 2025 cf dot gg
+
+#  Author: cf <cf.gg.tty@protonmail.com>
+#  Github: <https://github.com/cf-tgg/>
+#  Gitlab: <https://gitlab.com/cf-gg/>
+#  Codeberg: <https://codeberg.org/cfggtty/>
+#  Version: 0.1.0
+
+usage() {
+    env SC=$0 envsubst <<-'MAN'
+
+    ${SC} --- X2X dwmbar module
+
+    NAME
+        ${SC}
+
+    USAGE
+        ${SC} -[hv]
+
+    OPTIONS
+        -v    verbose
+        -h    help        display this help message
+
+    SEE ALSO
+        x2x(1)    dwm(1)    signals(2)
+
+MAN
+}
+
+notify() {
+   if [ ! -t 1 ]; then
+       if command -v notify-send >/dev/null 2>&1 ; then
+           notify-send "$@"
+       else
+           echo "$@" >&2
+       fi
+   else
+       echo "$@" >&2
+   fi
+}
+
+#  updateicon() {
+#     echo "$1" >/tmp/x2xicon
+#     pkill -RTMIN+21 "${STATUSBAR:-dwmblocks}"
+#  }
+
+case $BLOCK_BUTTON in
+    1) dx2x -e ;;
+    2) emc ~/.Xresources && xrdb -merge ~/.Xresources && wmreup ;;
+    3) "$TERMINAL" -e "fzhsync" ; emc "$HOME/.local/var/log/fzhsync.log" ;;
+    6) emc "$0" || { "$TERMINAL" -e "$EDITOR" $0 ; } ;;
+esac

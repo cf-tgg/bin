@@ -1,0 +1,48 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+# Prints all batteries, their percentage remaining and an emoji corresponding
+# to charge status (🔌 for plugged up, 🔋 for discharging on battery, etc.).
+#  notify-send "🔋 Battery module" "🔋: discharging
+#      🛑: not charging
+#      ♻: stagnant charge
+#      🔌: charging
+#      ⚡: charged
+#      ❗: battery very low!
+#      - Scroll to change adjust xbacklight."
+
+case $BLOCK_BUTTON in
+    1) if [ -f "/tmp/cava.winid" ]; then
+               cava=$(cat /tmp/cava.winid)
+               ( [ ! -f "/tmp/cava.hidden" ] && xdo hide "$cava" && echo "$cava" >/tmp/cava.hidden ) || { xdo show "$cava" && rm -f "/tmp/cava.hidden" ; }
+       fi
+       ;;
+    2) ewww-browse -d ;;
+    3) sysact  ;;
+    4) bright 2 ;;
+    5) bright -2 ;;
+    6) emc "$0" ;;
+esac
+
+
+# Loop through all attached batteries and format the info
+for battery in /sys/class/power_supply/BAT?*; do
+	# If non-first battery, print a space separator.
+	[ -n "${capacity+x}" ] && printf " "
+	# Sets up the status and capacity
+	case "$(cat "$battery/status" 2>&1)" in
+		"Full") status="⚡" ;;
+		"Discharging") status="🔋" ;;
+		"Charging") status="🔌" ;;
+		"Not charging") status="🛑" ;;
+		"Unknown") status="♻️" ;;
+		*) exit 1 ;;
+	esac
+	capacity="$(cat "$battery/capacity" 2>&1)"
+	# Will make a warn variable if discharging and low
+	[ "$status" = "🔋" ] && [ "$capacity" -le 25 ] && warn="❗"
+	ac="$(cat /sys/class/power_supply/ACAD/online)"
+	[ "$ac" = 1 ] && [ "$capacity" -gt 80 ] && exit 0;
+	# Prints the info
+	printf "%s%s%d%%" "$status" "$warn" "$capacity"; unset warn
+done && printf "\\n"

@@ -1,0 +1,39 @@
+#!/bin/bash
+
+DIR="${1:-.}"                                  # Répertoire d'entrée
+cd "$DIR" || exit 1
+OUT="$(basename "$(pwd)")"                     # Nom du fichier de sortie
+LST=($(ls -1 -- *.jpg))                        # Liste des images
+TOT=${#LST[*]}                                 # Nombre total d'images
+f="${LST[0]}"                                  # Première image
+tt=${2:-6}                                     # Durée totale de chaque image
+tr=${3:-1}                                     # Durée de transition
+INP=("-loop" "$tr" "-t" "$tt" "-i" "$f")       # Arguments du filtre de la première image
+PDX="[0]"                                      # Identifiant de flux d'entrée pour la première image
+FLX=""                                         # Initialisation du filtre de transition
+OFS=$((tt - tr))                               # valeur `Offset` de la première transition
+                                               # (5 secondes par défaut (6tt - 1tr))
+
+# Ajout de chaque image à la liste d'entrée et création des filtres de transition
+for (( i=1; i<TOT; i++ )); do
+  f="${LST[$i]}"
+  # Si c'est la dernière image, et non la dernière batch, ajouter tt secondes de plus pour prendre en compte la transition de la jointure finale.
+  if [[ $i -eq $((TOT - 1)) ]]; then
+    INP+=("-loop" "$tr" "-t" "$((tr + tt))" "-i" "$f")  # la dernière image aura une durée totale de 7 secondes
+  else
+    INP+=("-loop" "$tr" "-t" "$tt" "-i" "$f")  # les autres images auront une durée totale de 6 seconds (transitions comprises)
+  fi
+
+  # Création du filtre de transition pour la paire d'images actuelle
+  FLX+="${PDX}[${i}]xfade=transition=fade:duration=${tr}:offset=${OFS}[xf${i}];"
+
+  # Mise à jour de `PDX` à l'identifiant de sortie de la transition précédente pour la prochaine boucle.
+  PDX="[xf${i}]"
+  ((OFS += 5))
+done
+
+# finalisations et exécution de la commande ffmpeg
+echo "$FLX"
+echo ""
+rm -f /tmp/"$OUT".mp4
+ffmpeg "${INP[@]}" -filter_complex "${FLX%?}" -map "${PDX}" -c:v libx264 -crf 20 -y "$OUT".mp4 -hide_banner

@@ -1,0 +1,32 @@
+#!/bin/sh
+
+# MPV_PID="/tmp/mpvq.pid"
+# MPV_SOCK="/tmp/mpv.sock"
+# MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.m3u8"
+# MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+
+# pcount="$(wc -l < "$MPVQ_PLAYLIST")"
+# tcount="$(wc -l < "$MPVQ_TITLES")"
+# MPCOUNT=$(((pcount / 2) - 1))
+# TCOUNTS=$((tcount - 1))
+
+# print_titles() { nl "$MPVQ_TITLES" ; }
+# updateicon() {
+#     echo "$1" > /tmp/mpvqicon
+#     pkill -RTMIN+13 "${STATUSBAR:-dwmblocks}"
+# }
+
+# while [ "$MPCOUNT" -ne "$TCOUNTS" ]; do
+#     updateicon ""
+#     grep -E "^#EXTINF" "$MPVQ_PLAYLIST" | awk -F, '{print $2}' > "$MPVQ_TITLES"
+#     pcount="$(wc -l < "$MPVQ_PLAYLIST")"
+#     tcount="$(wc -l < "$MPVQ_TITLES")"
+#     MPCOUNT=$(((pcount / 2) - 1))
+#     TCOUNTS=$((tcount - 1))
+#     if [ "$TCOUNTS" -eq "$MPCOUNT" ]; then
+#         notify-send -a "ytdlp" -r 9999 -t 3000 "[ mpvq - $MPCOUNT ]" "$(print_titles)"
+#         updateicon ""
+#         break
+#     fi
+# done
+# echo "$MPCOUNT" && exit 0

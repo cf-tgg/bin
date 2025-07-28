@@ -1,0 +1,149 @@
+#!/bin/bash
+
+# Create the directory for FLAC files
+flac_dir="$(basename "$(pwd)")"
+mkdir -p "${flac_dir}"
+
+copy_metadata() {
+  f="$1"
+  metadata=$(mediainfo --output=JSON "$f" | jq -r '.media.track[0] | to_entries | .[] | "\(.key)=\(.value)"')
+  metadata_options=()
+  while IFS="=" read -r key value; do
+    # Skip unwanted metadata keys
+    [ -z "$key" ] || [ -z "$value" ] || \
+      [ "$key" = "@type" ] || \
+      [ "$key" = "extra" ] || \
+      [ "$key" = "Format" ] || \
+      [ "$key" = "FileExtension" ] || \
+      [ "$key" = "File_Modified_Date" ] || \
+      [ "$key" = "Track name/Position" ] || \
+      [ "$key" = "Overall bit rate mode" ] || \
+      [ "$key" = "Overall bit rate" ] || \
+      [ "$key" = "Complete name" ] || \
+      [ "$key" = "Part_Position_Total" ] || \
+      [ "$key" = "Duration" ] || \
+      [ "$key" = "File_Modified_Date_Local" ] || \
+      [ "$key" = "Encoded_Application" ] || \
+      [ "$key" = "OverallBitRate" ] || \
+      [ "$key" = "FileSize" ] || \
+      [ "$key" = "File_Modified_Date" ] && continue
+    metadata_options+=("-metadata" "$key=\"$value\"")
+  done <<< "$metadata"
+  echo "${metadata_options[@]}"
+}
+
+for file in *.opus; do
+  metadata_options=("$(copy_metadata "$file")")
+  eval "$(echo ffmpeg -i "$file" \
+    -c:a flac \
+    -compression_level 5 \
+    -sample_fmt s16 \
+    -ar 48000 \
+    -blocksize 4096 \
+    -map 0 \
+    -map_metadata 0 \
+    "${metadata_options[@]}" \
+    "$flac_dir/${file%.*}.flac")"
+done
+# copy_metadata() {
+#   f="$1"
+#   metadata=$(mediainfo --output=JSON "$f" | jq -r '.media.track[0] | to_entries | .[] | "\(.key)=\(.value)"')
+#   metadata_options=""
+#   while IFS="=" read -r key value; do
+#     [ -z "$key" ] || [ -z "$value" ] || \
+#       [ "$key" = "@type" ] || \
+#       [ "$key" = "extra" ] || \
+#       [ "$key" = "Format" ] || \
+#       [ "$key" = "FileExtension" ] || \
+#       [ "$key" = "File_Modified_Date" ] || \
+#       [ "$key" = "File_Modified_Date_Local" ] || \
+#       [ "$key" = "Encoded_Application" ] || \
+#       [ "$key" = "OverallBitRate" ] || \
+#       [ "$key" = "FileSize" ] || \
+#       [ "$key" = "File_Modified_Date" ] && continue
+#     escaped_value=$(printf '%s' "$value" | sed 's/"/\\"/g')
+#     metadata_options="$metadata_options -metadata $key=\"$escaped_value\""
+#   done <<< "$metadata"
+#   echo "$metadata_options"
+# }
+
+# for file in *.opus; do
+#   metadata_options=$(copy_metadata "$file")
+#   ffmpeg -i "$file" \
+#     -c:a flac \
+#     -compression_level 5 \
+#     -sample_fmt s16 \
+#     -ar 48000 \
+#     -blocksize 4096 \
+#     -map 0 \
+#     -map_metadata 0 "$metadata_options" \
+#     "$flac_dir/${file%.*}.flac"
+# done
+
+# copy_metadata() {
+#   f="$1"
+#   metadata=$(mediainfo --output=JSON "$f" | jq -r '.media.track[0] | to_entries | .[] | "\(.key)=\(.value)"')
+#   metadata_options=""
+#   while IFS="=" read -r key value; do
+#     [ -z "$key" ] || [ -z "$value" ] || \
+#       [ "$key" = "@type" ] || \
+#       [ "$key" = "extra" ] || \
+#       [ "$key" = "Format" ] || \
+#       [ "$key" = "FileExtension" ] || \
+#       [ "$key" = "File_Modified_Date" ] || \
+#       [ "$key" = "File_Modified_Date_Local" ] || \
+#       [ "$key" = "Encoded_Application" ] || \
+#       [ "$key" = "OverallBitRate" ] || \
+#       [ "$key" = "FileSize" ] || \
+#       [ "$key" = "File_Modified_Date" ] && continue
+#     metadata_options="$metadata_options -metadata $key=\"$value\""
+#   done <<< "$metadata"
+#   echo "$metadata_options"
+# }
+
+# for file in *.opus; do
+#   metadata_options=$(copy_metadata "$file")
+#   ffmpeg -i "$file" \
+#     -c:a flac \
+#     -compression_level 5 \
+#     -sample_fmt s16 \
+#     -ar 48000 \
+#     -blocksize 4096 \
+#     -map 0 \
+#     -map_metadata 0 \
+#     "${metadata_options}" \
+#     "$flac_dir/${file%.*}.flac"
+# done
+
+# mediainf() {
+#   f="$1"
+#   mediainfo_output=$(mediainfo "$f")
+#   album=$(echo "$mediainfo_output" | grep -E "Album" | cut -d: -f2 | xargs)
+#   title=$(echo "$mediainfo_output" | grep -E "Track name" | cut -d: -f2 | xargs)
+#   position=$(echo "$mediainfo_output" | grep -E "Track name/Position" | cut -d: -f2 | xargs)
+#   artist=$(echo "$mediainfo_output" | grep -E "Performer" | cut -d: -f2|xargs|sed 's/\(.*\) \1/\1/')
+#   date=$(echo "$mediainfo_output" | grep -E "Recorded date" | cut -d: -f2 | xargs)
+#   echo "Album: $album"
+#   echo "Title: $title"
+#   echo "Position: $position"
+#   echo "Artist: $artist"
+#   echo "Date: $date"
+# }
+
+# for file in *.opus; do
+#   mediainf "$file"
+#   ffmpeg -i "$file" \
+#     -c:a flac \
+#     -compression_level 5 \
+#     -sample_fmt s16 \
+#     -ar 48000 \
+#     -blocksize 4096 \
+#     -map 0 \
+#     -map_metadata 0 \
+#     -metadata title="$title" \
+#     -metadata artist="$artist" \
+#     -metadata album="$album" \
+#     -metadata track="$position" \
+#     -metadata date="$date" \
+#     "$flac_dir/${file%.*}.flac"
+# done

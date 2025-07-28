@@ -1,0 +1,51 @@
+#!/bin/bash
+
+# Ensure output directory exists
+mkdir -p ~/Videos/yt
+
+# Function to extract metadata and convert it to JSON
+exif2json() {
+    f=$(realpath "$1")
+    # Extract metadata from EXIF and ensure errors are ignored
+    uri=$(exiftool "$f" -UserComment -j | jq -r '.[].UserComment | fromjson | .Summary.URI // .URI' || true)
+    title=$(exiftool "$f" -UserComment -j | jq -r '.[].UserComment | fromjson | .Summary.Title // .Title' || true)
+    description=$(exiftool "$f" -UserComment -j | jq -r '.[].UserComment | fromjson | .Summary.Description // .Description' || true)
+    uploader=$(exiftool "$f" -UserComment -j | jq -r '.[].UserComment | fromjson | .Metadata.Uploader // .Uploader' || true)
+    id=$(exiftool "$f" -UserComment -j | jq -r '.[].UserComment | fromjson | .Metadata.ID // .ID' || true)
+    # Clean the strings to remove any unwanted characters (like newlines or extra quotes)
+    uri=$(echo "$uri" | sed 's/^"\(.*\)"$/\1/' | tr -d '\n' | sed 's/\r//g')
+    title=$(echo "$title" | sed 's/^"\(.*\)"$/\1/' | tr -d '\n' | sed 's/\r//g')
+    description=$(echo "$description" | sed 's/^"\(.*\)"$/\1/' | sed 's/\r//g')
+    uploader=$(echo "$uploader" | sed 's/^"\(.*\)"$/\1/' | tr -d '\n' | sed 's/\r//g')
+    id=$(echo "$id" | sed 's/^"\(.*\)"$/\1/' | tr -d '\n' | sed 's/\r//g')
+
+    # Create JSON object
+    json=$(jq -n \
+      --arg uploader "$uploader" \
+      --arg uri "$uri" \
+      --arg title "$title" \
+      --arg id "$id" \
+      --arg path "$f" \
+      --arg description "$description" \
+      '{uploader: $uploader, path: $path, uri: $uri, title: $title, id: $id, description: $description}')
+    printf "%s,\n" "$json"
+}
+
+# Find all files and get the total count
+files=$(find yt/meta/*/*.jpg -type f)
+total_files=$(echo "${files}" | wc -l)
+count=0
+
+# Begin JSON array
+echo "[" > ~/Videos/yt/metadb.json
+
+echo "${files}" | while read -r f; do
+    echo "[$count/$total_files] $f"
+    exif2json "$f" >> ~/Videos/yt/metadb.json
+    count=$((count + 1))
+done
+
+sed -i '$ s/,$//' ~/Videos/yt/metadb.json
+echo "]" >> ~/Videos/yt/metadb.json
+
+echo "Metadata extraction completed and saved to ~/Videos/yt/metadb.json"

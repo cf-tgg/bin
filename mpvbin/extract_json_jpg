@@ -1,0 +1,18 @@
+#!/bin/bash
+
+extract_json_jpg() {
+    local image_file="$1"
+
+    # Extract the JSON data from the UserComment tag
+    local json_data
+    json_data=$(exiftool -UserComment -b "$image_file")
+
+    # Print the extracted JSON data
+    if [[ -n "$json_data" ]]; then
+        echo "$json_data"
+    else
+        echo "No JSON data found in $image_file."
+    fi
+}
+
+extract_json_jpg "$1"

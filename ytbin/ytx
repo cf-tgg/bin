@@ -1,0 +1,155 @@
+#!/bin/bash
+# ytvq --- yt-dlp ytsearch extractor wrapper for uefzf
+# Date: 2025-05-27 22:58
+
+query="$*"
+[ -n "$query" ] || { echo "Usage: ytvq <query_string>" ; exit 1 ; }
+
+#{{{ Workin' dirs in cache
+QUERY_DIR=$(echo "$query" | tr -cd '[:alnum:]_-' | tr ' ' '_')
+YTVDIR="$HOME/.cache/ytviewer"
+THUMB_DIR="$YTVDIR/thumbnails"
+DOWNLOAD_DIR="$YTVDIR/downloads"
+METADIR="$YTVDIR/$QUERY_DIR"
+LOGFILE="$YTVDIR/ytviewer.log"
+LINKDIR="$HOME/Videos/yt/YTVsearch"
+for d in "$YTVDIR" "$THUMB_DIR" "$DOWNLOAD_DIR" "$METADIR" "$LINKDIR" ; do
+    [ -d "$d" ] || mkdir -p "$d"
+done
+
+echo "[ "$(date +"%Y-%m-%d %H:%M")" ] $query" | tee -a "$LOGFILE"
+
+#}}}
+#{{{ Functions
+matchuploader() {
+    uri="$1"
+    if [[ "$uri" =~ ^@* ]]; then
+        channel=$(echo "$uri" |cut -d'@' -f2)
+        # dbg echo "matched @pattern uri --> channel: $channel"
+        uploader_url="https://www.youtube.com/@${channel}"
+    fi
+    [ "$uri" != "$uploader_url" ] && uploader_url=$(yt-dlp -q -j --skip-download --no-warnings --no-abort-on-error --write-comments  "$uri" | jq -r '.uploader_url')
+    uri="$uploader_url"
+    echo "$uploader_url"
+}
+
+embed_json_thumbnail() {
+    local json_file="$1"
+    local image_file="$2"
+
+    if [[ ! -f "$json_file" ]]; then
+        echo "JSON file $json_file does not exist."
+        return 1
+    fi
+
+    j=$(basename "$json_file" .json)
+    i=$(basename "$image_file" .jpg)
+
+    if exiftool -m -q -overwrite_original -UserComment="$(<"$json_file")" "$image_file"; then
+        # echo "✅$i <- $j"
+        return 0
+    else
+        # echo "❌ $j <- $i"
+        return 1
+    fi
+}
+
+process_meta() {
+    uri="$1"
+    dldate=$(date -u +"%Y-%m-%d %H:%M:%S")
+    cf="~cf."
+    yt-dlp "$uri" -q --skip-download --no-warnings --no-abort-on-error --write-comments -j  | jq -c -r --arg dldate "$dldate" --arg cf "$cf" --arg uri "$uri" '
+            {
+                Title: .title,
+                Date: .upload_date,
+                Duration: .duration_string,
+                URI: (.webpage_url // $uri),
+                ID: .id,
+                Thumbnail: .thumbnail,
+                Description: .description,
+                Uploader: .uploader,
+                Resolution: .resolution,
+                LikeCount: .like_count,
+                ViewCount: .view_count,
+                CommentCount: .comment_count,
+                Channel: .channel,
+                ChannelFollowerCount: .channel_follower_count,
+                ChannelURL: .channel_url,
+                ChannelID: .channel_id,
+                UploaderID: .uploader_id,
+                UploaderURL: .uploader_url,
+                UploadDate: .upload_date,
+                Timestamp: .timestamp,
+                Playlist: (.playlist? // ""),
+                PlaylistIndex: (.playlist_index? // ""),
+                Subtitles: (.subtitles | {english: (.en? // []), french: (.fr? // [])}),
+                Categories: (.categories[]?| select(. != "")),
+                Tags: [ .tags[]?| select(. != "") ],
+                Chapters: [ .chapters[]? | {start_time, title} ],
+                Comments: (
+                .comments | map(select(
+                .author_is_uploader == true
+                or .is_pinned == true
+                or .like_count >= 10
+                or .text != ""))
+                | sort_by(.timestamp)
+                | reverse
+                | .[:100]
+                | map({
+                id: .id,
+                author: .author,
+                author_thumbnail: .author_thumbnail,
+                author_url: .author_url,
+                since: ._time_text,
+                timestamp: .timestamp,
+                text: .text,
+                like_count: .like_count,
+                is_pinned: .is_pinned,
+                author_is_uploader: .author_is_uploader
+            })),
+            DownloadDate: $dldate,
+            Signature: $cf
+        }' | while read -r metadata; do
+            title=$(echo "$metadata" | jq -r '.Title')
+            uploader=$(echo "$metadata" | jq -r '.Uploader')
+            video_thumbnail=$(echo "$metadata" | jq -r '.Thumbnail')
+
+            if [ -z "$title" ] || [ -z "$uploader" ]; then
+                echo "Missing metadata... Skipping..."
+                continue
+            fi
+
+            # sanitize title for filename
+            sanitized_title=$(echo "$title" | tr -cd '[:alnum:]_-' | tr ' ' '_')
+            uploader_dir="$METADIR/$uploader"
+            [ ! -d "$uploader_dir" ] && mkdir -pv "$uploader_dir"
+            [ ! -d "$LINKDIR/$uploader" ] && mkdir -pv "$LINKDIR/$uploader"
+            json_file="$uploader_dir/$sanitized_title.json"
+            echo "$metadata" > "$json_file"
+
+            if [ -n "$video_thumbnail" ]; then
+                thumb_file="$uploader_dir/$sanitized_title-thumbnail.jpg"
+                wget -q "$video_thumbnail" -O "$thumb_file"
+                magick "$thumb_file" -quality 100 "$thumb_file" 2>/dev/null
+                embed_json_thumbnail "$json_file" "$thumb_file"
+                mv "$thumb_file" "$uploader_dir/$sanitized_title.jpg" -f
+                symlink_path="$LINKDIR/$uploader"
+                sane_title=$(echo "$title" | sed 's/\///g;s/[\/:]//g; s/  / /g; s/^ //; s/\"/'\''/g')
+                luri="$symlink_path/$sane_title"
+                juri="$uploader_dir/$sanitized_title.jpg"
+                ln -sf "$juri" "$luri"
+                [ -L "$luri" ] && echo "$title, $juri, $luri" >>"$LOGFILE"
+                echo "$luri"
+            fi
+            rm -f "$json_file"
+        done
+}
+
+ytsearch() {
+    yt-dlp "ytsearch10:$1" --quiet --simulate --no-check-formats --no-abort-on-error --no-warnings --skip-download --print "%(webpage_url)s" | \
+        while read -r uri ; do
+            process_meta "$uri"
+        done
+}
+
+ytsearch "$query" | ueytv

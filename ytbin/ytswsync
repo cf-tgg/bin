@@ -1,0 +1,1 @@
+rsync -vaHAX --sparse --delete --no-owner --no-group /home/cf/Videos/yt/ /var/local/yt/

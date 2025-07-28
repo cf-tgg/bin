@@ -1,0 +1,21 @@
+#!/usr/bin/zsh
+# Add video4linux2 loopback count
+
+LOOPBACKS=($(v4l2-ctl --list-devices | grep '/dev/video' | awk '{print $NF}'))
+DEV_COUNT=$#LOOPBACKS
+WANTCOUNT={$1:-4}
+
+VNR=()
+EXCP=()
+for i in {1.."$DEV_COUNT"}; do
+	VNR+="$i"
+	EXCP+=('1')
+done
+
+VIDEO_NR=$(echo $VNR | tr -s ' ' ',')
+EXCLCAPS=$(echo $EXCP | tr -s ' ' ',')
+
+
+modprobe v4l2loopback devices=${DEV_COUNT} \
+	video_nr=${VIDEO_NR} \
+	exclusive_caps=${EXCLCAPS} \

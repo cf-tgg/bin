@@ -1,0 +1,21 @@
+#!/bin/sh
+# Backups impromptus conservant les chemins absolus
+# Récupération avec : tar -xzvf <archive>.tar.gz
+
+TARGET="$1"
+BDIR="$HOME/Documents/Backups/6-ponctuels"
+mkdir -p "$BDIR"
+
+NAME="$(basename "$TARGET"| sed 's/\.[^.]*$//')"
+TIMESTAMP="$(date +%Y-%m-%d_%H%M-%S)"
+BACKUP_NAME="${NAME}_${TIMESTAMP}.tar.gz"
+
+# Création de l'archive, conservant les chemins absolus
+if tar -zcvf "$BDIR/$BACKUP_NAME" "$TARGET" -P ; then
+   [ -t 1 ] && echo "[$(date +%H:%M:%S)] Backup @ $BDIR/$BACKUP_NAME"
+   notify-send "  $NAME" "[$(date +%H:%M:%S)] $BACKUP_NAME"
+else
+   [ -t 1 ] && echo "[$(date +%H:%M:%S)] Error creating backup for $TARGET"
+   notify-send "  Backup Failure." "Backup creation FAILED for $TARGET.\nTry again."
+   exit 1
+fi

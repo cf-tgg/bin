@@ -1,0 +1,28 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#    switch-back-to-nvim --- Switch back to nvim tmux window
+#
+#    USAGE
+
+#        Bind the script to a tmux binding:
+#
+#            ```~/.tmux.conf
+#            bind 'M-C-n' /path/to/switch-back-to-nvim
+#            ```
+#
+#    AUTHORS
+#
+#        Adapted from ThePrimagen' original bash script
+#        cf. <cf.gg.tty@protonmail.com>
+#
+
+# Make sure tmux is running
+[ -n "$TMUX" ] && [ -n "$(pgrep tmux)" ] && {
+    # Session name
+    S=$(tmux display-message -p "#S")
+    # Switch to a tmux window named `nvim'
+    tmux switch-client -t "nvim:" || tmux switch-client -t "$S:nvim"
+} || { echo "failed to acquire nvim tmux session or window." ; exit 1 ; }
+
+exit 0

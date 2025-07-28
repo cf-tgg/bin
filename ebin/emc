@@ -1,0 +1,86 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-05 14:55:55 cf>
+
+#     ___  __ _  ____
+#    / -_)/  ' \/ __/
+#    \__//_/_/_/\__/
+#                   ~emc. v.0.2.0
+
+#    emc --- emacsclient wrapper
+#
+#    DEPENDENCIES
+#      emacs (emacsclient)
+#      xdo
+#      Any other terminal editor (e.g. nvim)
+#
+#    CONFIGURATION
+#         Have your shell export it's window ID:
+#
+#    AUTHOR
+#         cf. (C) 2025 <cf.gg.tty@protonmail.com>
+#
+# dep_installed() {
+#     cmd=$1
+#     url=${2:-}
+
+#     if command -v "$cmd" >/dev/null 2>&1; then
+#         return 0
+#     fi
+
+#     echo "Missing required command: $cmd" >&2
+#     printf 'Install it now? [Y/n] '
+#     stty -echo -icanon min 1 time 0
+#     ans=$(dd bs=1 count=1 2>/dev/null)
+#     stty sane
+#     printf '\n'
+
+#     echo "$ans" | grep -qi 'y' || exit 1
+
+#     if sudo pacman -S "$cmd"; then
+#         return 0
+#     fi
+
+#     if [ -n "$url" ]; then
+#         mkdir -p ~/.local/src && cd ~/.local/src || exit 1
+#         repo=${url##*/}
+#         name=${repo%.git}
+#         git clone "${url%.git}.git" || exit 1
+#         cd "$name" || exit 1
+#         make && sudo make install || {
+#             echo "Build failed for $cmd" >&2
+#             exit 1
+#         }
+#     else
+#         echo "No source URL provided, and package manager install failed." >&2
+#         exit 1
+#     fi
+# }
+
+# dep_installed xdo "https://github.com/baskerville/xdo.git" || exit 1 ;
+
+editcmd() {
+    emacsclient -c --socket-name="/run/user/1000/emacs/server" --alternate-editor="" "$@"  || return 1
+    return 0
+}
+
+[ $# -le 0 ] && editcmd -n -f scratch-buffer
+
+for f in "$@" ; do
+    if [ -f "$f" ] || [ -d "$f" ] ; then
+        if [ -t 1 ]; then
+            w="$WINDOWID"
+            export w
+            [ -n "$w" ] && xdo hide "$w"
+            editcmd "$@" "$f" -f delete-other-windows || editcmd -cn -f scratch-buffer
+            xdo show "$w"
+            unset w
+        else
+            editcmd "$@" "$f" -f delete-other-windows || exit 1
+        fi
+    else
+        editcmd "$@" || editcmd "$@" -f scratch-buffer || exit 1
+    fi
+done
+
+exit 0

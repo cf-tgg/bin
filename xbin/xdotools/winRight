@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# Pronostic
+a=$(xdotool getactivewindow getwindowgeometry --shell)
+
+# eval extrait -> ID, position, geometry
+eval "$a"
+
+# Séparation des coordonées
+aPx=$(echo "$X")
+aPy=$(echo "$Y")
+aW=$(echo "$WIDTH")
+aH=$(echo "$HEIGHT")
+
+# Calcul de la fenêtre parente de droite
+tX=$((aPx + aW + 200))
+tY=$((aPy + 20))
+
+# Identifier la fenêtre sous la position calculée
+target=$(xdotool mousemove $tX $tY getmouselocation --shell | awk -F '=' '/^WINDOW/ {print $2}')
+
+# Avaler la fenêtre en question
+dwmswallow "$target" "$WINDOW" 
+if [ $? -ne 0 ]; then
+    source /home/Scripts/winUnder
+fi
+
+exit 0

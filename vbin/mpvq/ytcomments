@@ -1,0 +1,62 @@
+#!/bin/sh
+
+CLEAR=0
+EDIT=0
+f=""
+
+while getopts "o:f:Eh" opt; do
+    case "$opt" in
+        f) f="$OPTARG" ;;
+        E) EDIT=1 ;;
+        o) OUTPUT="$OPTARG" ; CLEAR=1 ;;
+        h) echo "Usage: \${##*\/0} [-ch] [-o <output_file>]" ;;
+    esac
+done
+[ -n "$f" ] || f="$1"
+[ -L "$f" ] && f="$(readlink "$f")"
+[ "$(file --dereference --brief --mime-type "$f")" = "image/jpeg" ] || { echo "not a jpeg" >&2 ; exit 1 ; }
+exifdata=$(exifjpg -A "$f" 2>/dev/null)
+[ -n "$exifdata" ] || { echo "no comment" >&2 ; exit 1 ; }
+
+printhr() {
+  printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+}
+
+term() {
+  term="$1"
+  echo "$exifdata" | grep -i "$term" | head -n1 |\
+    awk '{sub(/^[^:]*:/, ""); print $0}' | sed 's/"//g;s/,$//;s/^ //;s/ $//'
+}
+
+tmp=$(mktemp --suffix=.comments) || exit 1
+uploader=$(term Uploader)
+title=$(term Title)
+uri=$(term URI)
+date=$(term Timestamp | xargs -I {} date -d @"{}" "+%A, le %d %B %Y à %H h %M, %Z" | sed "s/EST$/heure normale de l\\'Est/;s/EDT$/heure avancée de l\\'Est/"|head -n1)
+description=$(exifjpg -d "$f" 2>/dev/null)
+comments=$(exifjpg -A "$f" 2>/dev/null | jq -r '.Comments[]|"\n\(.author):\n   \(.text)"'|sed 's/\xE2\x80\x8B//g'|fmt -w 90)
+{
+    printhr;
+    printf  "%s\n%s\n%s\n%s\n" "$title" "$uploader" "$date" "$uri";
+    printhr;
+    printf "%s\n" "$description";
+    printhr;
+    printf "%s\n\n" "$comments";
+    printhr;
+} | tee -a "$tmp"
+
+[ -n "$OUTPUT" ] && "$OUTPUT" < "$tmp"
+
+if [ "$EDIT" -eq 1 ]; then
+    if [ -f "$OUTPUT" ]; then
+        "$EDITOR" "$OUTPUT"
+    else
+        "$EDITOR" "$tmp"
+    fi || exit 1
+fi
+
+if [ "$CLEAR" -eq 1 ]; then
+    [ -f "$tmp" ] && rm -f "$tmp"
+fi
+
+exit 0

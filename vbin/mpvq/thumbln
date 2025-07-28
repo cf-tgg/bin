@@ -1,0 +1,23 @@
+#!/bin/sh
+
+target_dir="$(realpath "$1")"
+dir_name="$(basename "$target_dir")"
+symlink_dir="$HOME/Videos/yt/$dir_name"
+
+mkdir -pv "$symlink_dir"
+
+total_files=$(find "$target_dir" -type f -name "*.jpg" | wc -l)
+pad=${#total_files}
+count=1
+for file in "$target_dir"/*.jpg; do
+    [ -f "$file" ] || continue
+    title=$(exifjpg -t "$file")
+    [ -z "$title" ] && title="$(basename "$file" .jpg)"
+    safe_title=$(echo "$title" | sed 's/\///g; s/  / /g; s/^ //')
+    ln -sf "$file" "$symlink_dir/${safe_title}"
+    # ln -sf "$file" "$symlink_dir/${title}"
+    printf "[%0${pad}d/%0${pad}d] %s -> %s\n" "$count" "$total_files" "$(basename "$file")" "$safe_title"
+    # printf "[%0${pad}d/%0${pad}d] %s -> %s\n" "$count" "$total_files" "$(basename "$file")" "$title"
+    count=$((count + 1))
+done
+printf "Symlinks created in: %s\n" "$symlink_dir"

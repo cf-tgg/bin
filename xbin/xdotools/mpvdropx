@@ -1,0 +1,3 @@
+#!/bin/sh
+
+output=$(dragndrop -p --target --and-exit) && mpv --playlist="$output" || mpv "$output"

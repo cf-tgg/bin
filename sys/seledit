@@ -1,0 +1,28 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -eu
+
+temp_file=$(mktemp)
+
+trap 'rm ${temp_file}' EXIT INT TERM QUIT HUP
+
+sel=$(xclip -selection primary -o) || sel=$(xclip -selection clipboard -o)
+
+( [ -n "$sel" ] && echo "$sel" > "$temp_file" ) || { echo "no selection available" >&2 ; exit 1 ; }
+if [ -f "$temp_file" ]; then
+    if [ -t 1 ]; then
+        w="$WINDOWID"
+        export w
+        xdo hide "$w"
+        "$EDITOR" "$temp_file" || { echo "something went horribly wrong" >&2 ; exit 1 ; }
+        xdo show "$w"
+        unset w
+    fi
+else
+    "$TERMINAL" -e "$EDITOR" "$temp_file" || { echo "error opening temp buffer in $TERMINAL" >&2 ; exit 1 ; }
+fi
+
+[ -f "$temp_file" ] && rm -f "$temp_file" || { echo "$temp_file remains" >&2 ; exit 1 ; }
+
+exit 0

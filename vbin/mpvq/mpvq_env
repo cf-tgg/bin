@@ -1,0 +1,23 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:39:32 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+MPV_SOCK="/tmp/mpv.sock"
+MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.m3u8"
+MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+
+# DND_PLAYLIST="$HOME/.cache/mpvq/mpvq_playlist.dnd"
+# DND_TITLES="$HOME/.cache/mpvq/mpvq_titles.dnd"
+# export DND_PLAYLIST
+# export DND_TITLES
+
+pcount="$(wc -l < "$MPVQ_PLAYLIST")"
+MPCOUNT=$(((pcount/2)-1))
+TCOUNTS=$((tcount))
+
+export MPV_SOCK
+export MPVQ_PLAYLIST
+export MPVQ_TITLES
+export MPCOUNT
+export TCOUNTS

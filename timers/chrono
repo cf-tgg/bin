@@ -1,0 +1,9 @@
+#!/bin/sh
+# -*- mode: sh; -*-
+
+start=$(date +%s)
+while :; do
+    time=$(($(date +%s) - $start))
+    printf "%s\r" "$(date -u -d "@$time" +%H:%M:%S)"
+    sleep 1
+done

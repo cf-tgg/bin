@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Initialize counter
+i=1
+
+# Loop over files starting with "screencast"
+for file in screencast*; do
+    # Check if the file exists
+    if [ -f "$file" ]; then
+        # Execute FFmpeg command with cropping
+        ffmpeg -i "$file" -vf "crop=2200:1200:0:180" "cropcast-$i.mp4" -y
+        
+        # Increment counter for the next file
+        ((i++))
+    fi
+done

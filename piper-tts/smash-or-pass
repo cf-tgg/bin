@@ -1,0 +1,8 @@
+(defun elle-est (list)
+  (let ((item (nth (random (length list)) list)))
+    (message "%s" item)))
+
+(elle-est '("oui" "non"))
+(elle-est '("smash" "pass"))
+(elle-est '("elle est une facile" "elle est une bon moments" "elle est assez bien" "elle est dans tes reves" "elle est rop-bien-pour toi"))
+

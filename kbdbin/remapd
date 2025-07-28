@@ -1,0 +1,9 @@
+#!/bin/sh
+# Rerun the remaps script whenever a new input device is added.
+
+udevadm monitor -u -t seat -s input -s usb -s bluetooth -s tty 2>/dev/null | \
+while read -r ln ; do
+    case "$ln" in
+        *add*|*change*|*bind*|*tty*) remaps ;;
+    esac
+done

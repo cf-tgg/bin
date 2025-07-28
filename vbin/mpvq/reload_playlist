@@ -1,0 +1,8 @@
+#!/bin/sh
+
+PLAYLIST="$HOME/.playlist"
+SOCKET="/tmp/mpv-socket"
+
+while inotifywait -e close_write "$PLAYLIST"; do
+    echo '{ "command": ["loadlist", "'"$PLAYLIST"'", "replace"] }' | socat - "$SOCKET"
+done

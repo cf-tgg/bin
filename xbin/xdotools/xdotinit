@@ -1,0 +1,122 @@
+#!/bin/sh
+
+TIMESTAMP_FORMAT="%Y-%m-%d %H:%M:%S"
+LOGFILE="$HOME/Templates/logs/xdotinit_$(date +%Y-%m-%d_%H%M-%S).log"
+timestamp=$(date +"$TIMESTAMP_FORMAT")
+logdms() {
+   msg="$1"
+   printf "[%s] %s\n" "$timestamp" "$msg" | tee -a "$LOGFILE"
+}
+log_step() {
+  CMD="$1"
+  STEP_START=$(date +%s)
+  log_message "START: $CMD"
+  eval "$CMD"
+  EXIT_CODE=$?
+  STEP_END=$(date +%s)
+  DURATION=$((STEP_END - STEP_START))
+  if [ $EXIT_CODE -eq 0 ]; then
+    log_message "END: $CMD (Success) [Duration: ${DURATION}s]"
+  else
+    log_message "END: $CMD (Failure: Exit Code $EXIT_CODE) [Duration: ${DURATION}s]"
+  fi
+  return $EXIT_CODE
+}
+
+finish_logging() {
+  END_TIME=$(date +%s)
+  TOTAL_DURATION=$((END_TIME - START_TIME))
+  log_message "SCRIPT COMPLETED in ${TOTAL_DURATION}s"
+}
+START_TIME=$(date +"$TIMESTAMP_FORMAT")
+
+touch "$LOGFILE" && logdms "[ $START_TIME ] xdotinit started"
+eval "$(xdotool getactivewindow getwindowgeometry --shell)"
+logdms "hoping this is devtool window:"
+logdms "$WINDOW $X $Y $WIDTH $HEIGHT"
+if [ -z "$WINDOW" ]; then
+    logdms "no window found..exiting"
+    exit 1
+fi
+dtw="$WINDOW"
+
+logdms "xdotool attemps to activate the inspector.."
+# log_step "xdotool windowactivate $WINDOW && xdotool key ctrl+shift+c"
+xdotool windowactivate "$WINDOW" && xdotool key --window "$WINDOW"  --delay ctrl+shift+c
+# log_step "$(xdotool mousemove --window "${dtw}" --sync 50 50 windowactivate click 1)"
+
+
+logdms "short delay.."
+log_step "sleep 2"
+
+# xkw() { xdotool key --window "$WINDOW" super+q ; } # close devtools
+# swalemu() { xdotool key --window "$1" alt+h h ; }    # swallow devtools
+
+# logdms "xdotool key super+q completed with exit code $?"
+# log_dms "attempting to close devtool window"
+# while [ ! "$(xkw)" -eq 0  ]; do
+#     logdms "the window escaped..trying again"
+#     log_step "$(xkw)"
+#     logdms "we closed the first catch"
+#     break
+# done
+
+eval "trying to find the main qutebrowser window"
+
+log_step "eval $(xdotool search --onlyvisible --class qutebrowser windowactivate getactivewindow getwindowgeometry --shell)"
+while [ "$WINDOW" -eq "$dtw" ]; do
+  sleep 1
+  logdms "we found the same window..got to keep looking"
+  log_step "eval $(xdotool search --onlyvisible --class qutebrowser windowactivate getactivewindow getwindowgeometry --shell)"
+done
+logdms "the new window we found: "
+logdms "$WINDOW $X $Y $WIDTH $HEIGHT"
+log_step "$(xdotool mousemove --window "$WINDOW" --sync $((X/2)) $((Y/2)) windowactivate)"
+logdms "mousemove sync completed with exit code $?"
+log_step "$(dwmswallow "$dtw" "$WINDOW")"
+# || log_step "$(swalemu "$WINDOW")"
+# mousemove --window "$WINDOW" --sync $((X/2)) $((Y/2)) windowactivate
+
+cleanxmouse(){
+   if [ -f /tmp/xmouse.pid ]; then
+     kill "$(cat /tmp/xmouse.pid)"
+     rm /tmp/xmouse.pid
+     logdms "cleanxmouse finished cleaning xmouse"
+     return 0
+  else
+    logdms "somehow we failed to cleanup.."
+    return 1
+  fi
+}
+
+logdms "starting xmouse main loop"
+log_step "touch '/tmp/xmouse.pid'"
+trkx="$HOME/Templates/logs/track_xmouse_$(date +%Y-%m-%d_%H%M-%S).log"
+
+xmouse &
+echo $! > /tmp/xmouse.pid
+trap 'cleanxmouse' HUP INT QUIT EXIT TERM ABRT
+
+while [ -f /tmp/xmouse.pid ]; do
+  if [ -z "$WINDOW" ]; then
+    logdms "no window found..exiting"
+    exit 1
+  elif [ ! -f /tmp/xmouse.pid ]; then
+    cleanxmouse && logdms "killed xmouse from the while loop."
+    exit 1
+  fi
+  log_step "touch ${trkx}"
+  dms=$(xdotool getmouselocation --shell)
+  printf  "[%s] %s" "$timestamp" "$dms" >> "${trkx}"
+  sleep 2
+done
+if [ ! -f /tmp/xmouse.pid ]; then
+  logdms "xmouse exited.. closing xdotinit..."
+  finish_logging && exit 0
+else
+  logdms "the trap failed or the cleaner walked.. cleaning up ourselves.."
+  rm -f /tmp/xmouse.pid && logdms "cleaned up xmouse.pid, but something went horribly wrong.."
+  finish_logging && exit 1
+fi
+finish_logging && \
+exit 0

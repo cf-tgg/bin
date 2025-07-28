@@ -1,0 +1,27 @@
+#!/bin/sh
+# POSIX-compliant URL decoding function
+
+urldecode() {
+    decoded=""
+    input="$1"
+    length=$(printf "%s" "$input" | wc -c)
+    i=1
+    while [ "$i" -le "$length" ]; do
+        char=$(printf "%s" "$input" | cut -c "$i")
+        if [ "$char" = "%" ] && [ "$((i + 2))" -le "$length" ]; then
+            hex=$(printf "%s" "$input" | cut -c "$((i + 1))-$((i + 2))")
+            decoded="${decoded}$(printf "\x$hex")"
+            i=$((i + 2))
+        else
+            decoded="${decoded}${char}"
+        fi
+        i=$((i + 1))
+    done
+    printf "%s" "$decoded"
+}
+
+# Loop through all arguments and decode each
+for i in "$@"; do
+    urldecode "$i"
+    printf '\n'
+done

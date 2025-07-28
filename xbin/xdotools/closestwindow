@@ -1,0 +1,38 @@
+#!/bin/zsh
+
+# Get the current active window's geometry
+current_window_geometry=$(xdotool getactivewindow getwindowgeometry)
+
+# Extract the X and Y coordinates from the geometry string
+current_x=$(echo $current_window_geometry | grep -oP 'X:\K\d+')
+current_y=$(echo $current_window_geometry | grep -oP 'Y:\K\d+')
+
+# Calculate the center of the current window
+center_x=$((current_x + 50)) # Assuming width is approximately 100 pixels
+center_y=$((current_y + 50)) # Assuming height is approximately 100 pixels
+
+# Search for the nearest window
+nearest_distance=9999
+nearest_window=""
+
+for win in ${(f)$(xdotool search --onlyvisible root)}; do
+    win_geometry=$(xdotool windowgetpos $win)
+    win_x=$(echo $win_geometry | awk '{print $1}')
+    win_y=$(echo $win_geometry | awk '{print $2}')
+
+    # Calculate the distance between the current window's center and the candidate window
+    distance=$(python -c "import math; print(math.sqrt((($center_x-$win_x)**2)+(($center_y-$win_y)**2)))")
+
+    if ((distance < nearest_distance)); then
+        nearest_distance=$distance
+        nearest_window=$win
+    fi
+done
+
+# Output the nearest window's details
+if [[ -n $nearest_window ]]; then
+    echo "Nearest window:"
+    xdotool windowinfo $nearest_window
+else
+    echo "No nearby windows found."
+fi

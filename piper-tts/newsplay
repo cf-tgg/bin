@@ -1,0 +1,96 @@
+#!/bin/sh
+
+file="$1" || echo 'Provide a file to read and record' 
+filename="${file%.*}"
+
+# Function to log error and exit
+log_error_and_exit() {
+    echo "$1"
+    exit 1
+}
+
+# Check if input is provided via arguments or stdin
+if [ -t 0 ]; then
+    # Terminal is connected, check for arguments
+    if [ -z "$1" ]; then
+        log_error_and_exit "Usage: newsplay <file> or provide input via stdin"
+    fi
+    texte="$(cat $file)"
+else
+    # Input is provided via stdin
+    texte=$(cat)
+fi
+
+
+# Process the output with sed and tr, then pass it to piper-tts and aplay
+processed_output=$(echo "$texte" | iconv -f utf-8 -t utf-8)
+
+# Define filenames and log file
+raw_file="$HOME/feeds/wav/temp/out.raw"
+wav_file="$HOME/feeds/wav/temp/out.wav"
+log_file="$HOME/feeds/wav/logs/newsplay.log"
+
+
+monitor_sources=(
+    "bluez_output.F0_F6_C1_D1_B9_74.1.monitor"
+    "alsa_output.pci-0000_c1_00.1.pro-output-3.monitor"
+    "alsa_output.pci-0000_c1_00.6.analog-stereo.monitor"
+    "alsa_input.pci-0000_c1_00.6.analog-stereo.monitor"
+)
+
+selected_source=""
+
+# Loop through monitor sources to find an active one
+for source in "${monitor_sources[@]}"; do
+    if pactl list | grep -q "$source"; then
+        selected_source="$source"
+        break
+    fi
+done
+
+if [ -z "$selected_source" ]; then
+    echo "Error: No active monitor source found."
+    exit 1
+fi
+
+# Start recording from the monitor source using parec
+parec -d "$source" --format=s16le --rate=48000 --channels=2 > "$raw_file" &
+parec_pid=$!
+
+# Assuming piper-tts and aplay commands are properly set up and paths are correct
+echo "$processed_output" | piper-tts --silence_sentence 0.2 --length_scale 1.0 --model "$HOME/Templates/piper/voices/fr_FR-gilles-low.onnx" -c "$HOME/Templates/piper/voices/fr_FR-gilles-low.onnx.json" --output-raw 2>> "$log_file" | aplay -r 16000 -f S16_LE -t raw - 2>> "$log_file"
+if [ $? -ne 0 ]; then
+    echo "Error: piper-tts or aplay command failed. Check log file for details: $log_file"
+    exit 1
+fi
+
+# Capture the exit status of piper-tts and aplay
+exit_status=$?
+
+# Check if piper-tts or aplay failed
+if [ $exit_status -ne 0 ]; then
+    echo "Error: piper-tts or aplay command failed. Check log file for details: $log_file"
+    # Terminate parec process if it's still running
+    if ps -p $parec_pid > /dev/null; then
+        kill $parec_pid
+    fi
+    exit 1
+fi
+
+# Wait for parec process to finish (timeout after 3 seconds)
+timeout=3
+count=0
+while ps -p $parec_pid > /dev/null; do
+    sleep 1
+    count=$((count + 1))
+    if [ $count -ge $timeout ]; then
+        echo "Converting raw file to wav..."
+        kill $parec_pid
+        ffmpeg -f s16le -ar 48000 -ac 2 -i "$raw_file" "$wav_file"
+    fi
+done
+mv "$wav_file" "$filename.wav"
+rm "$raw_file"
+mv "$file" "$HOME/feeds/lu/"
+
+exit 0 

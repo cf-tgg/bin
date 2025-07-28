@@ -1,0 +1,14 @@
+#!/bin/bash
+
+selected=$(fzf --multi < <(awk -F ' # ' '{print $2}' "$MPVQ_PLAYLIST"))
+
+if [[ -n "$selected" ]]; then
+  while IFS= read -r line; do
+    escaped_line=$(echo "$line" | sed 's/[\/&]/\\&/g')
+    sed -i "/$escaped_line/d" "$MPVQ_PLAYLIST"
+  done <<< "$selected"
+fi
+
+update_playlist
+
+exit 0

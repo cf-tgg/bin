@@ -1,0 +1,72 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-03 17:05:43 cf>
+
+# 3) mpc status | filter ; notify-send "🎵 Music module" "\- Shows mpd song playing.
+# - ⏸ when paused.
+# - Left click opens ncmpcpp.
+# - Middle click pauses.
+# - Scroll changes track.";;  # right click, pause/unpause
+
+TITLES="$HOME/.cache/mpd-title"
+STREAMS="$HOME/.cache/mpd-streams"
+STATUS="/tmp/mpc.status"
+
+# filter() { [ $HIDE -eq 0 ] && sed "/^volume:/d;s/\\[paused\\].*/⏸/g;/\\[playing\\].*/d;/^ERROR/Q" | paste -sd ' ' - ; }
+filter() { ( [ -f "$STATUS" ] && sed "/^volume:/d; s/\[paused\].*/⏸/g; /\[playing\].*/d; /^ERROR/Q" | paste -sd ' ' - ) || { sed "1d;/^volume:/d;s/\[paused\].*/ 󰐊 /g;s/\[playing\].*/ ⏸ /g; /^ERROR/Q" | paste -sd ' ' - ; } ; }
+# filter() { sed "/^volume:/d;s/\\&/&amp;/g;s/\\[paused\\].*/⏸/g;/\\[playing\\].*/d;/^ERROR/Q" | paste -sd ' ' -;}
+#  seeking() { sed "1d;3d;/^.*" | awk '{print $3,$4}' | paste -sd ' ' - ; }  #
+
+title() {
+   cstream=$(mpc status | head -n 1)
+    index=$(grep -nFx "$cstream" "$STREAMS" | cut -d: -f1)
+    if [ -n "$index" ]; then
+        sed -n "${index}p" "$TITLES"
+    else
+        mpc status | filter
+    fi
+}
+
+cava_visualizer() {
+    barwin=$(xwininfo -root -tree | awk '/("dwm" "dwm")/ {print $1}')
+    if ! pidof -xs cava >/dev/null 2>&1; then
+        st -n "cavaviz" -w "$barwin" -t "cavaviz" -g 14x2+1510+1 -e cava &
+        cava_pid=$!
+        echo "$cava_pid" >/tmp/cava.pid
+        sleep 0.2
+        cavawin=$(xwininfo -tree -id "$barwin" | awk '/cavaviz/ {print $1}')
+        [ -n "$cavawin" ] && echo "$cavawin" >/tmp/cava.winid
+    else
+        pid=$(cat "$cava_pid") ; kill -15 "$cava_pid" || {
+            ps aux | grep -v 'grep' | grep -E "cavaviz" | awk '{print $2}' | xargs kill 2>/dev/null
+        } ; [ -f "$cava_pid" ] && rm -f "$cava_pid"
+    fi
+}
+
+mpc_toggle() {
+    ( [ -f "$STATUS" ] && rm -f "$STATUS" ) || mpc status | filter > "$STATUS" ;
+}
+
+case "$1" in
+    *) title ;;
+esac
+ # || { sed -i '1d' "$TITLES"; sed -i '1d' "$STREAMS" ; }
+
+pidof -x sb-mpdup >/dev/null 2>&1 || sb-mpdup >/dev/null 2>&1 &
+
+case $BLOCK_BUTTON in
+    1) mpc_toggle ;;
+    2) mpc toggle | filter ;
+       if [ -f "/tmp/cava.winid" ]; then
+           cava=$(cat /tmp/cava.winid)
+           ( [ ! -f "/tmp/cava.hidden" ] && xdo hide "$cava" && echo "$cava" >/tmp/cava.hidden ) || { xdo show "$cava" && rm -f "/tmp/cava.hidden" ; }
+       else
+           cava_visualizer
+       fi
+       ;;
+    3) [ -f "$STATUS" ] && rm -f "$STATUS" ; "$TERMINAL" -e ncmpcpp ;;
+    4) mpc seek +00:00:01 ;;
+    5) mpc seek -00:00:01 ;;
+    6) emc "$0" ;;
+    *) title ;;
+esac || printf '%s\n' "🎵"

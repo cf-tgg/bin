@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# Input directory or file
+d="$1"
+
+# Resolve directory from input
+if [ -f "$d" ]; then
+  d=$(dirname "$(realpath "$d")")
+else
+  d=$(realpath "$d")
+fi
+
+# Check for symbolic links and resolve
+if [ "$(find "$d" -type l | wc -l)" -gt 1 ]; then
+  link=$(find "$d" -type l | head -n 1)
+  dir=$(dirname "$(readlink -f "$link")")
+else
+  dir="$d"
+fi
+
+# Uploader IDs file
+uids="$dir/.vids"
+
+# Create the file if it doesn't exist
+[ -f "$uids" ] || touch "$uids"
+idcount=$(wc -l < "$uids")
+icount=$((idcount - 1))
+tcount=$(find "$dir" -type f -name "*.jpg" | wc -l)
+drname=$(basename "$dir")
+lcount=$(find "$HOME/Videos/yt/$drname" -type l | wc -l)
+[ "$icount" -eq "$tcount" ]||[ "$icount" -eq "$lcount" ] && printf "[%si/%sl/%sf]    %s\n" "$icount" "$tcount" "$lcount" "$drname" && exit 0
+
+pad=${#tcount}
+tcount=$(printf "%0${pad}d" "$tcount")
+count=1
+
+oeufs() {
+  local coco="🥚"
+  local nid=""
+  local fixed_col=40
+  local range=$((COLUMNS - fixed_col - 3))
+  local nest_pos=$((RANDOM % range))
+  local egg_pos=$((RANDOM % range))
+  if (( egg_pos > nest_pos )); then
+    egg_pos=$((nest_pos - 1))
+  fi
+  if [ $((count % 3)) == 0 ]; then
+    coco="🐣"
+  fi
+  printf "%*s%s%*s%s" "$egg_pos" "" "$coco" "$((nest_pos - egg_pos - 1))" "" "$nid"
+
+}
+countp() {
+  local s c o
+  s="$1"
+  c=$(printf "%0${pad}d" "$count")
+  o=$(oeufs)
+  printf "[%s/%s]  %s %s \n" "$c" "$tcount" "$s" "$o"
+}
+
+find "$dir" -type f -name "*.jpg" | parallel exifjpg -i "{}" | while read -r id; do
+  if [ -z "$id" ]; then
+    countp "no id, skipping... $(oeufs)"
+  elif ! grep -q "^$id$" "$uids"; then
+    echo "$id" >> "$uids"
+    countp "$id $(oeufs)"
+  else
+    countp "id exists         $(oeufs)"
+  fi
+
+  count=$((count + 1))
+done
+# find "$dir" -type f -name "*.jpg" | parallel exifjpg -i "{}" | while read -r id; do
+#   if [ -z "$id" ]; then
+#     countp "no id, skipping..."
+#   elif ! grep -q "^$id$" "$uids"; then
+#     echo "$id" >> "$uids"
+#     countp "$id $(oeufs)"
+#   else
+#     countp "id exists $(oeufs)"
+#   fi
+
+#   count=$((count + 1))
+# done
+
+# # Iterate through JPEG files
+# find "$dir" -type f -name "*.jpg" | parallel exifjpg -i "{}" | while read -r id; do
+#   if [ -z "$id" ]; then
+#       countp "no id, skipping..."
+#     elif ! grep -q "^$id$" "$uids"; then
+#       echo "$id" >> "$uids"
+#       countp "$id"
+#     else
+#       countp "id exists"
+#     fi
+
+#     count=$((count + 1))
+#   done
+
+exit 0

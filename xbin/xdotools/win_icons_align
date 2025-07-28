@@ -1,0 +1,27 @@
+#!/bin/sh
+
+icon_list="$HOME/window_icons"
+
+[ -f "$icon_list" ] || mkwinicon
+
+icon_index=0
+while read -r icon; do
+   icon_pos=$((1200 - (icon_index * 50)))
+   wmctrl -r "$icon" -b above -i -e 0,"$icon_pos",2,42,42 2>~/.win_icons_errors
+   icon_index=$((icon_index + 1))
+done < "$icon_list"
+
+
+errors=$(grep "Resource id in failed request:" ~/.win_icons_errors | cut -d: -f2 | sed 's/^  //g')
+[ -z "$errors" ] && rm ~/.win_icons_errors && exit 0
+
+grep "Resource id in failed request:" ~/.win_icons_errors | cut -d: -f2 | sed 's/^  //g' |\
+   while read -r err; do
+      [ -z "$err" ] && rm ~/.win_icons_errors
+      echo "Removing bad window: $err"
+      if sed -i "/$err/d" "$icon_list" && sed -i '/^$/d' "$icon_list" ; then
+         sed -i "/$err/d" ~/.win_icons_errors
+      fi
+   done
+
+exit 0

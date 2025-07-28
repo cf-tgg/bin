@@ -1,0 +1,27 @@
+#!/bin/sh
+
+pid_f="/tmp/baricon"
+
+cleanup() {
+  pid="$(cat "$pid_f")"
+  kill "$pid" 2>/dev/null
+  kill "$wpid" 2>/dev/null
+  rm -f "$pid_f" 2>/dev/null
+  return
+}
+
+trap 'cleanup' INT TERM HUP QUIT
+
+eval "$("$1")"
+echo $! > "$pid_f"
+prog_name="${2:-$(ps -p "$!" -o comm=)}"
+
+while :; do
+  wmctrl -r "$prog_name" -e 0,800,0,4,0
+  sleep 10
+done &
+wpid=$!
+
+[ -n "$(ps "$(cat pid_f)")" ] || cleanup
+
+exit 0

@@ -1,0 +1,11 @@
+#!/bin/sh
+# This script opens all the symlinked channels as nsxiv windows
+
+CHANNELS="$HOME/Videos/yt/meta"
+xdotool key ctrl+super+o
+
+# for d in "$CHANNELS"/*; do
+#     [ -d "$d" ] && nsxiv "$d" &
+# done
+
+find "$CHANNELS" -mindepth 1 -maxdepth 1 -type d | parallel --no-notice 'nsxiv "{}" &'

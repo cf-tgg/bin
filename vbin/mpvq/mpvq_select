@@ -1,0 +1,5 @@
+#!/bin/bash
+
+selected=$(fzf --multi < <(awk -F ' # ' '{print $2}' "$MPVQ_PLAYLIST"))
+
+grep "$selected" "$MPVQ_PLAYLIST" | awk -F ' # ' '{print $1}'

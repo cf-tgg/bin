@@ -1,0 +1,3 @@
+#!/bin/sh -e
+
+ytdlp "$1" && embedJsonJpgs && notify-send "$1. Fini."

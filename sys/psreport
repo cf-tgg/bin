@@ -1,0 +1,11 @@
+#!/bin/sh
+printf "%8s\t%6s\t%-s\n" "PSS(MiB)" "PID" "COMMAND"
+for pid in /proc/[0-9]*; do
+  [ -r "$pid/smaps" ] || continue                # skip unreadable /proc entries
+  pss_kb=$(awk '/^Pss:/{s+=$2} END{print s}' "$pid/smaps")
+  [ -z "$pss_kb" ] && continue                   # skip if no Pss info
+  cmd=$(tr '\0' ' ' < "$pid/cmdline" | cut -c1-60)
+  [ -z "$cmd" ] && cmd="[$(basename "$pid")]"   # fallback if no cmdline
+  printf "%8.1f\t%6d\t%s\n" "$(echo "$pss_kb / 1024" | bc -l)" "${pid##*/}" "$cmd"
+done | sort -n | tail -n 20                       # show top 20 by PSS (MiB)
+exit 0

@@ -1,0 +1,78 @@
+#!/bin/sh
+# dwmswallow relative windows
+
+# Function to get window geometry
+get_window_geometry() {
+    a=$(xdotool getactivewindow getwindowgeometry --shell)
+    eval "$a"
+    echo "Active Window: $WINDOW"
+    echo "Position: X=$X, Y=$Y"
+    echo "Size: WIDTH=$WIDTH, HEIGHT=$HEIGHT"
+}
+
+# Function to swallow a window given a target position
+swallow_window() {
+    echo "Moving mouse to: X=$1, Y=$2"
+    xdotool mousemove $1 $2
+    target=$(xdotool getmouselocation --shell | awk -F '=' '/^WINDOW/ {print $2}')
+    echo "Target Window ID: $target"
+    active_window=$(xdotool getactivewindow)
+    echo "Active Window ID: $active_window"
+    dwmswallow "$target" "$active_window"
+}
+
+# Swallow window to the left
+swallow_left() {
+    get_window_geometry
+    tX=$((X - 50))
+    tY=$((Y + 20))
+    echo "Swallowing Left: Moving to X=$tX, Y=$tY"
+    swallow_window $tX $tY
+}
+
+# Swallow window below
+swallow_down() {
+    get_window_geometry
+    tX=$((X + WIDTH / 4))
+    tY=$((Y + HEIGHT + 50))
+    echo "Swallowing Down: Moving to X=$tX, Y=$tY"
+    swallow_window $tX $tY
+}
+
+# Swallow window above
+swallow_up() {
+    get_window_geometry
+    tX=$((X + WIDTH / 2))
+    tY=$((Y - 50))
+    echo "Swallowing Up: Moving to X=$tX, Y=$tY"
+    swallow_window $tX $tY
+}
+
+# Swallow window to the right
+swallow_right() {
+    get_window_geometry
+    tX=$((X + WIDTH + 20))
+    tY=$((Y + 20))
+    echo "Swallowing Right: Moving to X=$tX, Y=$tY"
+    swallow_window $tX $tY
+}
+
+# Main
+case "$1" in
+    "h")
+        swallow_left
+        ;;
+    "j")
+        swallow_down
+        ;;
+    "k")
+        swallow_up
+        ;;
+    "l")
+        swallow_right
+        ;;
+    *)
+        echo "Usage: $0 {h|j|k|l}"
+        exit 1
+        ;;
+esac

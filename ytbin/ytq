@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -eu
+[ $# -ge 0 ] || { yt-dlp --help | less ; exit 1 ; }
+
+d="$HOME/Videos/downloads"
+
+yt-dlp --ignore-errors --no-abort-on-error --no-warnings --embed-metadata --write-info-json --get-comments --embed-thumbnail "$@" -o "$d/%(uploader)s/%(title)s.%(ext)s" || exit 1
+
+exit 0

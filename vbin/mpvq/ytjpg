@@ -1,0 +1,72 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#              __    _
+#       __  __/ /_  (_)___  ____ _
+#      / / / / __/ / / __ \/ __ `/
+#     / /_/ / /_  / / /_/ / /_/ /
+#     \__, /\__/_/ / .___/\__, /
+#    /____/   /___/_/    /____/
+#                      ~cf.[ytjpg]
+
+#    ytjpg --- Example wrapper for ad-hoc HLS playlist creation
+#
+#    NAME
+#        ytjpg
+#
+#    SYNOPSIS
+#        Reads custom json embeded in jpeg thumbnails.
+#
+#    USAGE
+#        An arbitrary custom json stucture made from a stripped down version of yt-dlp' thick .info.json
+#        keeping only the selected keys, it can be customized as you please (see `ytln` for a template example).
+#        Metadata embedding is done with `exiftool` (perl' Image::ExifTool cpan module).
+#        `exifjpg` is a jq helper to access the key values thus embedded.
+#        Credit to Luke Smith <https://lukesmithxyz.com/> for the `rotdir' and `linkhandler' scripts.
+
+f="$1"
+
+[ -L "$f" ] && f=$(readlink -f "$1")
+
+case $(file "$f" --mime-type --brief --dereference) in
+  image/jpeg)
+      exifdt=$(exifjpg -A "$f")
+      ;;
+  *) [ -t 1 ] && echo "Not a JPEG file." >&2
+     exit 1
+     ;;
+esac
+
+count=${2:-30}
+term() {
+  term="$1"
+  echo "$exifdt" | grep -i "$term" | head -n1 |\
+    awk '{sub(/^[^:]*:/, ""); print $0}' | sed 's/"//g;s/,$//;s/^ //;s/ $//' 2>/dev/null
+}
+
+title=$(term Title)
+uploader=$(term Uploader)
+description=$(exifjpg -d "$f")
+commentcount=$(term CommentCount)
+likecount=$(term LikeCount)
+
+uploader_thumbnail="$HOME/Pictures/icons/dunst_icons/ytchannels/${uploader}.png"
+[ -f "$uploader_thumbnail" ] || ytup "$(term uri)"
+
+playlist="$HOME/.cache/mpvq/playlists/${uploader}_$(date +"%Y-%m-%d_%H%M-%S").m3u8"
+[ -t 1 ] && printf "%s - %s\n%s, %s\nPlaylist: %s\n%s" "$title" "$uploader" "$commentcount" "$likecount" "$playlist" "$description"
+
+rotdir "$f" | head -n "$count" | xargs -I{} exifjpg -M "{}" 2>/dev/null >"$playlist"
+
+if [ -f "$playlist" ]; then
+    [ "$(head -n 1)" = "#EXTM3U" ] || sed -i "1i #EXTM3U" "$playlist"
+    if command -v notify-send >/dev/null 2>&1 ; then
+        notify-send -i "$uploader_thumbnail" -t 6000 -r 9999 "$uploader" "$title\n  $likecount ❤️ \n  $commentcount 📜"
+        notify-send -i "$f" "$title" -t 6000 -r 8888 "$description"
+    else
+        echo "Playlist created: $playlist" >&2
+    fi
+    linkhandler "$playlist" || { echo "could not open $playlist" >&2 ; exit 1 ; }
+fi
+
+exit 0

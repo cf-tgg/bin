@@ -1,0 +1,10 @@
+#!/bin/sh
+# -*- mode: sh; -*-
+# To convert wav to mono format readable by speaker-test:
+
+f="$1"
+n=${f##*/}
+t=${f%.wav}_mono.wav
+[ $DBG -eq 1 ] && echo "$t"
+sox "$f" -r 48000 -c 1 -b 16 "$t"
+[ $(id -u) -eq 0 ] && mv "$t" /usr/share/sounds/alsa/"$n" || { sudo mv "$t" /usr/share/sounds/alsa/"$n" ; } || { echo "moving files to /usr/share/sounds/alsa/ requires privilege escalation" >&2 ; echo "$t" | xclip -in -sel clip ; exit 1 ; }

@@ -1,0 +1,179 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# ~&[ walfeh ]
+#                 _  __      _
+#  __      ____ _| |/ _| ___| |__
+#  \ \ /\ / / _` | | |_ / _ \ '_ \
+#   \ V  V / (_| | |  _|  __/ | | |
+#    \_/\_/ \__,_|_|_|  \___|_| |_|
+#                        ~cf.[walfeh]&~
+#
+# walfeh - A simple wallpaper daemon
+# Dependencies: feh dmenu dunst
+#
+# ~&[ TODO: ajouts possibles ]
+#  C'est suffisant pour c'que c'est, mais on peut toujours penser y ajouter des features:
+#   [x] delay-time
+#   [ ] dmenu action prompt
+#   [ ] Setup dunst settings deployment
+#   [ ] Create user config file
+#   [ ] vim-like count for forward/backward
+#   [ ] set wallpapers per target: [ ] display [ ] workspace
+# [2]&~
+
+# ~&[ Helpfuncs ]
+usage() {
+    while read -r line ; do printf "%s\n" "$line" ; done << EOF
+    walfeh - A simple wallpaper daemon using feh
+
+    Usage: ${0} -[d|stop|forward|backward] [-add <file>]
+        -d              Starting the daemon will rotate wallpapers every 30 minutes.
+        -stop           Stops the daemon.
+        -forward        Rotate wallpapers forward by one for each display.
+        -backward       Rotate wallpaper backward by one for each display.
+        -add <file>     Add a wallpaper to the history, must be a valid image file.
+        -h | --help     Show this help message.
+
+    No arguments will set the wallpaper using the history file or set a random one using
+    .fehbg file if the history file is not available.
+
+    Using -add <file> allows for adding files to the wallpaper setlist.
+
+    Note: walfeh will not work if you have a running instance of feh with the --bg-fill option.
+
+    Dependencies: feh, dmenu, xrandr
+EOF
+}
+# [2]&~
+
+# ~&[ Main Variables ]
+WALFEH_PID_FILE="/tmp/walfehpid"
+WALFEH_HISTORY_FILE="$HOME/.cache/walfeh_history"
+CONNECTED_DISPLAYS=$(xrandr | grep -c " connected")
+WALFEH_DIR="$HOME/.config/walfeh"
+[ -d "$WALFEH_DIR" ] || mkdir -p "$WALFEH_DIR"
+WALFEH_DELAY_FILE="$WALFEH_DIR/delay"
+[ ! -f "$WALFEH_DELAY_FILE" ] && echo "120" > "$WALFEH_DELAY_FILE"
+DELAY=$(head -n1 < "$WALFEH_DELAY_FILE")
+WALFEH_DELAY=${DELAY}
+[ -z "$WALFEH_DELAY" ] && WALFEH_DELAY=120 && echo "120" > "$WALFEH_DELAY_FILE"
+# [2]&~
+
+# ~&[ The Funcs ]
+updateicon() {
+	echo "$1" > /tmp/walfehicon
+	pkill -RTMIN+16 "${STATUSBAR:-dwmblocks}"
+}
+
+killd() {
+    recpid="$(cat $WALFEH_PID_FILE)"
+    [ -n "$recpid" ] && kill -15 "$recpid" >/dev/null 2>&1
+    rm -f "$WALFEH_PID_FILE"
+    updateicon ""
+    pkill -RTMIN+16 "${STATUSBAR:-dwmblocks}"
+}
+
+addwall() {
+    # Add a wallpaper image file to the history file then set it as the current wallpaper
+    # Supported file extensions include jpeg, jpg, png, webp, svg, tiff, bmp, gif
+    EXTENSIONS="jpeg|jpg|png|webp|svg|tiff|bmp|gif"
+
+    if [ -d "$1" ]; then
+        find "$1" -type f | grep -iE "\.($EXTENSIONS)" | shuf | tee "$WALFEH_HISTORY_FILE~" >/dev/null
+        cat "$WALFEH_HISTORY_FILE" >> "$WALFEH_HISTORY_FILE~" && mv "$WALFEH_HISTORY_FILE~" "$WALFEH_HISTORY_FILE"
+
+        find "$1" -type f | grep -iE "\.($EXTENSIONS)" | shuf | tee ~/.fehbg~ >/dev/null
+        cat ~/.fehbg >> ~/.fehbg~ && mv ~/.fehbg~ ~/.fehbg
+    fi
+
+    if [ -f "$1" ]; then
+        echo "$1" | tee "$WALFEH_HISTORY_FILE~" >/dev/null
+        cat "$WALFEH_HISTORY_FILE" >> "$WALFEH_HISTORY_FILE~" && mv "$WALFEH_HISTORY_FILE~" "$WALFEH_HISTORY_FILE"
+
+        echo "$1" | tee ~/.fehbg~ >/dev/null
+        cat ~/.fehbg >> ~/.fehbg~ && mv ~/.fehbg~ ~/.fehbg
+    fi
+    setwall
+}
+
+setwall() { # Set wallpaper using the history file or a random one using .fehbg
+    feh --no-fehbg --bg-fill -f - < "$WALFEH_HISTORY_FILE" || feh --no-fehbg --bg-fill -f .fehbg -z
+}
+
+
+stopd() {
+    [ -z "$(pgrep -f 'feh .*--bg-fill')" ] && pkill -f 'feh .*--bg-fill'
+    [ -f "$WALFEH_PID_FILE" ] && killd || echo "walfeh is not running."
+}
+
+# nav historical wallpapers ze most recents mostly for digs
+nav() {
+    direction="$1"
+    total_lines=$(wc -l < "$WALFEH_HISTORY_FILE")
+    tmpfile=$(mktemp)
+    if [ "$direction" = "forward" ]; then
+        # Rotate forward: move top `DISPLAYS` lines to the bottom
+        tail -n $((total_lines - CONNECTED_DISPLAYS)) "$WALFEH_HISTORY_FILE" > "$tmpfile"
+        head -n "$CONNECTED_DISPLAYS" "$WALFEH_HISTORY_FILE" >> "$tmpfile"
+    elif [ "$direction" = "backward" ]; then
+        # Rotate backward: move bottom `DISPLAYS` lines to the top
+        tail -n "$CONNECTED_DISPLAYS" "$WALFEH_HISTORY_FILE" > "$tmpfile"
+        head -n $((total_lines - CONNECTED_DISPLAYS)) "$WALFEH_HISTORY_FILE" >> "$tmpfile"
+    fi
+    mv "$tmpfile" "$WALFEH_HISTORY_FILE"
+    feh --no-fehbg --bg-fill -f "$WALFEH_HISTORY_FILE"
+}
+
+startd() { # Start daemon or ask to end if already running
+   [ -f "$WALFEH_PID_FILE" ] && return
+   # Randomizes the .fehbg file and saves it to the history file
+   # Note: this means the order of  the wallper setlist will be reset to a random order.
+   # Set `.fehbg > "$HISTORYFILE"` instead if you wish to keep the order of the setlist.
+   [ -f "$HOME/.fehbg" ] && sort -R < .fehbg > "$WALFEH_HISTORY_FILE"
+   # Kill any running feh instances with --bg-fill option to prevent conflicts (mostly paranoia)
+   [ -z "$(pgrep -f 'feh .*--bg-fill')" ] && pkill -f 'feh .*--bg-fill'
+   sleep 0.5
+   touch "$WALFEH_PID_FILE" && updateicon "  "
+   echo $$ > "$WALFEH_PID_FILE"
+   while [ -f "$WALFEH_PID_FILE" ]; do
+       nav "forward"
+       sleep "${WALFEH_DELAY}"
+   done
+}
+
+notify() {
+    current_wall=$(head -n1 < "$WALFEH_HISTORY_FILE")
+    notify-send -a "walfeh" -r 9393 -t 2000 -i "$current_wall" ""
+}
+
+toggle() {
+    if [ -f "$WALFEH_PID_FILE" ]; then
+        stopd
+    else
+        startd
+    fi
+}
+# [2]&~
+# ~& [ Main ]
+case "$1" in
+    -da*|--da*|-sta*|--sta*|dae*|startd|start) startd && notify ;;
+    -h*|--h*) usage; exit 1 ;;
+    -sto*|--sto*|sto*) stopd ;;
+    -forw*|--forw*|forw*|next|-nex*|--nex*|next*) nav "forward" && notify ;;
+    -back*|--back*|back*) nav "backward" && notify ;;
+    -add*|--add*|add*|+) addwall "$2" ;;
+    -reset*|-setw*|-re*|--reset*|--setw*|--re*|re*|setw*) setwall ;;
+    -de*|--delay|delay) [ -n "$2" ] && WALFEH_DELAY="$2" && echo "$WALFEH_DELAY" > "$WALFEH_DELAY_FILE" && stopd && startd && notify || startd && notify ;;
+    --delay=*)
+        if echo "${1#--delay=}" |grep -qE "[0-9]*" ; then
+            echo "${1#--delay=}" > "$WALFEH_DELAY_FILE"
+        else
+            notify-send "Pas bon ça (${1#--delay=}) on va dire 420."
+            echo "420" > "$WALFEH_DELAY_FILE"
+        fi
+        [ -f "$WALFEH_PID_FILE" ] && stopd && sleep 0.5 && startd && notify || startd && notify
+        exit 0 ;;
+    *)  toggle && notify ;;
+esac
+
+exit 0

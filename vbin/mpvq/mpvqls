@@ -1,0 +1,6 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:39:10 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+mpvq update && $EDITOR /home/cf/.cache/mpvq/mpvq.m3u8

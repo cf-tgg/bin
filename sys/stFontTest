@@ -1,0 +1,15 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-01 22:24:08 cf>
+
+fonts=$( fc-list | \
+	sed -n 's/.*\/\([^/]*\)-.*/\1/p' | \
+	sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g' | \
+	sort -u )
+
+font=$(echo "$fonts" | dmenu -i -l 42 -p "Font? ")
+
+[ -n "$font" ] || { echo "T'as rien choisi big." >&2 ; exit 1 ; }
+
+st -f "${font}:size=12";
+echo "$font" | tee >(xclip -in -selection clipboard)

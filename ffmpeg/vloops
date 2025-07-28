@@ -1,0 +1,66 @@
+#!/bin/sh
+
+DISPLAYS=/tmp/active_displays
+AUDIO_SOURCE=$(pactl list short sources | grep RUNNING | awk '{print $2}') 
+
+xrandr | grep 'eDP' | awk '{print "*"$1, $2, $4}' > ${DISPLAYS}
+
+for i in {0..2}; do
+	xrandr | grep "DisplayPort-${i}" | awk '{print $1,$2,$3}' >> ${DISPLAYS}
+done
+
+if [[ $1 == "-a" || $1 == "--all" ]]; then
+    ALL=($(cat ${DISPLAYS} | awk '{print $1}'))
+    DEV=0
+    for dp in ${ALL[@]}; do
+        SCREEN=${dp}
+        SIZE=$(cat ${DISPLAYS}| grep ${dp} | awk '{print $3}' | cut -d+ -f1)
+        POS=$(cat ${DISPLAYS}| grep ${dp} | awk '{print $3}' | cut -d+ -f2)
+
+        # Start ffmpeg in background, capture its PID
+        ffmpeg -f x11grab -s ${SIZE} -i :0.0+${POS} -f v4l2 /dev/video${DEV} &
+        ffmpeg_pid=$!
+
+        sleep 1
+
+        # Define a function to clean up on exit
+        cleanup() {
+        echo "Cleaning up..."
+        kill $ffmpeg_pid  # Kill ffmpeg process
+        }
+
+        # Trap the exit signals to ensure cleanup
+        trap cleanup EXIT
+
+        # Launch mpv for preview
+        mpv av://v4l2:/dev/video${DEV} --profile=low-latency --untimed --title=${SCREEN} &
+
+        ((DEV++))
+
+        sleep 1
+    done
+
+else
+    SCREEN=$(cat ${DISPLAYS} | awk '{print $1}' | dmenu -i -p "Quel écran?")
+    SIZE=$(cat ${DISPLAYS}| grep ${SCREEN} | awk '{print $3}' | cut -d+ -f1)
+    POS=$(cat ${DISPLAYS}| grep ${SCREEN} | awk '{print $3}' | cut -d+ -f2)
+    DEV=$(v4l2-ctl --list-devices | grep '/dev/video' | tr -d '/dev/video' | awk '{print $1}' | dmenu -i -p 'Où?')
+
+    # Start ffmpeg in background, capture its PID
+    ffmpeg -f x11grab -s ${SIZE} -i :0.0+${POS} -f v4l2 /dev/video${DEV} &
+    ffmpeg_pid=$!
+
+    sleep 1
+
+    # Define a function to clean up on exit
+    cleanup() {
+	echo "Cleaning up..."
+	kill $ffmpeg_pid  # Kill ffmpeg process
+    }
+
+    # Trap the exit signals to ensure cleanup
+    trap cleanup EXIT
+
+    # Launch mpv for preview
+    mpv av://v4l2:/dev/video${DEV} --profile=low-latency --untimed --title="${SCREEN_SOURCE}"
+fi

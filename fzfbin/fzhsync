@@ -1,0 +1,143 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-01 15:16:30 cf>
+
+#       ___      __
+#      / _/___  / /   ___ __ __ ___  ____
+#     / _//_ / / _ \ (_-</ // // _ \/ __/
+#    /_/  /__//_//_//___/\_, //_//_/\__/
+#                       /___/
+
+#    fzhsync --- fuzzy host rsync
+#
+#    SYNTAX
+#        ${SCRIPT_NAME} -[tdfSFh] [-t <HOST>] [-d <DESTINATION>] [-S SYNC] [-F FETCH]
+#
+#    OPTIONS
+#       -t    <HOST>          Target host (either user@ip.address or Host as configured in ~/.ssh/config)
+#       -d    <DESTINATION>   Target destination: specify where to receive/send TARGET file or directory
+#       -f    <TARGET>        Target file or directory to be sent/received
+#       -S                    Mirror DESTINATION (send/receive to same location as TARGET)
+#       -F                    Fetch TARGET from HOST (receive TARGET instead of sending to)
+#
+#    USAGE
+#
+#
+#
+#    EXAMPLES
+#
+#    AUTHOR
+#        cf (c) 2025 <https://github.com/cf-tgg/>
+#
+#    SEE ALSO
+#        ssh(1)    rsync(1)
+#
+#   TODO: [2025-06-12] testing
+
+SYNC_LOG="$HOME/.local/var/log/fzhsync.log"
+[ -d "$HOME/.local/var/log" ] || mkdir -pv "$HOME/.local/var/log"
+
+host=""
+dest=""
+fdir="$HOME"
+SYNC=0
+FETCH=0
+targets=""
+
+usage() {
+    env SC=$0 envsubst <<-'MAN'
+    fzhsync(1)                              FZHSYNC                              fzhsync(1)
+
+       ___      __
+      / _/___  / /   ___ __ __ ___  ____
+     / _//_ / / _ \ (_-</ // // _ \/ __/
+    /_/  /__//_//_//___/\_, //_//_/\__/
+                       /___/
+
+    fzhsync --- fuzzy host rsync
+
+    NAME
+        ${SC} -[tdfSFh] [-t <HOST>] [-d <DESTINATION>] [-S SYNC] [-F FETCH]
+
+    OPTIONS
+       -t    <HOST>           Target host (either user@ip.address or Host as configured in ~/.ssh/config)
+       -d    <DESTINATION>    Target destination: specify where to receive/send TARGET file or directory
+       -f    <TARGET>         Target file or directory to be sent/received
+       -S                     Mirror DESTINATION (send/receive to same location as TARGET)
+       -F                     Fetch TARGET from HOST (receive TARGET instead of sending to)
+
+    USAGE
+        TODO: write usage
+
+    EXAMPLES
+        TODO: write examples
+
+    AUTHOR
+        cf.:       <cf.gg.tty@protonmail.com>
+        Github:    <https://github.com/cf-tgg/>
+        Gitlab:    <https://gitlab.com/cf-gg/>
+        Codeberg:  <https://codeberg.org/cfggtty/>
+
+    SEE ALSO
+        ssh(1)    rsync(1)
+
+    fzhsync(1)                              cf. © 2025                              fzhsync(1)
+MAN
+}
+
+
+while getopts "D:t:d:f:SFh" OPT ; do
+    case $OPT in
+        t) host="$OPTARG" ;;
+        d) dest="$OPTARG" ;;
+        f) f="$OPTARG" ; ([ -e "$f" ] && targets="${targets} $f") || { echo "$f does not exist" >&2 ; exit 1 ; } ;;
+        D) fdir="$OPTARG" ;;
+        S) SYNC=1 ;;
+        F) FETCH=1 ;;
+        h) usage >&2 ; exit 0 ;;
+        *) usage >&2 ; exit 1 ;;
+    esac
+done
+shift $(($OPTIND - 1))
+[ -d "$fdir" ] || fdir="$HOME"
+[ -z "$host" ] && host=$(cat $(pass rsync_hosts) | fzf --delimiter=',' --with-nth=2 | awk -F ',' '{print $1}')
+[ -z "$targets" ] && [ $# -lt 1 ] && targets=$(find "${fdir}" | fzf --multi) || targets="$@"
+
+if [ $FETCH -eq 1 ] ; then
+    for t in "$targets" ; do
+        [ -z "$dest" ] && dest='~/.local/rsync/'
+        [ -d "$dest" ] || mkdir -p "$dest"
+        ([ $SYNC -eq 1 ] && echo "rsync "${host}:${t}" "${t}"" | tee -a "$SYNC_LOG" | xclip -in sel clip) || { echo "rsync "${host}:${t}" "${dest}"" | tee -a "$SYNC_LOG" | xclip -in sel clip ; }
+       # ([ $SYNC -eq 1 ] && rsync "${host}:${t}" "${t}") || rsync "${host}:${t}" "${dest}"
+    done
+else
+   for t in "$targets" ; do
+        [ -e "$t" ] || continue
+        f=$(realpath "$t" | sed "s|^$HOME|~|")
+        n=${f##*/}
+        [ -z "$dest" ] && dest='~'
+        args="--verbose --progress --recursive"
+        ([ $SYNC -eq 1 ] && echo "rsync "${f}" "${args}"  "${host}:${f}"" | tee -a "$SYNC_LOG" | xclip -in -sel clip) || { echo "rsync "${f}" "${args}"  "${host}:${dest}/${n}"" | tee -a "$SYNC_LOG" | xclip -in -sel clip ; }
+        # ([ $SYNC -eq 1 ] && rsync --verbose --progress --recursive "${f}" "${host}:${f}") || rsync --verbose --progress --recursive "${f}" "${host}:${d}/${f}"
+    done
+fi
+
+lastsync=$(tail -n 1 "$SYNC_LOG")
+if [ -n "$lastsync" ]; then
+    printf '%s\n' "$lastsync" | xclip -in -selection clipboard
+    notify-send -t 2000 "[fzhsync]" "$lastsync"
+fi
+
+unset n f t host targets
+
+exit 0
+
+# +--------------------------------------------------------------------+
+# | EDIT LOG                                                           |
+# +--------------------------------------------------------------------+
+# | 2025-06-19 20:28, cf [Linux 6.15.2-zen1-1-zen x86_64 GNU/Linux]    |
+# | + added contacts section and footer to usage  [20:30]              |
+# +--------------------------------------------------------------------+
+# | 2025-07-01 15:15                                                   |
+# | + added notifications for dwmbar                                   |
+# +--------------------------------------------------------------------+

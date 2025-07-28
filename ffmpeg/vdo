@@ -1,0 +1,58 @@
+#!/bin/sh
+
+DISPLAYS=/tmp/active_displays
+AUDIO_SOURCE=$(pactl list short sources | grep RUNNING | awk '{print $2}') 
+
+xrandr | grep 'eDP' | awk '{print "*"$1, $2, $4}' > ${DISPLAYS}
+
+for i in {0..2}; do
+    xrandr | grep "DisplayPort-${i}" | awk '{print $1,$2,$3}' >> ${DISPLAYS}
+done
+
+cleanup() {
+    echo "Cleaning up..."
+    kill $ffmpeg_pid  # Kill ffmpeg process
+}
+
+trap cleanup EXIT
+
+# Device assignments
+declare -A DEVICES
+DEVICES["eDP"]=0
+DEVICES["DisplayPort-0"]=1
+DEVICES["DisplayPort-1"]=2
+DEVICES["DisplayPort-2"]=3
+
+if [ "$1" = "-a" ] || [ "$1" = "--all" ]; then
+    ALL=($(awk '{print $1}' ${DISPLAYS}))
+    for dp in "${ALL[@]}"; do
+        SCREEN=${dp}
+        SIZE=$(grep "${dp}" ${DISPLAYS} | awk '{print $3}' | cut -d+ -f1)
+        POS=$(grep "${dp}" ${DISPLAYS} | awk '{print $3}' | cut -d+ -f2)
+
+        # Map device to the correct number
+        DEV=${DEVICES[${dp}]}
+
+        # echo ${dp} ${SIZE} ${POS}
+        ffmpeg -f x11grab -s ${SIZE} -i :0.0+${POS} -f v4l2 /dev/video${DEV} &
+        ffmpeg_pid=$!
+
+        sleep 1
+
+        mpv av://v4l2:/dev/video${DEV} --profile=low-latency --untimed --title=${SCREEN} & 
+    done
+else
+    SCREEN=$(awk '{print $1}' ${DISPLAYS} | dmenu -i -p "Quel écran?")
+    SIZE=$(grep "${SCREEN}" ${DISPLAYS} | awk '{print $3}' | cut -d+ -f1)
+    POS=$(grep "${SCREEN}" ${DISPLAYS} | awk '{print $3}' | cut -d+ -f2)
+    DEV=${DEVICES[${SCREEN}]}
+
+    # Start ffmpeg in background, capture its PID
+    ffmpeg -f x11grab -s ${SIZE} -i :0.0+${POS} -f v4l2 /dev/video${DEV} &
+    ffmpeg_pid=$!
+
+    sleep 1
+
+    # Launch mpv for preview
+    mpv av://v4l2:/dev/video${DEV} --profile=low-latency --untimed --title="${SCREEN}"
+fi

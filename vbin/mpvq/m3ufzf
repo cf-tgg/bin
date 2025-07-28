@@ -1,0 +1,35 @@
+#!/bin/sh
+
+MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.m3u8"
+MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+MPV_SOCK="/tmp/mpv.sock"
+
+# Update titles by extracting from the playlist
+update_titles() {
+    grep -E "^#EXTINF" "$MPVQ_PLAYLIST" | cut -d, -f2- > "$MPVQ_TITLES"
+}
+
+m3ufzf() {
+    f="$1"
+    # Extract titles, display with line numbers via fzf, and append to the playlist
+    grep -E "#EXTINF" "$f" | cut -d, -f2- | nl | fzf --multi -- | awk '{print $1*2}' |\
+        while read -r ln; do
+        # Append selected lines to the playlist
+        sed -n "${ln}p;$((ln+1))p" "$f" >> "$MPVQ_PLAYLIST"
+        u=$(sed -n "$((ln+1))p" "$f")
+        echo '{"command": ["loadfile", "'"$u"'", "append"]}' | socat - "$MPV_SOCK" >/dev/null 2>&1 || continue
+    done || return 1
+    return 0
+}
+
+f="$1"
+[ -f "$f" ] || { echo "Playlist file not found."; exit 1; }
+[ "$f" = "$MPVQ_PLAYLIST" ] && exit 0
+m3ufzf "$f" && update_titles
+
+if ! pidof mpv >/dev/null 2>&1; then
+    setsid -f mpv -quiet --profile=fast --playlist="$MPVQ_PLAYLIST" --input-ipc-server="$MPV_SOCK" >/dev/null 2>&1
+    exit 0
+else
+    exit 0
+fi

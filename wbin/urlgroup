@@ -1,0 +1,9 @@
+#!/bin/sh
+# Grouping Script: group_urls.sh
+# Usage: ./urlgroup urls.txt
+
+# Sort and group URLs by domain
+awk -F/ '{print $3}' "$1" | sort | uniq -c | sort -nr > grouped_urls.txt
+
+# Output the sorted and grouped results to the terminal (optional)
+cat grouped_urls.txt

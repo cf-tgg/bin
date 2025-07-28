@@ -1,0 +1,320 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#                _  ___  _
+#     ___ __ __ (_)/ _/ (_)___  ___ _
+#    / -_)\ \ // // _/ / // _ \/ _ `/
+#    \__//_\_\/_//_/__/ // .__/\_, /
+#                  |___//_/   /___/
+#
+#    exifjpg --- exiftool helper for embeded jpg images
+#
+#    NAME
+#        exifjpg
+#
+#    DEPENDENCIES
+#
+#        jq perl exiftool coreutils
+#
+#        Installation of dependencies on arch-based distros can be done as follows:
+#
+#         ```shell
+#         sudo pacman -S coreutils jq perl
+#         cpanm Image::ExifTool
+#         ```
+#
+#    COMPLETION CONFIGURATION
+#
+#        ```/etc/bash_completion.d/exifjpg
+
+#         _exifjpg_completions()
+#         {
+#             local cur prev opts
+#             COMPREPLY=()
+#             cur="${COMP_WORDS[COMP_CWORD]}"
+#             opts="-S -A -C -M -F -c -d -D -E -e -f -g -U -H -I -i -J -l -L -P -N -R -T -t -u -s
+#                   +S +A +C +M +F +c +d +D +E +e +f +g +U +H +I +i +J +l +L +P +N +R +T +t +u +s"
+
+#             case "$cur" in
+#                 -*)
+#                     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
+#                     return 0
+#                     ;;
+#                 +*)
+#                     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
+#                     return 0
+#                     ;;
+#                 *)
+#                     COMPREPLY=( $(compgen -f -- "$cur") )
+#                     return 0
+#                     ;;
+#             esac
+#         }
+#         complete -F _exifjpg_completions exifjpg
+#
+#        ```
+
+#        ```~/.config/zsh/_exifjpg
+#
+#         #compdef myscript
+#
+#         _arguments -s -S \
+#           '-S+[Set field separator]:separator string:' \
+#           '-A[Enable ALL output]' '+A[Enable ALL output]' \
+#           '-C[Enable comments]' '+C[Enable comments]' \
+#           '-M[Enable MPVSTR]' '+M[Enable MPVSTR]' \
+#           '-F[Enable FIELDS]' '+F[Enable FIELDS]' \
+#           '-c[Include .Channel field]' '+c[Include .Channel field]' \
+#           '-d[Include .Description field]' '+d[Include .Description field]' \
+#           '-D[Include .UploadDate field]' '+D[Include .UploadDate field]' \
+#           '-E[Include .UploaderThumbnail field]' '+E[Include .UploaderThumbnail field]' \
+#           '-e[Include .UploaderID field]' '+e[Include .UploaderID field]' \
+#           '-f[Include .Metadata.ChannelFollowerCount]' '+f[Include .Metadata.ChannelFollowerCount]' \
+#           '-g[Include .Duration field]' '+g[Include .Duration field]' \
+#           '-U[Include .UploaderURL field]' '+U[Include .UploaderURL field]' \
+#           '-H[Include .ChannelURL field]' '+H[Include .ChannelURL field]' \
+#           '-I[Include .PlaylistIndex field]' '+I[Include .PlaylistIndex field]' \
+#           '-i[Include .ID field]' '+i[Include .ID field]' \
+#           '-J[Include .Date field]' '+J[Include .Date field]' \
+#           '-l[Include .LikeCount field]' '+l[Include .LikeCount field]' \
+#           '-L[Include .Chapters[] field]' '+L[Include .Chapters[] field]' \
+#           '-P[Include .Playlist field]' '+P[Include .Playlist field]' \
+#           '-N[Include .CommentCount field]' '+N[Include .CommentCount field]' \
+#           '-R[Include .Resolution field]' '+R[Include .Resolution field]' \
+#           '-S[Include .Metadata.DurationString field]' '+S[Include .Metadata.DurationString field]' \
+#           '-T[Include .Thumbnail field]' '+T[Include .Thumbnail field]' \
+#           '-t[Include .Title field]' '+t[Include .Title field]' \
+#           '-u[Include .URI field]' '+u[Include .URI field]' \
+#           '-s[Include .Timestamp field]' '+s[Include .Timestamp field]' \
+#           '*:filename:_files'
+#        ```
+#
+#        ```~/.zshrc
+#
+#        _exifjpg() {
+#          local -a opts
+#          opts=(
+#            '-t[Title]'
+#            '-u[URI]'
+#            '-i[ID]'
+#            '-J[Date]'
+#            '-s[Timestamp]'
+#            '-D[Duration]'
+#            '-S[DurationString]'
+#            '-T[Thumbnail]'
+#            '-h[Description]'
+#            '-l[LikeCount]'
+#            '-N[CommentCount]'
+#            '-c[Channel]'
+#            '-F[ChannelFollowerCount]'
+#            '-I[UploaderID]'
+#            '-U[UploaderURL]'
+#            '-D[UploadDate]'
+#            '-T[UploaderThumbnail]'
+#            '-O[OriginalURL]'
+#            '-R[Resolution]'
+#            '-P[Playlist]'
+#            '-I[PlaylistIndex]'
+#            '-L[Chapters]'
+#            '-M[MpvString]'
+#          )
+#          if [[ $words[CURRENT] == -* ]]; then
+#            _arguments -s $opts
+#          else
+#            _files
+#          fi
+#        }
+#        compdef _exifjpg exifjpg
+#
+#        ```
+#
+#    AUTHOR
+#        cf <cf.gg.tty@protonmail.com>
+#
+
+selected_fields=""
+FIELDS=0
+MPVSTR=0
+COMMENTS=0
+ALL=0
+SEPARATOR=$'\n'
+FILES=""
+
+
+testroot() {
+   f="$1"
+   for root in "UserComment" "Comment" "Description" ; do
+       metadata=$(exiftool -s3 -"$root" -j "$f" | jq -r --arg root "$root" '.[]."\($root)"|fromjson|keys[]')
+       if [ -n "$metadata" ]; then
+           echo "$root"
+           return 0
+       fi
+   done
+   echo "No metadata found in $f" >&2
+   return 1
+}
+
+clean_value() {
+  sed -E 's/\([Ff]ull [Aa]lbum\)/-/g; s/\( [Ff]ull [Aa]lbum \)/-/g; s/[Ff]ull [Aa]lbum//g; s/\{\}/-/g; s/  / /g; s/ $//; s/-$//;' | \
+  sed -E 's/(\s|^)(18[0-9]{2}|19[0-9]{2}|20[0-9]{2})(\s|$)/\1(\2)\3/g' | \
+  sed 's/\xE2\x80\xB9\x0332//g' | \
+  perl -CSD -pe 's/\x{0332}//g'
+}
+
+while getopts "S:ACcDdEeFfGgHIijkLlMmNnOPpRrSsTtUu" OPT ; do
+    case "$OPT" in
+        S|+S) SEPARATOR="${OPTARG}" ;;
+        C|+C) COMMENTS=1 ;;
+        M|+M) MPVSTR=1 ;;
+        A|+A) ALL=1 ;;
+        F|+F) FIELDS=1 ;;
+        c|+c) selected_fields="$selected_fields .Channel" ;;
+        d|+d) selected_fields="$selected_fields .Description" ;;
+        D|+D) selected_fields="$selected_fields .UploadDate" ;;
+        E|+E) selected_fields="$selected_fields .UploaderThumbnail" ;;
+        e|+e) selected_fields="$selected_fields .UploaderID" ;;
+        f|+f) selected_fields="$selected_fields .Metadata.ChannelFollowerCount" ;;
+        g|+g) selected_fields="$selected_fields .Duration" ;;
+        U|+U) selected_fields="$selected_fields .UploaderURL" ;;
+        H|+H) selected_fields="$selected_fields .ChannelURL" ;;
+        I|+I) selected_fields="$selected_fields .PlaylistIndex" ;;
+        i|+i) selected_fields="$selected_fields .ID" ;;
+        J|+J) selected_fields="$selected_fields .Date" ;;
+        l|+l) selected_fields="$selected_fields .LikeCount" ;;
+        L|+L) selected_fields="$selected_fields .Chapters[]" ;;
+        P|+P) selected_fields="$selected_fields .Playlist" ;;
+        N|+N) selected_fields="$selected_fields .CommentCount" ;;
+        R|+R) selected_fields="$selected_fields .Resolution" ;;
+        S|+S) selected_fields="$selected_fields .Metadata.DurationString" ;;
+        T|+T) selected_fields="$selected_fields .Thumbnail" ;;
+        t|+t) selected_fields="$selected_fields .Title" ;;
+        u|+u) selected_fields="$selected_fields .URI" ;;
+        s|+s) selected_fields="$selected_fields .Timestamp" ;;
+        *) printf "usage: ${0##*/} [+-S:ACcDdEeFfGgHIijkLlMmNnOPpRrSsTtUu} [--] ARGS...\n" >&2 ; exit 1 ;;
+    esac
+done
+shift $(($OPTIND - 1))
+OPTIND=1
+
+if [ $# -lt 1 ] ; then
+    echo "usage: ${0##*/} [+-abcDtuidsSThlLMmNnPpOCFUfIATRrj} [--] <FILE(S)>..." >&2
+    exit 1
+fi
+
+SEPARATOR=$(printf "%b" "$SEPARATOR")
+file_count=$#
+fcount=1
+# echo "$file_count"
+for f in "$@" ; do
+    # printf '[file: %d/%d]\t' "$fcount" "$file_count"
+    [ -L "$f" ] && f=$(readlink -f "$f") || f=$(realpath "$1")
+    [ -f "$f" ] || continue
+    b=$(basename "$f")
+    d=$(basename "$(dirname "$f")")
+    root=$(testroot "$f")  || { echo "No metadata found in $f" >&2 ; exit 1 ; }
+    # echo "file: $f"
+    # echo "basename: $b"
+    # echo "basename dirname: $d"
+    if [ $MPVSTR -eq 1 ]; then
+        exiftool -s3 -"$root" -j "$f" 2>/dev/null |\
+            jq -r --arg root "$root" '
+    .[]."\($root)" | fromjson |
+    if has("Metadata") then
+      .Metadata.Duration as $dur |
+      .Metadata.Title as $title |
+      .Metadata.OriginalURL as $url |
+      .Metadata.UploadDate as $uploadDate |
+      ($uploadDate | strptime("%Y%m%d") | strftime("%Y-%m-%d")) as $date |
+      "#EXTINF:\($dur),\($title),\($date)\n\($url)"
+    else
+      .Duration as $dur |
+      ($dur | tostring | split(":") |
+        if length == 3 then
+          (.[0] | tonumber) * 3600 + (.[1] | tonumber) * 60 + (.[2] | tonumber)
+        elif length == 2 then
+          (.[0] | tonumber) * 60 + (.[1] | tonumber)
+        else
+          (.[0] | tonumber)
+        end) as $seconds |
+      (.UploadDate | strptime("%Y%m%d") | strftime("%Y-%m-%d")) as $date |
+      "#EXTINF:\($seconds),\(.Title),\($date)\n\(.URI)"
+    end
+    ' 2>/dev/null
+        continue
+    fi
+
+    if [ $ALL -eq 1 ]; then
+        keys=$(exiftool -s3 -"$root" -j "$f" 2>/dev/null | jq -r --arg root "$root" '.[]."\($root)"|fromjson|keys[]' 2>/dev/null)
+        if [ "$FIELDS" = 1 ]; then
+            exiftool -s3 -"$root" -j "$f" 2>/dev/null | jq -r --arg root "$root" '.[]."\($root)"
+    | fromjson
+    | select(. as $item | $item | objects
+    | to_entries
+    | map(select(.value != null and .value != "" and
+          (type != "array" or (type == "array" and .value | length > 0)) and
+          (type != "string" or .value != "")))
+          | from_entries)' 2>/dev/null
+        else
+            for key in $keys; do
+                value=$(exiftool -s3 -"$root" -j "$f" | jq -r --arg root "$root" --arg key "$key" '.[]."\($root)"|fromjson|.[$key]' 2>/dev/null)
+                #  [ -n "$value" ] && echo "$value" | sed -E 's/\([Ff]ull [Aa]lbum\)/-/g; s/\( [Ff]ull [Aa]lbum \)/-/g; s/[Ff]ull [Aa]lbum//g;s/\{\}/-/g;s/  / /g;s/ $//; s/-$//;'| sed -E 's/(\s|^)(18[0-9]{2}|19[0-9]{2}|20[0-9]{2})(\s|$)/\1(\2)\3/g'| sed 's/\xE2\x80\xB9\x0332//g' | perl -CSD -pe 's/\x{0332}//g'
+                [ -n "$value" ] && echo "$value" | clean_value
+            done
+        fi
+    fi
+    total_fields=$(printf '%s\n' $selected_fields | wc -l | tr -d ' ')
+    # metadata=$(exiftool -s3 -"$root" -j "$f" | jq -r --arg root "$root" '.[]."\($root)"|fromjson|keys[]')
+    count=0
+    for field in $selected_fields ; do
+        field=${field#.}
+        value=$(exiftool -s3 -"$root" -j "$f" 2>/dev/null | jq -r --arg root "$root" --arg field "$field" '.[]."\($root)"|fromjson|.[$field]' 2>/dev/null)
+
+        if [ "$value" = "null" ]; then
+            value=$(exiftool -s3 -"$root" -j "$f" 2>/dev/null | jq -r --arg root "$root" --arg field "$field" '.[]."\($root)"|fromjson|.Summary.[$field]' 2>/dev/null)
+        fi
+
+        if [ "$value" = "null" ]; then
+            value=$(exiftool -s3 -"$root" -j "$f" 2>/dev/null | jq -r --arg root "$root" --arg field "$field" '.[]."\($root)"|fromjson|.Metadata.[$field]' 2>/dev/null)
+        fi
+
+        [ "$value" = "null" ] && value=""
+        if [ $FIELDS -eq 1 ]; then
+            line=$(printf '%s: %s' "$field" "$value" | clean_value)
+        else
+            line=$(printf '%s' "$value" | clean_value)
+        fi
+
+        #  if [ $FIELDS -eq 1 ]; then
+        #      line=$(printf '%s: %s' "$field" "$value" | sed -E 's/\([Ff]ull [Aa]lbum\)/-/g; s/\( [Ff]ull [Aa]lbum \)/-/g; s/[Ff]ull [Aa]lbum//g;s/\{\}/-/g;s/  / /g;s/ $//; s/-$//;'| sed -E 's/(\s|^)(18[0-9]{2}|19[0-9]{2}|20[0-9]{2})(\s|$)/\1(\2)\3/g'| sed 's/\xE2\x80\xB9\x0332//g' | perl -CSD -pe 's/\x{0332}//g')
+        #  else
+        #      line=$(printf '%s' "$value" | sed -E 's/\([Ff]ull [Aa]lbum\)/-/g; s/\( [Ff]ull [Aa]lbum \)/-/g; s/[Ff]ull [Aa]lbum//g;s/\{\}/-/g;s/  / /g;s/ $//; s/-$//;'| sed -E 's/(\s|^)(18[0-9]{2}|19[0-9]{2}|20[0-9]{2})(\s|$)/\1(\2)\3/g'| sed 's/\xE2\x80\xB9\x0332//g' | perl -CSD -pe 's/\x{0332}//g')
+        #  fi
+
+        count=$((count + 1))
+        #  if [ $count -gt 0 ] && [ $count -lt $total_fields ]; then
+        #      case "$SEPARATOR" in
+        #          *\\n) echo "${line}${SEPARATOR%\\n}" ;;
+        #          *) printf "%s%s" "$line" "$SEPARATOR" ;;
+        #      esac
+        if [ $count -gt 0 ] && [ $count -le $total_fields ]; then
+            [ $count -gt 1 ] && printf '%s' "$SEPARATOR"
+            printf '%s' "$value"
+        else
+            if [ $fcount -lt $file_count ] ; then
+                printf '%s%s\n' "$line" "${SEPARATOR}"
+            else
+                echo "$line"
+
+            fi
+        fi
+    done
+
+    if [ $COMMENTS -eq 1 ]; then
+        exiftool -s3 -"$root" -j "$f" 2>/dev/null | jq -r --arg root "$root" '.[]."\($root)"|fromjson|.Comments[]|"\(.author):\n   \(.text)"' 2>/dev/null || { echo "no comments" >&2 ; exit 1 ; }
+    fi
+
+    fcount=$((fcount + 1))
+
+done
+
+exit 0

@@ -1,0 +1,114 @@
+#!/bin/sh
+
+# Ensure the file argument is provided and valid
+if [ -z "$1" ] || [ ! -f "$1" ]; then
+  echo "Usage: $0 <file> [options]" >&2
+  exit 1
+fi
+
+f="$(realpath "$1")"
+b=$(basename "$f")
+d=$(basename "$(dirname "$f")")
+
+# Define fields and their jq expressions using the new format
+fields='{
+  "title": (.[].Comment | fromjson | .Title),
+  "uri": (.[].Comment | fromjson | .URI),
+  "id": (.[].Comment | fromjson | .ID),
+  "date": (.[].Comment | fromjson | .Date),
+  "timestamp": (.[].Comment | fromjson | .Timestamp),
+  "duration": (.[].Comment | fromjson | .Duration),
+  "durationstring": (.[].Comment | fromjson | .DurationString),
+  "thumbnail": (.[].Comment | fromjson | .Thumbnail),
+  "description": (.[].Comment | fromjson | .Description),
+  "uploader": (.[].Comment | fromjson | .Uploader),
+  "likecount": (.[].Comment | fromjson | .LikeCount),
+  "commentcount": (.[].Comment | fromjson | .CommentCount),
+  "channel": (.[].Comment | fromjson | .Channel),
+  "channelfollowercount": (.[].Comment | fromjson | .ChannelFollowerCount),
+  "uploaderid": (.[].Comment | fromjson | .UploaderID),
+  "uploaderurl": (.[].Comment | fromjson | .UploaderURL),
+  "uploaddate": (.[].Comment | fromjson | .UploadDate),
+  "uploaderthumbnail": (.[].Comment | fromjson | .UploaderThumbnail),
+  "originalurl": (.[].Comment | fromjson | .OriginalURL),
+  "resolution": (.[].Comment | fromjson | .Resolution),
+  "playlist": (.[].Comment | fromjson | .Playlist),
+  "playlistindex": (.[].Comment | fromjson | .PlaylistIndex),
+  "chapters": (.[].Comment | fromjson | .Chapters),
+  "mpvstr": (.[].Comment|fromjson| "\(.URI) # \(.Title)")
+}'
+
+# Parse options
+OPTIONS="t:u:i:d:s:D:S:T:h:L:C:F:c:I:U:A:Tn:O:R:P:p:m:r:M"
+LONGOPTS="title,uri,id,date,timestamp,duration,durationstring,thumbnail,description,\
+likecount,commentcount,channel,channelfollowercount,uploaderid,uploaderurl,\
+uploaddate,uploaderthumbnail,originalurl,resolution,playlist,playlistindex,chapters,raw,mpvstr"
+
+PARSED=$(getopt --options="$OPTIONS" --longoptions="$LONGOPTS" -- "$@")
+if [ $? -ne 0 ]; then
+  echo "Invalid options" >&2
+  exit 1
+fi
+eval set -- "$PARSED"
+
+selected_fields=""
+
+FIELDS=1
+
+while true; do
+  case "$1" in
+    -t|--title) selected_fields="$selected_fields title" ;;
+    -u|--uri) selected_fields="$selected_fields uri" ;;
+    -i|--id) selected_fields="$selected_fields id" ;;
+    -d|--date) selected_fields="$selected_fields date" ;;
+    -s|--timestamp) selected_fields="$selected_fields timestamp" ;;
+    -D|--duration) selected_fields="$selected_fields duration" ;;
+    -S|--durationstring) selected_fields="$selected_fields durationstring" ;;
+    -T|--thumbnail) selected_fields="$selected_fields thumbnail" ;;
+    -h|--description) selected_fields="$selected_fields description" ;;
+    -L|--likecount) selected_fields="$selected_fields likecount" ;;
+    -C|--commentcount) selected_fields="$selected_fields commentcount" ;;
+    -F|--channel) selected_fields="$selected_fields channel" ;;
+    -c|--channelfollowercount) selected_fields="$selected_fields channelfollowercount" ;;
+    -I|--uploaderid) selected_fields="$selected_fields uploaderid" ;;
+    -U|--uploaderurl) selected_fields="$selected_fields uploaderurl" ;;
+    -A|--uploaddate) selected_fields="$selected_fields uploaddate" ;;
+    -Tn|--uploaderthumbnail) selected_fields="$selected_fields uploaderthumbnail" ;;
+    -O|--originalurl) selected_fields="$selected_fields originalurl" ;;
+    -R|--resolution) selected_fields="$selected_fields resolution" ;;
+    -P|--playlist) selected_fields="$selected_fields playlist" ;;
+    -p|--playlistindex) selected_fields="$selected_fields playlistindex" ;;
+    -m|--chapters) selected_fields="$selected_fields chapters" ;;
+    -M|--mpvstr) selected_fields="$selected_fields mpvstr" ;;
+    -r|--raw) FIELDS=0 ;;
+    --) shift; break ;;
+    *) echo "Unexpected option: $1" >&2; exit 1 ;;
+  esac
+  shift
+done
+
+# Extract EXIF data
+exif_data=$(exiftool -s3 -Comment "$f" -j 2>/dev/null)
+
+if [ -z "$exif_data" ]; then
+  echo "No EXIF data found in the file." >&2
+  exit 1
+fi
+
+# Fetch and display selected fields
+for field in $selected_fields; do
+  value=$(echo "$exif_data" | jq -r --arg field "$field" ". as \$root | ${fields}[\$field]")
+  if [ "$value" != "null" ]; then
+    if [ "$FIELDS" -eq 0 ]; then
+      echo "$value"
+    else
+      echo "$field: $value"
+    fi
+  else
+    if [ "$FIELDS" -eq 0 ]; then
+      echo ""
+    else
+      echo "$field: null"
+    fi
+  fi
+done

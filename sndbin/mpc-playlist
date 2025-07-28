@@ -1,0 +1,19 @@
+#!/bin/bash
+
+playlist=$(mpc playlist)
+streams_file="$HOME/.cache/mpd-streams"
+titles_file="$HOME/.cache/mpd-title"
+
+mapfile -t playlist_array <<< "$playlist"
+mapfile -t streams_array < "$streams_file"
+mapfile -t titles_array < "$titles_file"
+
+for i in "${!playlist_array[@]}"; do
+  for j in "${!streams_array[@]}"; do
+    if [ "${playlist_array[i]}" = "${streams_array[j]}" ]; then
+      playlist_array[i]="${titles_array[j]}"
+    fi
+  done
+done
+
+printf '%s\n' "${playlist_array[@]}"

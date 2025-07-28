@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# Function to convert ANSI 256 color code to hex for Pango
+ansi_to_hex() {
+    local color="$1"
+    local red green blue
+
+    # Map ANSI 256 color codes to RGB
+    if [[ $color -lt 16 ]]; then
+        # Standard colors (0-15)
+        case $color in
+            0) echo "#000000";; # black
+            1) echo "#800000";; # red
+            2) echo "#008000";; # green
+            3) echo "#808000";; # yellow
+            4) echo "#000080";; # blue
+            5) echo "#800080";; # magenta
+            6) echo "#008080";; # cyan
+            7) echo "#c0c0c0";; # light gray
+            8) echo "#808080";; # dark gray
+            9) echo "#ff0000";; # bright red
+            10) echo "#00ff00";; # bright green
+            11) echo "#ffff00";; # bright yellow
+            12) echo "#0000ff";; # bright blue
+            13) echo "#ff00ff";; # bright magenta
+            14) echo "#00ffff";; # bright cyan
+            15) echo "#ffffff";; # white
+        esac
+    elif [[ $color -ge 16 && $color -lt 232 ]]; then
+        # Color range 16-231 (216 colors)
+        color=$((color - 16))
+        red=$((color / 36))
+        green=$(((color % 36) / 6))
+        blue=$((color % 6))
+
+        red=$((red * 51))
+        green=$((green * 51))
+        blue=$((blue * 51))
+
+        printf "#%02x%02x%02x" $red $green $blue
+    else
+        # Grayscale range 232-255
+        gray=$((color - 232))
+        gray=$((gray * 11))
+        printf "#%02x%02x%02x" $gray $gray $gray
+    fi
+}
+
+# Function to convert ANSI escape sequences to Pango markup
+ansi_to_pango() {
+    local input="$1"
+    local color hex_color
+
+    # Step 1: Replace combined color and bold escape sequences
+    input=$(echo "$input" | sed -E \
+        -e 's/\x1b\[38;5;([0-9]+);1m/<span foreground="\\1"><b>/g' \
+        -e 's/\x1b\[38;5;([0-9]+)m/<span foreground="\\1">/g' \
+        -e 's/\x1b\[0m/<\/span>/g' \
+        -e 's/\x1b\[1m/<b>/g' \
+        -e 's/\x1b\[22m/<\/b>/g' \
+        -e 's/\x1b\[4m/<u>/g' \
+        -e 's/\x1b\[24m/<\/u>/g' \
+    )
+
+    # Step 2: Replace 256 color codes with their hex equivalents
+    while echo "$input" | grep -qP '\x1b\[38;5;([0-9]+)m'; do
+        # Extract the first color code using `grep` and `sed`
+        color=$(echo "$input" | grep -oP '\x1b\[38;5;([0-9]+)m' | head -n 1 | sed -E 's/\x1b\[38;5;([0-9]+)m/\1/')
+
+        # Convert the color code to hex using the `ansi_to_hex` function
+        hex_color=$(ansi_to_hex "$color")  # Convert to hex
+
+        # Use Bash parameter expansion to replace the matched escape sequence with the Pango color span
+        input="${input//\x1b\[38;5;${color}m/<span foreground=\"$hex_color\">}"
+    done
+
+    # Wrap the content in <body> to ensure proper Pango formatting
+    echo "<body>$input</body>"
+}
+
+# Read the weather report file and apply the conversion
+weather_report="$(head -n 7 ~/.cache/weatherreport)"
+formatted_report=$(ansi_to_pango "$weather_report")
+
+# Send the formatted notification using Pango markup
+notify-send "🌤️" "$formatted_report" --hint=int:transient:1 --hint=string:markup:multi-line

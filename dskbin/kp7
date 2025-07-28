@@ -1,0 +1,17 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+psel=$(xclip -selection primary -o 2>/dev/null)
+
+[ -n "$psel" ] || { echo "no primary selection" >&2 ; exit 1 ; }
+pout=$(shell_escape -p)
+
+echo "$pout" | xclip -sel clip -in
+
+if command -v notify-send >/dev/null 2>&1 ; then
+    notify-send "[ KP7 Shell Escape Primary ]" "${pout}"
+else
+    [ -t 0 ] && echo "$pout"
+fi
+
+# notify-send "KP7: remove from playlist" && st -e zsh -c 'mpvqrm'

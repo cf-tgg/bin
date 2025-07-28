@@ -1,0 +1,22 @@
+#!/usr/bin/sh
+
+# STREAM_KEY="$(pass cf@ytstreamkey)"
+
+SCREEN_SOURCE=$(xrandr | grep ' connected ' | awk '{print $1}' | dmenu -p 'Source vidéo:')
+AUDIO_SOURCE=$(pactl list short sources | grep RUNNING | awk '{print $2}') 
+
+SIZE=$(xrandr | grep "$SCREEN_SOURCE" | tr -d 'primary' | awk '{print $3}' | cut -d'+' -f1)
+SPOS=$(xrandr | grep "$SCREEN_SOURCE" | tr -d 'primary' | awk '{print $3}' | cut -d'+' -f2 | tr -s '+' ',')
+ARECORD=$(arecord -l | grep "^card" | awk '{print $2","$7}' | tr -d ':' | awk '{print "hw:"$0}')
+OUTPUT="screencast_$(date +%Y-%m-%d_%H%M%S).mkv"
+
+INPUT_SIZE="${SIZE}"
+DISPLAY_POS=":0.0+${SPOS}"
+INPUT_FRAMERATE=30
+
+# OUTPUT_RESOLUTION="2560x1440"
+# OUTPUT_RESOLUTION="2256x1504"
+OUTPUT_RESOLUTION="1980x1080"
+
+
+

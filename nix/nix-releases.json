@@ -1,0 +1,121 @@
+{
+  "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:https://github.com/NixOS/nixpkgs/releases",
+  "{http://www.w3.org/2005/Atom}link": [
+    null,
+    null
+  ],
+  "{http://www.w3.org/2005/Atom}title": "Release notes from nixpkgs",
+  "{http://www.w3.org/2005/Atom}updated": "2025-05-23T18:58:07Z",
+  "{http://www.w3.org/2005/Atom}entry": [
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/25.05",
+      "{http://www.w3.org/2005/Atom}updated": "2025-05-23T18:58:07Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": 25.05,
+      "{http://www.w3.org/2005/Atom}content": "<p>Release 25.05</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "leona-ya"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    },
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/25.11-pre",
+      "{http://www.w3.org/2005/Atom}updated": "2025-05-16T17:22:23Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": "25.11-pre",
+      "{http://www.w3.org/2005/Atom}content": "<p>25.11 is Xantusia</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "leona-ya"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    },
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/25.05-beta",
+      "{http://www.w3.org/2005/Atom}updated": "2025-05-16T17:05:52Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": "25.05-beta",
+      "{http://www.w3.org/2005/Atom}content": "<p>Release 25.05-beta</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "leona-ya"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    },
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/24.11",
+      "{http://www.w3.org/2005/Atom}updated": "2025-03-07T11:17:58Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": 24.11,
+      "{http://www.w3.org/2005/Atom}content": "<p>Release 24.11</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "mweinelt"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    },
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/branch-off-24.11",
+      "{http://www.w3.org/2005/Atom}updated": "2024-11-30T15:41:15Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": "branch-off-24.11",
+      "{http://www.w3.org/2005/Atom}content": "<p>Release 24.11</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "RossComputerGuy"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    },
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/25.05-pre",
+      "{http://www.w3.org/2005/Atom}updated": "2024-11-14T17:09:55Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": "25.05-pre",
+      "{http://www.w3.org/2005/Atom}content": "<p>25.05 is Warbler</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "RossComputerGuy"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    },
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/24.11-beta",
+      "{http://www.w3.org/2005/Atom}updated": "2024-11-14T16:57:49Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": "24.11-beta",
+      "{http://www.w3.org/2005/Atom}content": "<p>Release 24.11-beta</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "RossComputerGuy"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    },
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/24.05",
+      "{http://www.w3.org/2005/Atom}updated": "2024-05-31T18:19:20Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": 24.05,
+      "{http://www.w3.org/2005/Atom}content": "<p>Release 24.05</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "wegank"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    },
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/24.11-pre",
+      "{http://www.w3.org/2005/Atom}updated": "2024-05-22T16:15:37Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": "24.11-pre",
+      "{http://www.w3.org/2005/Atom}content": "<p>24.05 is Vicuña</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "wegank"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    },
+    {
+      "{http://www.w3.org/2005/Atom}id": "tag:github.com,2008:Repository/4542716/24.05-beta",
+      "{http://www.w3.org/2005/Atom}updated": "2024-05-22T16:11:32Z",
+      "{http://www.w3.org/2005/Atom}link": null,
+      "{http://www.w3.org/2005/Atom}title": "24.05-beta",
+      "{http://www.w3.org/2005/Atom}content": "<p>Release 24.05-beta</p>",
+      "{http://www.w3.org/2005/Atom}author": {
+        "{http://www.w3.org/2005/Atom}name": "wegank"
+      },
+      "{http://search.yahoo.com/mrss/}thumbnail": null
+    }
+  ]
+}

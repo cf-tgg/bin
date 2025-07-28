@@ -1,0 +1,75 @@
+#!/bin/sh
+
+# Isoler les ${offset} de chaque moniteurs assumant :0.0+${offset},0
+DISPLAYS=$(xrandr | grep 'mm' | awk '{if ($3 == "primary") {print $1, $4} else {print $1, $3}}' | awk '{print $2}' | cut -d'+' -f2)
+
+activeAbsoluteX=$(xdotool getactivewindow | xargs -I {} xwininfo -id {}  | grep 'Absolute upper-left X:' | awk '{print $4}')
+
+# Get active window details
+activeWin=$(xdotool getactivewindow getwindowgeometry --shell)
+activeId=$(echo "$activeWin" | grep -E "^WINDOW=" | cut -d'=' -f2)
+activeWidth=$(echo "$activeWin" | grep -E "^WIDTH=" | cut -d'=' -f2)
+activeHeight=$(echo "$activeWin" | grep -E "^HEIGHT=" | cut -d'=' -f2)
+activeY=$(echo "$activeWin" | grep -E "^Y=" | cut -d'=' -f2)
+activeX=$(echo "$activeWin" | grep -E "^X=" | cut -d'=' -f2)
+
+# [dbg]
+echo "[dbg]"
+echo "Active Window Details:"
+echo "  ID: $activeId"
+echo "  Width: $activeWidth"
+echo "  Height: $activeHeight"
+echo "  Y: $activeY"
+echo "  X: $activeX"
+
+# Validations des données 
+if ! [ "$activeWidth" -eq "$activeWidth" ] 2>/dev/null; then
+  echo "Erreur: activeWidth est non-numérique."
+  exit 1
+fi
+
+if ! [ "$activeY" -eq "$activeY" ] 2>/dev/null; then
+  echo "Erreur: activeY est non-numérique."
+  exit 1
+fi
+
+# 10px + Largeur de la fenêtre active sélectionne la fenêtre directement à droite
+moveX=$((activeWidth + 10))
+echo "initial moveX: $moveX"
+
+# Isole le premier offset (dans le cas de deux écrans seulement)
+# TODO: fix pour plusieurs moniteurs, donc plusieurs offsets
+displayXOffset=$(echo "$DISPLAYS" | head -n1)
+
+echo "displayXOffset: $displayXOffset"
+echo "activeAbsoluteX: $activeAbsoluteX"
+echo "activeWidth: " $activeWidth
+
+# Calcul si la fenêtre de droite se trouve en dehors de l'écran de la fenêtre active
+outOfBounds=$((activeWidth + activeAbsoluteX))
+
+# Cibler la fenêtre en fonction de la position rlative à la fenêtre active
+# Note: xdotool calcul le mouvement relatif en considérant le coin supérieur gauche comme l'origine
+targetWin=$(xdotool mousemove --window "$activeId" "$moveX" "$activeY" getmouselocation | awk '{print $4}' | cut -d':' -f2)
+targetAbsoluteX=$(xwininfo -id $targetWin | grep 'Absolute upper-left X:' | awk '{print $4}')
+if [$targetAbsoluteX -gt $displayXOffset ]; then
+  dwmswallow  "$targetWin" "$activeId"
+  exit 0
+elif [ $targetWin -eq $activeId && $activeX -gt 0 ]; then
+  targetX=$((activeAbsoluteX - 30))
+  echo "Moving mouse to: $targetX, $activeY"
+# Déterminer la fenêtre cible en fonction de la position absolue de la fenêtre active
+elif [ $outOfBounds -ge $displayXOffset ]; then
+  moveX=10
+  moveY=$((activeHeight + 10))
+else
+  moveY=$((activeY + 10))
+fi
+
+targetWin=$(xdotool mousemove "$targetX" $activeY getmouselocation | awk '{print $4}' | cut -d':' -f2)
+echo "Moving mouse to: $moveX, $moveY"
+echo "$targetWin" "$activeId"
+
+# la fenêtre active avale la fenêtre cible
+dwmswallow  "$targetWin" "$activeId"
+

@@ -1,0 +1,874 @@
+#!/bin/sh
+# display ASCII art as terminal splash
+
+splash() {
+  while read -r l; do
+    echo "$l" | sed 's/^#/​/'
+  done
+}
+
+# splash() {
+#   ascii_width="$1"
+#   padding=$((COLUMNS - ascii_width))
+#   padding=$((padding > 0 ? padding / 2 : 0))
+#   while read -r l; do
+#     printf "%${padding}s%s\n" "" "${l/#\#/​}"
+#   done
+# }
+# pad() {
+#   w="$1"
+#   padding=$((COLUMNS - w))
+#   [ "$padding" -gt 0 ] && printf "%*s" "$padding" " "
+# }
+
+# splash() {
+#   ascii_width="$1"
+#   padding=$(pad "$ascii_width")
+#   while IFS= read -r line; do
+#     pattern=$(echo "$line" | sed 's/^#/​/')
+#     printf "%s%s\n" "$padding" "$pattern"
+#   done
+# }
+
+# ~&[ ascii 1 ]
+ascii_1() {
+  splash << "EOF"
+⣿⣿⣿⣿⠟⠉⠄⠄⠄⠄⠄⠙⠿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⡟⠁⠄⠄⠄⠄⠄⢀⠄⠄⠄⠈⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⣿⠁⠄⠄⠄⢀⠄⣴⣿⣿⣷⡄⠄⠄⢽⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⠇⠄⠄⠄⠄⠄⢸⣿⣿⣋⡱⠶⡄⠄⠄⣻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⠂⠄⠄⠄⢀⠁⠄⣺⣿⣿⣴⣷⣿⡀⠄⠱⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣏⠄⠄⠄⠄⠄⠄⣴⣿⣿⣿⣿⣿⣿⣧⠄⠄⢹⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣻⡇⠄⠄⠄⠄⠄⢿⣿⣷⠾⡛⢻⣿⠇⠄⢣⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣿⡇⠄⠄⠄⠄⢠⡴⠛⠃⠺⣵⡿⠏⠄⢋⣹⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿
+⣻⣧⠄⠄⠄⠄⢾⣧⣖⠷⣦⡀⠄⡦⠄⠈⠉⢛⢟⠿⠿⣿⣿⣿⣿⣿⣿
+⣷⠉⠄⠄⠄⠸⣿⣿⡾⠻⣗⠁⠄⠄⣤⣤⣾⡇⠸⡄⠄⠈⣿⣿⣿⣿⣿
+⡏⠄⠄⠄⠄⠄⢹⣿⣿⣤⠉⠄⠐⠄⠔⠁⠄⠁⠄⢻⠄⠄⢸⣿⣿⣿⣿
+⡄⠄⠄⠄⠄⠄⠄⣿⣿⣿⠄⠄⠄⡖⠄⠄⠄⢀⠄⣼⣶⡀⢸⣿⣿⣿⣿
+⣷⡆⠄⠄⠄⠄⣰⣿⣿⠇⠄⣀⠄⠄⠄⠄⣀⣱⣾⣿⡿⠁⢸⣿⣿⣿⣿
+⣿⠟⠄⠄⠄⢀⣿⣿⣿⢀⢸⣿⣶⣶⣶⣿⣿⣿⣿⣿⣇⠄⢸⣿⣿⣿⣿
+⡇⣶⣶⠄⢀⣾⣿⣿⡟⢨⣾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠄⠈⣿⣿⣿⣿
+⣿⣿⡯⠄⣾⣿⣿⣿⠇⢻⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠄⠄⣿⣿⣿⣿
+⣿⡿⢏⣼⣿⣿⣿⣟⣤⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⡟⠁⠄⠄⢹⣿⣿⣿
+EOF
+}
+# [2]&~
+# ~&[ ascii 2 ]
+ascii_2() {
+  splash << "EOF"
+#
+#      \      ,
+#      l\   ,/
+# ._   `|] /j
+#  `\\, \|f7 _,/'
+#    "`=,k/,x-'
+#     ,z/fY-=-
+#   -'" .y \
+#       '   \itz
+EOF
+}
+# [2]&~
+# ~&[ ascii 3 ]
+ascii_3() {
+  splash << "EOF"
+#    ,;;;;;;;;;;;.
+#  ,;;;;;;;;;`````)
+# ,;;;;;;;;'    (@)               ,',
+# ;;;;;;;;')       \               ,
+# ;;;;;;;;_}       _)            ',
+# ;;;;;;'        _;_______________
+# `;;;;;        ;_.---------------'
+#   `;;;         (
+#     `;.        )
+EOF
+}
+# [2]&~
+# ~&[ ascii 4 ]
+ascii_4() {
+splash << "EOF"
+#
+#      .===. (
+#      |   |  )
+#      |   | (
+#      |   | )
+#      |   \*/
+#    ,'    //.
+#   :~~~~~//~~;
+#    `.  // .'
+#  sc`-------'
+EOF
+}
+# [2]&~
+# ~&[ ascii 5 ]
+ascii_5() {
+    splash << "EOF"
+#                       .
+#                       M
+#                      dM
+#                      MMr
+#                     4MMML                  .
+#                     MMMMM.                xf
+#     .              "MMMMM               .MM-
+#      Mh..          +MMMMMM            .MMMM
+#      .MMM.         .MMMMML.          MMMMMh
+#       )MMMh.        MMMMMM         MMMMMMM
+#        3MMMMx.     'MMMMMMf      xnMMMMMM"
+#        '*MMMMM      MMMMMM.     nMMMMMMP"
+#          *MMMMMx    "MMMMM\    .MMMMMMM=
+#           *MMMMMh   "MMMMM"   JMMMMMMP
+#             MMMMMM   3MMMM.  dMMMMMM            .
+#              MMMMMM  "MMMM  .MMMMM(        .nnMP"
+#  =..          *MMMMx  MMM"  dMMMM"    .nnMMMMM*
+#    "MMn...     'MMMMr 'MM   MMM"   .nMMMMMMM*"
+#     "4MMMMnn..   *MMM  MM  MMP"  .dMMMMMMM""
+#       ^MMMMMMMMx.  *ML "M .M*  .MMMMMM**"
+#          *PMMMMMMhn. *x > M  .MMMM**""
+#             ""**MMMMhx/.h/ .=*"
+#                      .3P"%....
+#                    nP"     "*MMnx
+EOF
+}
+# [2]&~
+# ~&[ ascii 6 ]
+ascii_6() {
+  splash << "EOF"
+#
+#         o    .   _     .
+#           .     (_)         o
+#    o      ____            _       o
+#   _   ,-/   /)))  .   o  (_)   .
+#  (_)  \_\  ( e(     O             _
+#  o       \/' _/   ,_ ,  o   o    (_)
+#   . O    _/ (_   / _/      .  ,        o
+#      o8o/    \\_/ / ,-.  ,oO8/( -TT
+#     o8o8O | } }  / /   \Oo8OOo8Oo||     O
+#    Oo(""o8"""""""""""""""8oo""""""")
+#   _   `\`'                  `'   /'   o
+#  (_)    \                       /    _   .
+#       O  \           _         /    (_)
+# o   .     `-. .----<(o)_--. .-'
+#    --------(_/------(_
+EOF
+}
+# [2]&~
+# ~&[ ascii 7 ]
+ascii_7() {
+  splash << "EOF"
+#
+#       \\\|||///
+#     .  =======
+#    / \| O   O |
+#    \ / \`___'/
+#     I   _| |_
+#    (I) (     )
+#     I\//|* *|\\
+#     I\/(  *  )/
+#     I   =====
+#     I   ( U )
+#     I   || ||
+#    .I---'| |`----.
+#    `I----' `-----'
+EOF
+}
+# [2]&~
+# ~&[ ascii 8 ]
+ascii_8() {
+  splash << "EOF"
+# _______   _______      ___
+# |_____|   |__o__|   o  | |
+# |=====|   |=^|^=|   |^=| |
+# |--w--|   |-(I)-|   I\,J-| kat
+EOF
+}
+# [2]&~
+# ~&[ ascii 9 ]
+ascii_9() {
+  splash << "EOF"
+#               &&
+#             &&&&&
+#           &&&\/& &&&
+#          &&|,/  |/& &&
+#           &&/   /  /_&  &&
+#             \  {  |_____/_&
+#             {  / /          &&&
+#             `, \{___________/_&&
+#              } }{       \
+#              }{{         \____&
+#             {}{           `&\&&
+#             {{}             &&
+#       , -=-~{ .-^- _
+#   ejm        `}
+#           {
+EOF
+}
+# [2]&~
+# ~&[ ascii 10 ]
+ascii_10() {
+  splash << "EOF"
+#         ,.,
+#        MMMM_    ,..,
+#          "_ "__"MMMMM          ,...,,
+#   ,..., __." --"    ,.,     _-"MMMMMMM
+#  MMMMMM"___ "_._   MMM"_."" _ """"""
+#   """""    "" , \_.   "_. ."
+#          ,., _"__ \__./ ."
+#         MMMMM_"  "_    ./
+#          ''''      (    )
+#   ._______________.-'____"---._.
+#    \                          /
+#     \________________________/
+#     (_)                    (_)
+#     Corwyn Yasuo Miyagishima
+EOF
+}
+# [2]&~
+# ~&[ ascii 11 ]
+ascii_11() {
+  splash << "EOF"
+#        ,\
+#       # (_
+#         _)\##
+#     ###/((_
+#          ))\####
+#        _((
+#   ####/  )\
+#        ,;;"`;,
+#       (_______)
+#         \===/
+#         /===\
+#        /=aat=\
+EOF
+}
+# [2]&~
+# ~&[ ascii 12 ]
+ascii_12() {
+  splash << "EOF"
+#
+#            #o#
+#          ####o#
+#         #o# \#|_#,#
+#        ###\ |/   #o#
+#         # {}{      #
+#   ejm      }{{
+#           ,'  `
+EOF
+}
+# [2]&~
+# ~&[ ascii 13 ]
+ascii_13() {
+  unix
+}
+# [2]&~
+# ~&[ ascii 14 ]
+ascii_14() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 15 ]
+ascii_15() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 16 ]
+ascii_16() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 17 ]
+ascii_17() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 18 ]
+ascii_18() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 19 ]
+ascii_19() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 20 ]
+ascii_20() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 21 ]
+ascii_21() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 22 ]
+ascii_22() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 23 ]
+ascii_23() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 24 ]
+ascii_24() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 25 ]
+ascii_25() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 26 ]
+ascii_26() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 27 ]
+ascii_27() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 28 ]
+ascii_28() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 29 ]
+ascii_29() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 30 ]
+ascii_30() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 31 ]
+ascii_31() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 32 ]
+ascii_32() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 33 ]
+ascii_33() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 34 ]
+ascii_34() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 35 ]
+ascii_35() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 36 ]
+ascii_36() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 37 ]
+ascii_37() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 38 ]
+ascii_38() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 39 ]
+ascii_39() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 40 ]
+ascii_40() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 41 ]
+ascii_41() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 42 ]
+ascii_42() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 43 ]
+ascii_43() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 44 ]
+ascii_44() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 45 ]
+ascii_45() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 46 ]
+ascii_46() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 47 ]
+ascii_47() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 48 ]
+ascii_48() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 49 ]
+ascii_49() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 50 ]
+ascii_50() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 51 ]
+ascii_51() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 52 ]
+ascii_52() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 53 ]
+ascii_53() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 54 ]
+ascii_54() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 55 ]
+ascii_55() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 56 ]
+ascii_56() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 57 ]
+ascii_57() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 58 ]
+ascii_58() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 59 ]
+ascii_59() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 60 ]
+ascii_60() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 61 ]
+ascii_61() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 62 ]
+ascii_62() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 63 ]
+ascii_63() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 64 ]
+ascii_64() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 65 ]
+ascii_65() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 66 ]
+ascii_66() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 67 ]
+ascii_67() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 68 ]
+ascii_68() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 69 ]
+ascii_69() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 70 ]
+ascii_70() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 71 ]
+ascii_71() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 72 ]
+ascii_72() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 73 ]
+ascii_73() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 74 ]
+ascii_74() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 75 ]
+ascii_75() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 76 ]
+ascii_76() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 77 ]
+ascii_77() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 78 ]
+ascii_78() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 79 ]
+ascii_79() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 80 ]
+ascii_80() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 81 ]
+ascii_81() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 82 ]
+ascii_82() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 83 ]
+ascii_83() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 84 ]
+ascii_84() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 85 ]
+ascii_85() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 86 ]
+ascii_86() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 87 ]
+ascii_87() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 88 ]
+ascii_88() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 89 ]
+ascii_89() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 90 ]
+ascii_90() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 91 ]
+ascii_91() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 92 ]
+ascii_92() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 93 ]
+ascii_93() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 94 ]
+ascii_94() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 95 ]
+ascii_95() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 96 ]
+ascii_96() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 97 ]
+ascii_97() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 98 ]
+ascii_98() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 99 ]
+ascii_99() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+# ~&[ ascii 100 ]
+ascii_100() {
+splash << "EOF"
+<++>
+EOF
+}
+# [2]&~
+ascii_count=13
+random=$(shuf -i 1-"$ascii_count" -n 1)
+cmd="ascii_${random}"
+$cmd

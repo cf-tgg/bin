@@ -1,0 +1,8 @@
+#!/bin/sh
+
+i1="$1"
+i2="$2"
+ext=${1##*.}
+out=${3:-"cat_out.$ext"}
+
+ffmpeg -i "$i1" -i "$i2" -filter_complex concat=n=2:v=1:a=1 -strict -2 "$out"

@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# Capture screen region using slop
+slop -f "%x %y %w %h" > /tmp/slop
+read -r X Y W H < /tmp/slop
+rm /tmp/slop
+
+# Start ffmpeg to capture screen region and output to /dev/video0
+ffmpeg \
+    -f x11grab \
+    -video_size "$W"x"$H" \
+    -i :0.0+"$X,$Y" \
+    -f v4l2 /dev/video0 &
+
+# Capture the PID of ffmpeg
+ffmpeg_pid=$!
+
+# Wait for a second before launching mpv
+sleep 1
+
+# Define a function to clean up on exit
+cleanup() {
+    echo "Cleaning up..."
+    kill $ffmpeg_pid  # Kill ffmpeg process
+}
+
+# Trap the exit signals to ensure cleanup
+trap cleanup EXIT
+
+# Launch mpv to preview the captured video
+mpv av://v4l2:/dev/video0 --profile=low-latency --untimed

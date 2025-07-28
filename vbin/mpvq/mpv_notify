@@ -1,0 +1,3 @@
+#!/bin/sh
+# Notify MPV with video title and description
+notify-send "Now Playing: $1" "$2" --icon=video-x-generic

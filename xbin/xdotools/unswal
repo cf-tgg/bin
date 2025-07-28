@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Check if an argument is provided
+if [ -z "$1" ]; then
+  echo "Usage: $0 <count>"
+  exit 1
+fi
+
+# Loop to send keystrokes
+for ((i = 1; i <= $1; i++)); do
+	xdotool key super+shift+apostrophe super+j
+done

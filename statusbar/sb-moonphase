@@ -1,0 +1,59 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-07 19:19:44 cf>
+
+# Shows the current moon phase.
+
+moonfile="${XDG_DATA_HOME:-$HOME/.local/share}/moonphase"
+kb="$(setxkbmap -query | grep -oP 'layout:\s*\K\w+')" || exit 1
+
+[ -s "$moonfile" ] && [ "$(stat -c %y "$moonfile" 2>/dev/null | cut -d' ' -f1)" = "$(date '+%Y-%m-%d')" ] || {
+    curl -sf "wttr.in/?format=%m" > "$moonfile" || exit 1
+}
+
+icon=$(cat "$moonfile")
+if [ "$kb" = "ca" ]; then
+    case "$icon" in
+	🌑) name="Nouvelle lune" ;;
+	🌒) name="Premier croissant" ;;
+	🌓) name="Premier quartier" ;;
+	🌔) name="Lune gibbeuse croissante" ;;
+	🌕) name="Pleine Lune" ;;
+	🌖) name="Lune gibbeuse décroissante" ;;
+	🌗) name="Dernier quartier" ;;
+	🌘) name="Dernier croissant" ;;
+	*) exit 1 ;;
+    esac
+else
+    case "$icon" in
+	🌑) name="New" ;;
+	🌒) name="Waxing Crescent" ;;
+	🌓) name="First Quarter" ;;
+	🌔) name="Waxing Gibbous" ;;
+	🌕) name="Full" ;;
+	🌖) name="Waning Gibbous" ;;
+	🌗) name="Last Quarter" ;;
+	🌘) name="Waning Crescent" ;;
+	*) exit 1 ;;
+    esac
+fi
+weatherricon="${XDG_CACHE_HOME:-$HOME/.cache}/weatherreport"
+
+case $BLOCK_BUTTON in
+    1) notify-send "$icon $name" ;;
+    2) ( [ -f "${weathericon}~" ] && mv "${weathericon}~" "${weathericon}" ) || { [ -f "${weathericon}" ] && mv "${weathericon}" "${weathericon}~" ;  }
+       pkill -RTMIN+5 "${STATUSBAR:-dwmblocks}"
+       ;;
+    3) notify-send "🌜 Moon phase module" "Displays current moon phase.
+- 🌑: New
+- 🌒: Waxing Crescent
+- 🌓: First Quarter
+- 🌔: Waxing Gibbous
+- 🌕: Full
+- 🌖: Waning Gibbous
+- 🌗: Last Quarter
+- 🌘: Waning Crescent" ;;
+    6) emc "$0" ;;
+esac
+
+printf '%s\n' "$icon"

@@ -1,0 +1,18 @@
+#!/bin/sh
+# xextded - X extended X, extended.
+
+[ -x "$(command -v x2x)" ] || { which x2x ; exit 1 ; }
+
+[ -n "$(pidof x2x)" ] && if ! pgrep x2x | xargs -I{} kill -15 "{}" ; then
+    while [ -n "$(pgrep x2x)" ]; do 
+        pgrep x2x | xargs -I{} kill -9 "{}"
+        [ -z "$(pidof x2x)" ] && break
+    done
+fi
+
+setsid -f ssh -A 10.0.0.177 env DISPLAY=:0.0 ssh -Y 10.0.0.241 x2x -from :0 -west -clipcheck >/dev/null 2>&1
+
+case "$?" in 
+    0) ([ -t 1 ] && echo "X extended.") || notify-send -t 2000 "X extended." ; exit 0 ;;
+    1|*) ([ -t 1 ] && echo "failed to Xtend.") || notify-send -t 2000 "failed to Xtend" ; exit 1 ;;
+esac 

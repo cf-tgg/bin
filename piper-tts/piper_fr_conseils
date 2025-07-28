@@ -1,0 +1,36 @@
+#!/bin/sh
+
+# Check if the word count argument is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <max_word_count> <question>"
+    exit 1
+fi
+
+# Extract word count and question from arguments
+wordcount="$1"
+question="$*"
+
+# Use tgpt to get the response
+tgpt_output=$(tgpt -q "En moins de $wordcount mots, $question" -h -quiet -provider ollama)
+if [ $? -ne 0 ]; then
+    echo "Error: tgpt command failed"
+    exit 1
+fi
+
+# Process the output with sed and tr, then pass it to piper-tts and aplay
+processed_output=$(echo "$tgpt_output" | iconv -f utf-8 -t utf-8 | sed 's/\*\*/"/g' | tr -d '###')
+
+# Define the log file
+log_file="$HOME/Templates/piper/logs/qgilles.log"
+
+# Assuming piper-tts and aplay commands are properly set up and paths are correct
+# echo "$processed_output" | piper-tts --model "$HOME/Templates/piper/voices/fr_FR-gilles-low.onnx" -c "$HOME/Templates/piper/voices/fr_FR-gilles-low.onnx.json" --output-raw 2>> "$log_file" | aplay -r 16000 -f S16_LE -t raw - 2>> "$log_file"
+echo "$processed_output" | piper-tts --model "$HOME/Templates/piper/voices/fr_FR-gilles-low.onnx" -c "$HOME/Templates/piper/voices/fr_FR-gilles-low.onnx.json" --output-raw 2>> "$log_file" | pacat --raw --rate=16000 --format=s16le --channels=1 - 2>> "$log_file"
+
+
+if [ $? -ne 0 ]; then
+    echo "Error: piper-tts or aplay command failed. Check log file for details: $log_file"
+    exit 1
+fi
+
+exit 0

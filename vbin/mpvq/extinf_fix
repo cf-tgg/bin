@@ -1,0 +1,23 @@
+#!/bin/sh
+
+trash="$HOME/Downloads/trash"
+[ -d "$trash" ] || mkdir -p "$trash"
+
+f="$1"
+p="${f%.*}.m3u8"
+
+extinf_fix() {
+        cat "$1" | while read -r line; do
+        if echo "$line" | grep -q "^#EXTINF:"; then
+        duration="$(echo "$line" | grep -E "^#EXTINF:" | tr -d "#EXTINF" | cut -d, -f1 | sed 's/^://' | awk -F: 'NF==3 {print $1*3600+$2*60+$3}; NF==2 {print $1*60+$2}; NF==1 {print $1}')"
+            title=$(echo "$line" | grep -oP "(?<=,).+");
+        elif echo "$line" | grep -vq "^#"; then
+            url="$line";
+            echo "#EXTINF:$duration,$title";
+            echo "$url";
+        fi;
+    done
+}
+extinf_fix "$1" > "$p"
+sed -i "1i #EXTM3U" "$p"
+tail "$p" && mv "$f" "$trash" -f

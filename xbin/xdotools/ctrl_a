@@ -1,0 +1,15 @@
+#!/bin/sh
+
+eval "$(xdotool search --onlyvisible --class qutebrowser getwindowgeometry --shell)"
+x=$((WIDTH - 10))
+y=$((HEIGHT - 10))
+xdotool key i
+sleep 0.1
+xdotool key ctrl+a
+sleep 0.1
+xdotool key ctrl+c
+sleep 0.1
+xdotool key Escape
+sleep 0.1
+xdotool mousemove --window "$WINDOW" "$x" "$y" click --repeat 1 1
+exit 0

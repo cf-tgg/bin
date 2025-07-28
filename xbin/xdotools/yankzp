@@ -1,0 +1,26 @@
+#!/bin/sh
+# yank full zathura page from infered window dimensions
+
+zWin=$(xdotool search --onlyvisible zathura getwindowgeometry)
+zG=$(echo "$zWin" | grep Geometry | awk '{print $2}')
+zP=$(echo "$zWin" | grep Position | awk '{print $2}' | cut -d',' -f1)
+zX=$(echo "$zG" | cut -d'x' -f1)
+zY=$(echo "$zG" | cut -d'x' -f2)
+x1=$((zP + 20))
+x2=$((zX + zP - 20))
+
+echo \
+	"Geometry: " "$zG" \
+	"Position: " "$zP" \
+	"zX:       " "$zX" \
+	"zY:       " "$zY" \
+	"x1:       " "$x1" \
+	"x2:       " "$x2"
+
+echo "xdotool mousemove $x1 40 mousedown 1 mousemove $x2 $zY mouseup 1 click 1"
+sleep 0.2
+xdotool mousemove -c "$x1" 100 mousedown 1
+xdotool mousemove "$x2" "$zY"
+sleep 0.2
+xdotool mouseup 1 click 1
+# readit -c

@@ -1,0 +1,61 @@
+#!/bin/sh
+
+# Requires ffmpeg
+
+if [ ! -f "$2" ]; then
+    printf "The first argument should be the audio file, the second should be the timecodes.\n"
+    exit 1
+fi
+
+echo "Enter the album/book title:"; read -r booktitle
+echo "Enter the artist/author:"; read -r author
+echo "Enter the publication year:"; read -r year
+
+inputaudio="$1"
+ext="${1##*.}"
+
+# Create a safe directory name from the book title
+escbook="$(echo "$booktitle" | iconv -c -f UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/-\+/-/g;s/^-//;s/-$//')"
+
+if ! mkdir -p "$escbook"; then
+    echo "Do you have write access in this directory?"
+    exit 1
+fi
+
+# Total number of tracks
+total=$(wc -l < "$2")
+
+# Initialize variables
+track=1
+start=0
+
+while IFS='	' read -r end title; do
+    esctitle="$(echo "$title" | iconv -c -f UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/-\+/-/g;s/^-//;s/-$//')"
+    file="$escbook/$(printf "%.2d" "$track")-$esctitle.$ext"
+
+    ffmpeg -i "$inputaudio" -nostdin -y \
+        -metadata artist="$author" \
+        -metadata title="$title" \
+        -metadata album="$booktitle" \
+        -metadata year="$year" \
+        -metadata track="$track" \
+        -metadata total="$total" \
+        -ss "$start" -to "$end" -vn -c:a copy "$file"
+
+    track=$((track + 1))
+    start="$end"
+done < "$2"
+
+# Process the final track
+title="Final Track"
+esctitle="$(echo "$title" | iconv -c -f UTF-8 -t ASCII//TRANSLIT | tr -d '[:punct:]' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/-\+/-/g;s/^-//;s/-$//')"
+file="$escbook/$(printf "%.2d" "$track")-$esctitle.$ext"
+
+ffmpeg -i "$inputaudio" -nostdin -y \
+    -metadata artist="$author" \
+    -metadata title="$title" \
+    -metadata album="$booktitle" \
+    -metadata year="$year" \
+    -metadata track="$track" \
+    -metadata total="$total" \
+    -ss "$start" -vn -c:a copy "$file"

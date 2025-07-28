@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# Ensure a script or command is passed as an argument
+if [ -z "$1" ]; then
+    echo "Usage: $0 <script_or_command_to_run>"
+    exit 1
+fi
+
+# Define the log files for performance and profiling
+LOG_FILE="${1}_process_monitor.log"
+TIME_REPORT="${1}_time_report.txt"
+TRACE_LOG="${1}_trace_log.txt"
+PERF_REPORT="${1}_perf_report.txt"
+SUMMARY_FILE="${1}_summary_report.txt"
+
+# Define a trap to clean up on exit
+trap 'cleanup' EXIT
+
+# Function to cleanup on exit and generate a final report
+cleanup() {
+    END_TIME=$(date +%s)
+    DURATION=$((END_TIME - START_TIME))
+
+    echo "Cleaning up..." >> "$LOG_FILE"
+    echo "Execution time: $DURATION seconds" >> "$SUMMARY_FILE"
+    echo "Final Report:" >> "$SUMMARY_FILE"
+
+    # Summarize the resource usage
+    cat "$LOG_FILE" >> "$SUMMARY_FILE"
+    echo "Report saved to $SUMMARY_FILE"
+
+    # Generate summary log
+    generate_summary
+    echo "Summary report saved to $SUMMARY_FILE"
+
+    echo "Cleanup complete." >> "$LOG_FILE"
+}
+
+# Function to monitor the process performance using `perf` and `strace`
+monitor_performance() {
+    echo "Starting performance monitoring..." >> "$LOG_FILE"
+
+    # Log time information
+    { time "$@"; } 2>> "$TIME_REPORT"
+
+    # Use trace to trace system calls and outputs
+    trace -f -o "$TRACE_LOG" "$@" &
+
+    # Use perf to record performance data in the background
+    perf stat -e task-clock,cycles,instructions,cache-references,cache-misses -o "$PERF_REPORT" -p "$SCRIPT_PID" &
+
+    wait "$SCRIPT_PID"  # Ensure the script completes
+}
+
+# Function to generate a summary report from the logs
+generate_summary() {
+    echo "Generating summary report..." > "$SUMMARY_FILE"
+
+    # Get total CPU and memory usage and execution time from the log
+    total_cpu=$(awk '/%cpu/ {sum += $2} END {print sum}' "$LOG_FILE")
+    total_mem=$(awk '/%mem/ {sum += $3} END {print sum}' "$LOG_FILE")
+    total_duration=$((END_TIME - START_TIME))
+
+    # Write a concise summary
+    echo "Total CPU usage: $total_cpu%" >> "$SUMMARY_FILE"
+    echo "Total memory usage: $total_mem%" >> "$SUMMARY_FILE"
+    echo "Total execution time: $total_duration seconds" >> "$SUMMARY_FILE"
+
+    # Capture process information count
+    total_processes=$(grep -o "PID" "$LOG_FILE" | wc -l)
+    echo "Total processes monitored: $total_processes" >> "$SUMMARY_FILE"
+
+    echo "Summary report generated."
+}
+
+# Function to start monitoring the script or command
+start_monitoring() {
+    echo "Monitoring started for $1..." >> "$LOG_FILE"
+
+    # Start the script in the background for monitoring
+    "$@" &
+    SCRIPT_PID=$!
+    echo "Started $1 with PID: $SCRIPT_PID" >> "$LOG_FILE"
+
+    # Run performance monitoring tools on the script
+    monitor_performance "$@"
+}
+
+# Start time tracking
+START_TIME=$(date +%s)
+
+# Start monitoring the script/command
+start_monitoring "$1"
+
+# Wait for the monitored script to finish
+wait "$SCRIPT_PID"
+SCRIPT_EXIT_STATUS=$?
+
+# Ensure the monitoring script exits with the monitored script's exit status
+echo "Script execution complete with exit status: $SCRIPT_EXIT_STATUS" >> "$LOG_FILE"
+exit $SCRIPT_EXIT_STATUS

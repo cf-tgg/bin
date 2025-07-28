@@ -1,0 +1,12 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -e
+
+secondary_selection=$(xclip -selection secondary -o 2>/dev/null)
+
+[ -n "$ssel" ] || { echo "no secondary selection" >&2 ; exit 1 ; }
+
+if command -v notify-send &>/dev/null ; then
+    notify-send "[ KP6 Secondary Selection ]" "$ssel"
+fi

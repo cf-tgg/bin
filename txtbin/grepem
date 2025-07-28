@@ -1,0 +1,26 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#    grepem --- fuzzy find recursively and jump to file line
+
+editcmd() {
+    l="$1" ; f="$2" ; w="$WINDOWID"
+    export w ; [ -n "$w" ] && xdo hide "$w"
+    emacsclient -c \
+                --socket-name="/run/user/1000/emacs/server" \
+                --alternate-editor="" "$l" "$f" \
+                -f delete-other-windows || return 1
+    xdo show "$w"
+    unset w
+    return 0
+}
+
+t="$1" ; d="$2" ; t="$1"
+[ -n "$t" ] || { echo "arg1 should be the text you want to find: grep -rn 'term' </path/to/target/directory/>" >&2 ; exit 1 ; }
+[ -d "$d" ] || { echo "arg2 should be a target directory: grep -rn 'term' </path/to/target/directory/> " >&2 ; exit 1 ; }
+
+grep -rn "$t" "$d" | fzf --multi | awk -F ':' '{print $1, $2}' | while read -r f l ; do
+    editcmd +"$l" "$f" || continue
+done
+
+exit 0

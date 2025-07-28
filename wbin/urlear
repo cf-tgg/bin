@@ -1,0 +1,17 @@
+#!/bin/sh
+
+# Listener Script: urlear
+# Usage: urlear < application_output.txt
+
+touch urls.txt
+# Ensure the output file is initialized
+: > urls.txt
+
+# Continuously read from stdin, extracting URLs
+while IFS= read -r line; do
+    echo "$line" >> urls.txt
+    # Pass the updated urls.txt to the extraction script
+    ./urlglob urls.txt
+    # Run the grouping script after extraction
+    ./urlgroup urls.txt
+done < "$1"

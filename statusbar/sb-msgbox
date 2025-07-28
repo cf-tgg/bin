@@ -1,0 +1,48 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-16 20:14:11 cf>
+# [Linux 6.15.4-zen2-1-zen x86_64 GNU/Linux]
+
+MSG="$HOME/.local/mail/ssh-msg.log"
+HST="$HOME/.local/var/log/ssh-chat.log"
+MBX="$HOME/.local/mail/sshchat"
+NEW="$MBX/new/msg.$(date +"%F_%H%M")"
+MCR="$MBX/cur/$(date +%F)"
+HOSTS="dg3s dg3 rdg3"
+updateicon() {
+    echo "$1" >/tmp/msgboxicon
+    pkill -RTMIN+19 "${STATUSBAR:-dwmblocks}"
+    return 0
+}
+
+rotchat() {
+    a="$1" ; b="$2" ; c="$3"
+    diff "$a" "$b" | sed -n 's/^< //p' | sed '/^$/d' > "$c" && cmp -s "$a" "$b" || cp -f "$a" "$b"
+    updateicon ""
+    return 0
+}
+
+rotchat "$MSG" "$HST" "$NEW"
+case $BLOCK_BUTTON in
+   1) ([ -f "$NEW"] && emc "$NEW" && mv "$NEW" "$MCR") || { emc "$MSG" || emc "$HST" ; } ;;
+   2) if ! "$TERMINAL" -e sshchat blanky rpie 5992 ; then
+          for host in HOSTS ; do
+              if "$TERMINAL" -e "ssh -J $host sshchat blanky rpie 5009" ; then
+                  break
+              fi
+          done
+      fi
+      ;;
+   3) rsync rpie:~/.local/var/log/ssh-msg.log ~/.local/var/log/ssh-msg.log ;;
+   6) emc "$0" ;;
+esac
+
+#  [ -n "$(pgrep -x sb-msgup)" ] || setsid -f sb-msgup >/dev/null 2>&1
+
+if [ -f "$NEW" ]; then
+    CNT=$(grep -c . "$NEW")
+    ( [ $CNT -lt 1 ] && rm -f "$NEW" >/dev/null && updateicon "" ; printf "🤍\\n" ) || { updateicon "${CNT}" ; printf "💖\\n" ; }
+else
+    updateicon ""
+    printf "🤍\\n"
+fi

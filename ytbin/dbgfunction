@@ -1,0 +1,10 @@
+#!/bin/sh
+
+dbg() {
+      [ -z "$DEBUG" ] && return
+      timestamp=$(date -u +"%Y-%m-%d %H:%M:%S")
+      input="$(cat)" || input="$*"
+      printf "[%s] %s
+      " "$timestamp" "$input" >>"$LOGFILE"
+      cat "$LOGFILE"
+}``

@@ -1,0 +1,55 @@
+#!/bin/bash
+# Fetches YouTube uploader information, thumbnails, and adds to Newsboat feed while notifying with Dunst
+[ -z "$1" ] && { echo "Usage: $0 <YoutubeLink>"; exit 1; }
+# Determine uploader details
+url="$1"
+case "$url" in
+*youtube/@*)
+    uploader=${url#https://www.youtube.com/@}
+    url="https://www.youtube.com/@$uploader"
+echo "$uploader"
+    ;;
+youtube/watch*)
+    channelid=$(curl -s "$url" |   grep -iEo '/channel/[a-zA-Z0-9_=/?.&%-]+./' | sed 's/\/\/\/\/channel\///' | awk -F'/' '{print $3}' | sort -u | head -n1)
+    churl="https://www.youtube.com/channel/$channelid"
+    uploader=$(curl -s "$churl"| grep -iEo '/@[a-zA-Z0-9_=/?.&%-]+./' | cut -d'@' -f2 | cut -d'/' -f1  | sort -u | head -n1)
+echo "$uploader"
+    url="https://www.youtube.com/@$uploader"
+    ;;
+	*youtube*)
+  uploader=$(curl -s "$url" | grep -iEo '/@[a-zA-Z0-9_=/?.&%-]+./' | cut -d'@' -f2 | cut -d'/' -f1  | sort -u | head -n1)
+  channelid=$(curl -s "$url" | grep -iEo 'https://www.youtube.com/channel/[a-zA-Z0-9_=/?.&%-]+' | sort -u | head -n1 | awk -F'/' '{print $5}')
+echo "$uploader"
+      ;;
+	esac
+thumb="$HOME/Pictures/icons/dunst_icons/ytchannels/${uploader}.png"
+[ -f "$thumb" ] || wget -q "$(curl -s "$1" | grep -Eo 'https://yt3.[a-zA-Z0-9_=/?.&%-]+' |head -n1)" -O "$thumb"
+page_content=$(curl -s "$url")
+videocount=$(grep -Eo '[0-9]+(K|M)? videos' <<< "$page_content" | head -n 1)
+subcount=$(grep -Eo '[0-9]+(K|M)? subscribers' <<< "$page_content" | head -n 1) substr=${subcount// subscribers/ suiveux}
+vidstr=${videocount// videos/ vidéos}
+echo "$channelid"
+echo "$uploader"
+echo "$vidstr"
+echo "$substr"
+vdcount=${videocount//[^0-9.]/}
+vcount=${vdcount%%.*}
+uploader_dir="$HOME/Videos/yt/$uploader"
+
+# Handle notifications and directory checks
+if [ -d "$uploader_dir" ]; then
+    lcount=$(find "$uploader_dir" -type l | wc -l)
+    vcount=$(echo "$videocount" | tr -d 'K' | awk '{print $1 * 1000}')
+    mcount=$((vcount - lcount))
+
+    if [ "$mcount" -le 0 ]; then
+        dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "$uploader" "\n$videocount vidéos\n$subcount\n$uploader à jour"
+    else
+        dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "$uploader" "$mcount/$videocount vidéos manquantes\n$subcount $uploader"
+    fi
+else
+    mkdir -p "$uploader_dir"
+    dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "Création de la ferme" "\n$uploader\n$videocount vidéos\n$subcount suiveux"
+fi
+
+exit 0

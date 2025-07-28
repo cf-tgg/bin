@@ -1,0 +1,126 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:41:58 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+#   [x2c]                         Connect to remote X hosts                    [x2c]
+#
+#    SYNTAX
+#        $0 -[c:fk] [-k KILL] [-f FROM] [-c <XHOST>]
+#
+#    SYNOPSIS
+#
+#    OPTIONS
+#        -k     KILL HOST control (either way)
+#        -c     control HOST
+#        -f     control FROM HOST
+#
+#      When called interactively, select HOST with fzf, provided that your ssh configuration
+#      is properly setup in standard locations, otherwise, tweaks might be needed to fit file
+#      locations and parsing logic.  Publickey authentication or another password-less auth method
+#       is needed for a seemless experience.
+#
+#    DEPENDENCIES
+#
+#      Off the top of my head:
+#
+#         x2x fzf openssh openssl coreutils textutils (awk, sed, etc)
+#
+#      (TODO: 2025-06-14 03:11 proper dependency listing and validation on virtual machines)
+#
+#      `fzf' is optional, but it is the main point of this interface.
+#       Requires `x2x' compiled and configured on all hosts you want to access.
+#       A proper ssh publickey authentication ssh configuration is strongly recommended
+#       (if not mandatory) so that configured host can "securely" be seemlessly accessed.
+#
+#    RATIONALE
+#        The main `x2x' project is dormant but the code still  seems to work perfectly fine
+#        for my use case.
+
+#    FILES
+#         ~/.ssh/config
+#         /etc/ssh/ssh_config
+#         /etc/sshd/config
+#
+#    AUTHOR
+#        cf.:      <cf.gg.tty@protonmail.com>
+#        Gitlab:   <https://gitlab.com/cf-gg/x2c>
+#        Github:   <https://github.com/cf-tgg/x2c>
+#        Codeberg: <https://codeberg.org/cfggtty/x2c>
+#
+#    SEE ALSO
+#           x2x(1)   fzf(1)   ssh(1)
+#
+#    [x2c]                              cf. © 2025                             [x2c]
+
+#{{{ VARIABLES
+SSH_CFG="$HOME/.ssh/config"
+X2C_HOST=${X2C_HOST:-}
+KILL=0
+FROM=0
+DPY=0
+X2X_ARGS=""
+#}}}
+
+#{{{ FUNCTIONS
+pick_host() {
+    host=$(grep -iE '^host\s' "$SSH_CFG" | sed 's/^Host //;s/[[:space:]]//g' | fzf)
+    [ -n "$host" ] && echo "$host" || return 1
+}
+
+valid_host() {
+    t="$1"
+    [ -n "$t" ] && grep -iE '^host\s' "$SSH_CFG" | awk '{print $2}' | grep -qFx "$t"
+}
+#}}}
+
+#{{{ OPTIONS
+
+while getopts "c:d:a:fk" opt ; do
+    case $opt in
+        c) X2C_HOST="$OPTARG" ; export X2C_HOST ;;
+        d) DPY="$OPTARG" ;;
+        a) X2X_ARGS="$OPTARG" ;;
+        k) KILL=1 ;;
+        f) FROM=1 ;;
+    esac
+done
+shift $(($OPTIND - 1))
+
+#}}}
+
+#{{{ VALIDATIONS
+
+[ -n "$X2C_HOST" ] || X2C_HOST="$1"
+[ -n "$X2C_HOST" ] || X2C_HOST=$(pick_host)
+
+if ! valid_host "$X2C_HOST"; then
+    while :; do
+        X2C_HOST=$(pick_host) || { echo "host selection aborted" >&2 ; exit 1; }
+        valid_host "$X2C_HOST" && break
+    done
+fi
+
+export X2C_HOST
+
+#{{{ MAIN
+
+if [ $KILL -eq 1 ]; then
+    ( ssh "${X2C_HOST}" "pgrep x2x | xargs kill -9; exit $?" && echo "${X2C_HOST} connection killed" && exit 0 ; ) || { echo "${X2C_HOST} is staying alive" >&2 ; exit 1 ; }
+else
+    if [ $FROM -eq 1 ]; then
+        [ -n "${X2X_ARGS}" ] && ARGV="${X2X_ARGS}" || ARGV="-west"
+        cmd="ssh -f -q -T -Y \"${X2C_HOST}\" \"x2x -from :${DPY} ${ARGV} -big -clipcheck ; exit \$?\""
+        echo "$cmd"
+        ( eval "$cmd" && echo "${X2C_HOST} can control you" && exit 0 ; ) || { echo "connection FROM ${X2C_HOST} failed" >&2 ; exit 1 ; }
+    else
+        [ -n "${X2X_ARGS}" ] && ARGV="${X2X_ARGS}" || ARGV="-east"
+        cmd="ssh -f -q -T -Y \"${X2C_HOST}\" \"x2x -to :${DPY} ${ARGV} -big -clipcheck ; exit \$?\""
+        echo "$cmd"
+        ( eval "$cmd" && echo "you can control ${X2C_HOST}" && exit 0 ; ) || { echo "connection TO ${X2C_HOST} failed" >&2 ; exit 1 ; }
+    fi
+fi
+
+exit 0
+
+#}}}

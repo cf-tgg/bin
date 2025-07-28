@@ -1,0 +1,75 @@
+#!/bin/sh
+# dwmswallow relative windows
+
+# fonction pronostic
+get_window_geometry() {
+    a=$(xdotool getactivewindow getwindowgeometry --shell)
+    eval "$a"
+}
+
+# fonction pour l'avalement ciblé...
+swallow_window() {
+    # Déplace le curseur à la position calculée
+    xdotool mousemove $1 $2
+
+    # Récupère la fenêtre active de la variable d'environnement
+    active_window=$WINDOWID
+
+    # Récupère l'ID de la fenêtre ciblée par sa position
+    target=$(xdotool getmouselocation --shell | awk -F '=' '/^WINDOW/ {print $2}')
+
+    # Avale la fenêtre
+    dwmswallow "$target" "$active_window"
+}
+
+# ...À Gauche ( Alt + h )
+swallow_left() {
+    get_window_geometry
+    tX=$((X - 50))
+    tY=$((Y + 20))
+    swallow_window $tX $tY
+}
+
+# ...En Bas    ( Alt + j )
+swallow_down() {
+    get_window_geometry
+    tX=$((X + WIDTH / 4))
+    tY=$((Y + HEIGHT + 50))
+    swallow_window $tX $tY
+}
+
+# ...En Haut   ( Alt + k )
+swallow_up() {
+    get_window_geometry
+    tX=$((X + WIDTH / 2))
+    tY=$((Y - 50))
+    swallow_window $tX $tY
+}
+
+# ...À Droite ( Alt + l )
+swallow_right() {
+    get_window_geometry
+    tX=$((X + WIDTH + 20))
+    tY=$((Y + 20))
+    swallow_window $tX $tY
+}
+
+# Main
+case "$1" in
+    "h")
+        swallow_left
+        ;;
+    "j")
+        swallow_down
+        ;;
+    "k")
+        swallow_up
+        ;;
+    "l")
+        swallow_right
+        ;;
+    *)
+        echo "Usage: <swal> {h|j|k|l}"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,36 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-15 19:31:57 cf>
+
+# gembmsp --- Local gemini bookmarks to start-page pipe
+
+# Local Gemini Dir
+GD=${GEMDIR:-"$HOME/.local/gemini"}
+[ -d "$GD" ] || mkdir -p "$GD"
+
+# Start Page file
+SP="$GD/start-page.gmi"
+[ -f "$SP" ] || printf "# Start Page\n\n## Bookmarks\n\n" > "$SP"
+
+gem-cgi-relink() {
+    for f in "${GD}"/*.gmi ; do
+        sed -i "s/=> \/cgi-bin/=> gemini:\/\/gemi.dev\/cgi-bin/" "$f"
+    done
+}
+
+link_format() {
+   f="$1"
+   [ -f "$f" ] || f=$(readlink -f "$f")
+   l=$(basename "$f")
+   t=$(head -n 1 "$f" | sed "s/^# //;s/  / /g")
+   printf '=> file:~/.local/gemini/%s       %s\n' "$l" "$t"
+}
+
+find "$GD" -type f -iname "*.gmi" | while read -r l ; do
+    [ "$l" = "$SP" ] && continue
+    lf=$(link_format "$l")
+    grep -q "$lf" "$SP" || { link_format "$l" | tee -a "$SP" ; }
+    [ "$(tail -n 1 "$l")" = "$(link_format "$SP")" ] || ( { echo ; link_format "$SP" ; } >> "$l" )
+done
+
+gem-cgi-relink

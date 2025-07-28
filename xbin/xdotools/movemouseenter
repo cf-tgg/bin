@@ -1,0 +1,18 @@
+#!/bin/bash
+
+WINDOW=6291462  # Replace with your window ID
+INTERVAL=0.1    # Time interval between updates in seconds
+
+while true; do
+    # Update mouse position
+    xdotool search --onlyvisible --window $WINDOW behave %@ mouse-enter click 1
+
+    # Get the mouse location and window ID
+    eval "$(xdotool getmouselocation --shell)"
+
+    # Update the cursor position relative to the window
+    xdotool mousemove --window $WINDOW $X $Y
+
+    # Sleep for the defined interval to prevent high CPU usage
+    sleep $INTERVAL
+done

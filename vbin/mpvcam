@@ -1,0 +1,65 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -e
+
+{ modprobe v4l2loopback || sudo modprobe v4l2loopback ; } &>/dev/null
+
+updateicon() {
+    echo "$1" >/tmp/recordingicon
+    pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+    return 0
+}
+
+cleanup() {
+    rec="/tmp/recordingpid"
+    [ -f "$rec" ] || return 1
+    pid=$(cat /tmp/recordingpid)
+    if kill -0 "$pid" 2>/dev/null; then
+        kill -2 "$pid"
+        wait "$pid"
+    fi
+    rm -f /tmp/recordingpid
+    updateicon ""
+}
+
+
+
+
+trap 'cleanup' EXIT HUP QUIT INT TERM
+
+vd=$(v4l2-ctl --list-devices | awk '
+  /Laptop Camera/ { getline; gsub(/^[ \t]+/, "", $1); print $1; exit }
+')
+
+[ -z "$vd" ] && {
+    echo "No matching camera device found." >&2
+    exit 1
+}
+
+# Launch in background, track PID
+# input_formats: mjpeg yuyv422
+#     --demuxer-lavf-o=video_size=1920x1080,input_format=h264 \
+mpv --title="Souriez, vous êtes filmés" \
+      --quiet \
+      --really-quiet \
+      --force-seekable=yes \
+      --no-resume-playback \
+      --load-scripts=no \
+      --x11-bypass-compositor=yes \
+      --untimed \
+      --cache=no \
+      --demuxer-lavf-format=video4linux2 \
+      --demuxer-lavf-o=video_size=1920x1080,input_format=mjpeg \
+      --brightness=0 \
+      --contrast=-3 \
+      --saturation=-60 \
+      --gamma=-3 \
+      av://v4l2:"$vd" 2>/dev/null &
+
+cam_pid=$!
+echo "$cam_pid" >/tmp/recordingpid
+updateicon '📷'
+wait "$cam_pid"
+
+exit 0

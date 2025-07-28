@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# clock=$(date '+%I')
+
+# case "$clock" in
+#     "00") icon="🕛" ;;
+#     "01") icon="🕐" ;;
+#     "02") icon="🕑" ;;
+#     "03") icon="🕒" ;;
+#     "04") icon="🕓" ;;
+#     "05") icon="🕔" ;;
+#     "06") icon="🕕" ;;
+#     "07") icon="🕖" ;;
+#     "08") icon="🕗" ;;
+#     "09") icon="🕘" ;;
+#     "10") icon="🕙" ;;
+#     "11") icon="🕚" ;;
+#     "12") icon="🕛" ;;
+# esac
+
+case $BLOCK_BUTTON in
+    1) notify-send "This Month" "$(cal | sed "s/\<$(date +'%e')\>/<b><span color='red'>&<\/span><\/b>/")" && notify-send "Rendez-vous" "$(calcurse -d3)" ;;
+    2) setsid -f "$TERMINAL" -e calcurse ;;
+    3) pomodoro ;;
+    6) "$VISUAL" -cn "$0" || "$TERMINAL" -e "$EDITOR" "$0" || emc "$0" ;;
+esac
+
+datetime=$(date "+%a %m.%d %H:%M:%S")
+# printf "%s %s" "$datetime" "$icon"
+
+printf "%s" "$datetime"

@@ -1,0 +1,6 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+exit 0
+
+# st -e zsh -c 'fzf --multi < "$MPVQ_PLAYLIST" | xargs -P4 -I "{}" yt-dlp -o "$HOME/Videos/peertube/%(uploader)s/%(title)s.%(ext)s" "{}"'a

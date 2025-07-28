@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Check if the argument is a symlink, and resolve it if true
+[ -L "$1" ] && f="$(readlink "$1")" || f="$1"
+
+exifdata=$(exifjpg -A "$f")
+
+printhr() {
+  printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+}
+
+term() {
+  term="$1"
+  echo "$exifdata" | grep -i "$term" | head -n1 |\
+    awk '{sub(/^[^:]*:/, ""); print $0}' | sed 's/"//g;s/,$//;s/^ //;s/ $//'
+}
+
+uploader=$(term Uploader)
+title=$(term Title)
+uri=$(term URI)
+date=$(term Timestamp | xargs -I {} date -d @"{}" "+%A, le %d %B %Y à %H h %M, %Z" | sed "s/EST$/heure normale de l\\'Est/;s/EDT$/heure avancée de l\\'Est/"| head -n 1)
+description=$(exifjpg -d "$f")
+comments=$(exifjpg -A "$f" | jq -r '.Comments[]|"\n\(.author):\n   \(.text)"'|sed 's/\xE2\x80\x8B//g'|fmt -w 90)
+{
+  printhr;
+  printf  "%s\n%s\n%s\n%s\n" "$title" "$uploader" "$date" "$uri";
+  printhr;
+  printf "%s\n" "$description";
+  printhr;
+  printf "%s\n\n" "$comments";
+  printhr;
+} | nvim -c 'set ft=comments' \
+-c ":file $title" \
+-c ':syntax on' \
+-c ':match @Username /^@.*:$/' \
+-c ':hi @Username gui=italic,bold guifg=NvimDarkBlue' \
+-c ':syntax match UserComment /^[^@].*:$/' \
+-c ':hi UserComment gui=italic guifg=NvimLightGray4' \
+-c ':noh'

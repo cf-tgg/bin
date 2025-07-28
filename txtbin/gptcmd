@@ -1,0 +1,16 @@
+#!/bin/sh
+
+tmpcmd=$(mktemp --suffix=cmdout)
+
+aicat () {
+	fname="$1"
+    f="$2"
+	file=$(cat "$f") 
+	printf '```%s\n%s\n```\n' "$fname" "$file"
+}
+
+"$@" >"$tmpcmd"
+aicat "$*" "$tmpcmd" | xclip -in -selection clipboard
+aicat "$*" "$tmpcmd" 
+rm "$tmpcmd"
+

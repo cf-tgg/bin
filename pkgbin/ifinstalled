@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Some optional functions in LARBS require programs not installed by default. I
+# use this little script to check to see if a command exists and if it doesn't
+# it informs the user that they need that command to continue. This is used in
+# various other scripts for clarity's sake.
+
+for x in "$@"; do
+	if ! which "$x" >/dev/null 2>&1 && ! pacman -Qq "$x" >/dev/null 2>&1; then
+	     if [ -t 1 ] ; then
+                { echo "📦 $x must be installed for this function." ; dep_install "$x" ; } || exit 1
+                exit  0
+             else
+                 ( notify-send "📦 $x" "must be installed for this function." ; "${TERMINAL:-st}" -e "dep_install ${x} && exit \$?" ; ) || exit 1
+                 exit 0
+             fi
+             exit 1
+	fi
+done
+
+exit 0

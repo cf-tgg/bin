@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Function to convert ANSI escape sequences to markup format
+convert_ansi_to_markup() {
+  perl -pe '
+    s/\x1B\[0m/<\/span><\/b>/g;           # Reset (close all tags)
+    s/\x1B\[1m/<b>/g;                     # Bold
+    s/\x1B\[4m/<u>/g;                     # Underline
+    s/\x1B\[24m/<\/u>/g;                  # Underline off
+    s/\x1B\[3m/<i>/g;                     # Italic
+    s/\x1B\[23m/<\/i>/g;                  # Italic off
+    s/\x1B\[38;5;(\d{1,3})m/<span foreground="#\1">/g; # Foreground colors
+    s/\x1B\[48;5;(\d{1,3})m/<span background="#\1">/g; # Background colors
+  '
+}
+
+# Example usage:
+WTTR="$HOME/.cache/weatherreport"
+
+# Convert ANSI codes to markup-compatible text
+notification_text=$(head -n7 "$WTTR" | convert_ansi_to_markup )
+
+# Send the notification using notify-send (via dunst)
+notify-send "$notification_text"
+echo "$notification_text"

@@ -1,0 +1,64 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-02 21:47:56 cf>
+
+# Prints the current volume or 🔇 if muted.
+
+NOTIFY=1
+cava_send_key() {
+    [ -f "/tmp/cava.winid" ] && cava=$(cat /tmp/cava.winid)
+    [ -n "$cava" ] && xdotool key --window "$cava" "$@" || return 1
+    return 0
+}
+
+case $BLOCK_BUTTON in
+    1) setsid -w -f "$TERMINAL" -e pulsemixer; pkill -RTMIN+10 "${STATUSBAR:-dwmblocks}" ;;
+    2) wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle
+       if [ -f "/tmp/cava.winid" ]; then
+           cava=$(cat /tmp/cava.winid)
+           ( [ ! -f "/tmp/cava.hidden" ] && xdo hide "$cava" && echo "$cava" >/tmp/cava.hidden ) || { xdo show "$cava" && rm -f "/tmp/cava.hidden" ; }
+       fi
+       ;;
+    4) wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%+ ;;
+    5) wpctl set-volume @DEFAULT_AUDIO_SINK@ 1%- ;;
+    3) cava_send_key f ;;
+    6) emc "$0" ;;
+esac
+
+# Get the volume and mute status
+volume_output=$(wpctl get-volume "@DEFAULT_AUDIO_SINK@")
+mute_status=$(echo "$volume_output" | grep -o "\[MUTED\]")
+volume=$(echo "$volume_output" | awk '{print $2 * 100}' | cut -d '.' -f 1)
+
+# If muted, print 🔇 and exit
+if [ -n "$mute_status" ]; then
+    echo "🔇"
+    [ $NOTIFY -gt 0 ] && dunstify -a "volume" -t 1000 -u low -r 2222 "🔇"
+    exit 0
+fi
+
+# Select icon based on volume level
+if [ "$volume" -ge 70 ]; then
+    icon="🔊"
+elif [ "$volume" -ge 30 ]; then
+    icon="🔉"
+elif [ "$volume" -ge 1 ]; then
+    icon="🔈"
+else
+    icon="🔇"
+fi
+
+# OUTPUT OPTIONS
+
+# volume + icon
+printf "%s%s%%\n" "$icon" "$volume"
+
+# Notification daemons
+if [ $NOTIFY -gt 0 ]; then
+    # dunstify -a "volume" -p -t 1000 -u low -r 2222 -h "int:value:$volume" "$icon"
+    notify-send -a "volume" -p -t 1000 -u low -r 2222 "$icon" -h "int:value:$volume"
+fi
+
+#  notify-send "📢 Volume module" "\- Shows volume 🔊, 🔇 if muted.
+#  - Middle click to mute.
+#  - Scroll to change."

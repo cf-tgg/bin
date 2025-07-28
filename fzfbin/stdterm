@@ -1,0 +1,8 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+DMENU=$([ -t 1 ] && echo 1 ; )
+FZF=$([ -t 0 ] && echo 1 ; )
+printf 'DMENU = %d\nFZF = %d\n' "$DMENU" "$FZF"
+
+exit

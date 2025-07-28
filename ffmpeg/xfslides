@@ -1,0 +1,73 @@
+#!/bin/bash -e
+
+# Variables de montage
+export BSIZE=20
+
+# Function to parse command line arguments
+parse_args() {
+  while :; do
+    case "$1" in
+      -h|-\?|--help)
+        echo "Usage: xfslides [DEST] [OUT]"
+        exit
+        ;;
+      -d|--dest)
+        DEST="$1"
+        shift
+        ;;
+      -o|--out)
+        OUTPUT="$1"
+        shift
+        ;;
+      -y|--yes|--keep)
+        KEEP=1
+        ;;
+      *)
+        break
+        ;;
+    esac
+    shift
+  done
+}
+
+# Call argument parsing function
+parse_args "$@"
+
+DEST="${DEST:-$(pwd)}"
+OUT="${OUT:-montage_$(date +%Y-%m-%d_%H%M-%S).mp4}"
+OUTPUT="${OUTPUT:-$DEST/$OUT}"
+KEEP="${KEEP:-0}"
+
+# fonction de montage si plusieurs lots d'images à traiter
+montage(){
+  mkdir -p ./montage
+  find . -type f -name "*.mp4" -exec mv {} ./montage \; > /dev/null 2>&1
+  cd montage && cfsmerge && mv out.mp4 "$OUTPUT"
+}
+
+# fonction de post-traitement
+endproc() {
+  cd "$DEST"
+  [ "$KEEP" -eq 1 ] && return
+  rm -rf ./temp && rm -rf ./montage
+}
+
+# script de pré-traitement
+xfpreproc "$DEST" && cd temp
+
+# traitement des images
+ndir=$(find . -mindepth 1 -type d | wc -l)
+if [ "$ndir" -gt 1 ]; then
+  for d in $(seq 1 "${ndir}"); do
+    xfproc "$d"
+    printf "processing... %s/%s" "$d" "$ndir"
+  done
+  montage
+else
+  xfproc ./
+  mv "$(basename "$(pwd)").mp4" "$OUTPUT"
+fi
+
+# post-traitement
+endproc
+exit 0

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+files=$(find "$HOME/Videos/yt" -type f | fzf --multi)
+
+# Check if any files were selected
+if [[ -z "$files" ]]; then
+  echo "No files selected."
+  exit 1
+fi
+tmp=$(mktemp)
+while IFS= read -r f; do
+  exifjpg -M "$f" >> "$MPVQ_PLAYLIST" 2>/dev/null
+  echo "$f" >> "$tmp"
+done <<< "$files"
+
+nsxiv -tio < "$tmp"

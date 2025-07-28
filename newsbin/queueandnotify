@@ -1,0 +1,30 @@
+#!/bin/sh
+# Process the newsboat queue, queueing downloads with taskspooler.
+
+queuefile="${XDG_DATA_HOME:-$HOME/.local/share}/newsboat/queue"
+destination="$HOME/Downloads/newsboat"
+[ -d "$destination" ] || mkdir -p "$destination"
+[ -s "$queuefile" ] || exit 1
+
+process_queue() {
+  while read -r line; do
+    [ -z "$line" ] && continue
+    url="${line%%[	 ]*}"
+    tsp curl -o "$destination/$(basename "$url")" -LO "$url"
+  done < "$queuefile"
+  : > "$queuefile"
+}
+
+while :; do
+  process_queue
+  tsp -S | grep -q '^ *0 tasks' || tsp -w
+  for link in "$destination"/*; do
+    [ -f "$link" ] || continue
+    id=$(basename "$link")
+    ytln "https://youtube.com/watch?v=$id"
+    rm -f "$link"
+  done
+  [ ! -s "$queuefile" ] && [ -z "$(ls -A "$destination")" ] && break
+done
+
+echo "All downloads processed."

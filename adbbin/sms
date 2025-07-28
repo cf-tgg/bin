@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+export _KDECONNECT_DEFAULT_DEVICE="4fc16177_3450_4fd0_9338_22030861433f"
+
+IFS=':' read -r name phone_number < <(contacts)
+
+# Exit if a phone number was not selected
+[ -n "${phone_number}" ] || exit 1
+
+# vipe is part of the moreutils package
+# it allows you to edit the input in your $EDITOR
+msg="$(: | vipe)"
+
+# Exit if the message is empty
+[ -n "${msg}" ] || exit 1
+
+# Define SMS log directory
+sms_log_dir=~/Documents/sms
+log_file="${sms_log_dir}/${name}"
+
+# Ensure the SMS log directory exists
+mkdir -p "${sms_log_dir}"
+
+# Send the message
+if kdeconnect-cli --device "${_KDECONNECT_DEFAULT_DEVICE}" \
+    --send-sms "${msg}" --destination "${phone_number}" >/dev/null 2>&1; then
+    # Log sent SMS
+    printf "[%s] %s\n" "$(date '+%H:%M:%S')" "${msg}" >> "${log_file}"
+    notify-send "@${name}" "${msg}"
+    printf "@%s: %s\n" "${name}" "${msg}"
+else
+    notify-send "Failed to send text"
+    exit 1
+fi
+
+exit 0

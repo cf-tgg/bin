@@ -1,0 +1,84 @@
+#!/bin/sh
+# -*- mode: sh -*-
+#   _______ __ _ ___ ____  ___
+#  / __/ -_/  ' / _ `/ _ \(_-<
+# /_/  \__/_/_/_\_,_/ .__/___/
+#                  /_/
+#
+# remaps --- Xserver wrapper to remap keys.
+#
+# Original script: https://github.com/LukeSmithxyz/voidrice/blob/f853f1884a8f0c244765192dc6f5a910a7e2b8e5/.local/bin/remaps
+# Maintainer: cf.
+# Github: https://github.com/cf-tgg
+# Version: 2.0-2025-05-27
+# Comment: Needed a simple fix to handle bluetooth, ended up rewriting the thing.
+# See also: `remapd` (daemon)
+
+VERBOSE=0
+
+while getopts "vh" opt ; do
+    case "$opt" in
+        v) VERBOSE=1 ;;
+        h|*) while read -r help ; do printf "%s\n" "$help" ; done <<'EOF'
+#    _______ __ _ ___ ____  ___
+#   / __/ -_/  ' / _ `/ _ \(_-<
+#  /_/  \__/_/_/_\_,_/ .__/___/
+#                   /_/
+
+ remaps --- Xserver wrapper to remap keys.
+
+ Original script: https://github.com/LukeSmithxyz/voidrice/blob/f853f1884a8f0c244765192dc6f5a910a7e2b8e5/.local/bin/remaps
+ Maintainer: cf.
+ Github: https://github.com/cf-tgg
+ Version: 2.0-2025-05-27
+ Comment: Needed a simple fix to handle bluetooth, ended up rewriting the thing.
+ See also: remapd (daemon)
+
+ HOW TO USE
+   1 - Set your keyboard preferences in remaps.
+   2 - Setup remapd with your input device monitoring preferences.
+   3 - Let the daemon handle (re)exec on input device change.
+
+EOF
+printf 'SETTINGS FILES\n%s    (input preferences)\n%s    (udev input monitor)\n' "$(which remaps)" "$(which remapd)"
+;;
+        *) ;;
+    esac
+done
+
+# Set key repeat delay to 300ms and increase key repeat rate to 150 per second.
+xset r rate 300 150
+
+setkb() {
+    # CapsLock to super
+    setxkbmap -option caps:super
+
+    # When caps lock is pressed only once, treat it as escape.
+    killall xcape 2>/dev/null ; xcape -e 'Super_L=Escape'
+
+    # Turn off caps lock if on since there is no longer a key for it.
+    xset -q | grep -q "Caps Lock:\s*on" && xdotool key Caps_Lock
+}
+
+vout() {
+    xset -q | grep "auto repeat delay" | \
+        sed 's/[[:blank:]]/ /g;s/^ /[ /;s/    / | /;s/  / /g;s/$/ ]/' | \
+        grep -E --color=auto "[0-9]"
+    setxkbmap -query | grep -Eo 'caps:super' | sed 's/:/ remapped to /' | grep -E --color=auto "super"
+}
+
+# Set KB settings
+setkb
+
+# Ensure it worked
+setxkbmap -query | grep -qEo 'caps:super' || setkb
+
+# If expected values are met return confirmation.
+if [ $(xset -q | grep rate | tr -cd '[:digit:]') -eq 300166 ] && [ "$(setxkbmap -query | grep -Eo 'caps:super')" = 'caps:super' ] ; then
+    [ $VERBOSE -gt 0 ] && {
+        ( [ -t 1 ] && vout ) || { command -v notify-send >/dev/null 2>&1 && notify-send -t 2000 "$(remaps_info)" || exit 1 ; }
+    }
+else
+    echo "failed to meet expectations, retrying.." >&2
+    setkb || { echo "that failed again.. leaving.." >&2 ; exit 1 ; }
+fi

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Extraction Script: extract_urls.sh
+# Usage: ./extract_urls.sh < input_file > urls.txt
+
+urlview -n < "$1" | sort -u > urls.txt

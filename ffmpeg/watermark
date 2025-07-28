@@ -1,0 +1,15 @@
+#!/bin/sh
+
+img="$1"
+ext="$2"
+outdir="$3"
+
+if [ ! -d "$outdir" ]; then
+	mkdir -p "$outdir"
+fi
+
+for f in *."$ext"; do
+	filename=$(basename "$f")
+	ffmpeg -i "$f" -i "$img" -filter_complex "overlay=20:20" -preset ultrafast "${outdir}/${filename}"
+done
+

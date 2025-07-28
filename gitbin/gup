@@ -1,0 +1,82 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-18 17:13:12 cf>
+# Box: [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+# gup - Git update local Master git repository.
+
+MRD=""
+VERBOSE=0
+BASE=""
+cmsg=""
+
+tolower () {
+  echo "$@" | tr ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz
+}
+
+usage() {
+  env SC=$0 envsubst <<-'MAN'
+
+    ${SC} --- Push local changes to Master git repository.
+
+    NAME
+        ${SC}
+
+    USAGE
+        ${SC} -[b nmvh] <files>
+        ${SC} [-b <base>] [-n master] [-m <commit_message>] [-v verbose] [-h help] [--] <files>
+
+    OPTIONS
+        -b    base             base path to strip from source files
+        -n    master           master repository name
+        -m    message          commit message (string)
+        -v    verbose          talkative debug output
+        -h    help             display this help message
+
+    SEE ALSO
+        git(1)    gh(1)
+
+MAN
+}
+
+while getopts "b:n:m:hv" opt ; do
+  case "$opt" in
+    b) BASE="$OPTARG" ;;
+    n) MRD="$OPTARG" ;;
+    m) cmsg="$OPTARG" ;;
+    v) VERBOSE=1 ;;
+    h) usage >&2 ; exit 2 ;;
+  esac
+done
+shift $(($OPTIND - 1))
+
+[ -n "$MRD" ] || { echo "Must specify the master git repository name" >&2 ; exit 1; }
+[ -n "$cmsg" ] || cmsg="Pushed latest local changes ($(date +"%F %T"))"
+[ -d "$HOME/Templates/$MRD" ] || {
+  ( [ "$VERBOSE" -eq 1 ] && mkdir -pv "$HOME/Templates/$MRD" ) || mkdir -p "$HOME/Templates/$MRD"
+}
+MRD="$HOME/Templates/$MRD"
+
+[ -n "$BASE" ] || BASE="$HOME"
+BASE="${BASE%/}"
+
+for f in "$@"; do
+  [ -e "$f" ] || { echo "Missing file: $f" >&2 ; continue ; }
+  case "$f" in
+    /*) absf="$f" ;;
+    *) absf="$PWD/$f" ;;
+  esac
+  rel="${absf#$BASE/}"
+  [ "$VERBOSE" -eq 1 ] && echo "→ syncing $rel"
+  rsync -avz --relative "$rel" "$MRD"
+done
+
+( cd "$MRD" && \
+      git add . && \
+      git commit -m "$cmsg" && \
+      git status && \
+      exit 0
+) || {
+    echo "Something went wrong, manual intervention needed." >&2
+    exit 1
+}

@@ -1,0 +1,179 @@
+#!/bin/sh
+# -*- mode: sh -*-
+# ldgsched --- POSIX Shell Script to generate scheduled ledger entries from here-document template
+
+# Default options
+locale=${LC_TIME:-C}
+beg=1
+end=12
+
+FREQ="1m"
+ALT_FREQ=""
+
+output=""
+input=""
+rep="bal"
+
+# Flags
+QUIET=0
+OVWRT=0
+EDIT=0
+TMP=0
+DBG=${DBG:-0}
+
+# :dbg:
+[ $DBG -eq 1 ] && echo "Init: locale="${locale}" beg="${beg}" end="${end}" output="${output}" input="${input}" rep="${rep}" QUIET="${QUIET}" OVWRT="${OVWRT}" EDIT="${EDIT}" TMP="${TMP}"a"
+
+usage() {
+    echo "Usage: $0 -[lioberftqEh] [-l <output_locale>] [-i <input_file>] [-o <output_file>] [-b <begin_month>] [-e <end_month>] [-r <ledger_args>] [-q quiet] [-f force] [-t temporary] [-E edit] [-h help]"
+}
+
+usage_help() {
+    cat <<EOF
+
+   __   __            __         __
+  / ___/ ___ ________/ / ___ ___/ /
+ / / _  / _ `(_-/ __/ _ / -_/ _  /
+/_/\_,_/\_, /___\__/_//_\__/\_,_/
+       /___/
+                          ~ ldgsched
+
+ldgsched - A POSIX script for generating scheduled ledger transactions.
+
+SYNTAX
+    $0 -[lioberFftqEh] [-l <output_locale>] [-i <input_file>] [-o <output_file>] [-b <begin_month>] [-e <end_month>] [-r <ledger_args>] [-q quiet] [-f force] [-t temporary] [-E edit] [-h help]
+
+SHORT DESCRIPTION
+    A POSIX script helper for generating scheduled ledger transactions from templates.
+
+DESCRIPTION
+    ldgsched aims to convieniently wrap the date(coreutils) date format specifiers, replacing
+    variables from stdin to scheduled dates from BEGIN time to END time outputing the results to
+    the ledger program for instant report generation, template testing, or reruns of calculated
+    budgets out of saved templates. Reads from stdin (here-docs, pipes, etc.) or template files.
+
+OPTIONS
+ Option   Option argument       Description
+    -l    <output_locale>       Specify different locale (Default: LC_TIME)
+    -i    <input_file>          Read input from file instead of stdin
+    -o    <output_file>         Write generated output to FILE
+    -b    <begin_date>          BEGIN month integer
+    -e    <end_date>            END month integer
+    -F    <Frequency>           Frequency int + date unit (e.g 4day, 2weeks, 3months ; 4d, 2w, 3m)
+    -r    <ledger_args>         ledger report arguments (see: man ledger)
+    -q    N/A (sets QUIET=1)    quiet -- only output resulting ledger report
+    -f    N/A (sets OVWRT=1)    force -- if file exists overwrite without asking.
+    -t    N/A (sets TMP=1)      temporary -- deletes generated output files.
+    -E    N/A (sets EDIT=1)     Open output in EDITOR before ledger report.
+    -v    N/A (sets DBG=1)      print debug messages (i.e. shows set variables values)
+    -h    N/A                   Display this help message.
+
+USAGE
+    The script has initially been written for generating monthly transactions for BEGIN month to
+    END month, specified as integer (1-12) defaulting to the whole year from January (1) to
+    December (12). the `-b` (begin) option and `-e` (end) options are used to specify starting
+    month and ending month.
+
+EXAMPLES
+
+EOF
+}
+
+askovwrt() {
+    f="$1"
+    [ -f "$f" ] || return 0
+    echo " file exists. overwrite? [y/N]"
+    stty -echo -icanon
+    ans=$(dd bs=1 count=1 2>/dev/null)
+    stty sane
+    echo "$ans" | grep -qi "y" || return 1
+    return 0
+}
+
+
+parse_freq() {
+    arg=$1
+    num=$(printf "%s" "$arg" | sed -n 's/^\([0-9]*\)[a-zA-Z%+]\+$/\1/p')
+    fmt=$(printf "%s" "$arg" | sed -n 's/^[0-9]*\([a-zA-Z%+]\+\)$/\1/p' | sed 's/.*/\L&/')
+
+    [ -z "$fmt" ] && { echo "Invalid frequency format: $arg" >&2 ; exit 1 ; }
+    [ -z "$num" ] && num=1
+
+    case "$fmt" in
+        d*|j*) unit="days" ;;
+        m*) unit="months" ;;
+        y*|an*) unit="years" ;;
+        v*|w*|sem*) unit="weeks" ;;
+        *) echo "Unsupported frequency unit: $fmt" >&2 ; exit 1 ;;
+    esac
+    printf "%s:%s\n" "$num" "$unit"
+}
+
+print_date_env() {
+    for K in A B C D E F G H I M N O P R S T U V W X Y Z a c d e g h b j k l m n p r s t u w x y z ; do
+        printf '%s="$%s" ' "$K" "$K"
+    done
+}
+
+while getopts "l:i:o:b:e:F:J:r:ftqEvh" opt ; do
+    case "$opt" in
+        l) locale="$OPTARG" ;;
+        i) input="$OPTARG" ;;
+        o) output="$OPTARG" ;;
+        b) beg="$OPTARG" ;;
+        e) end="$OPTARG" ;;
+        F) FREQ="$OPTARG" ;;
+        r) rep="$OPTARG" ;;
+        q) QUIET=1 ;;
+        f) OVWRT=1 ;;
+        t) TMP=1 ;;
+        E) EDIT=1 ;;
+        v) DBG=1 ;;
+        h) usage_help ; exit 0 ;;
+        *) usage ; exit 1 ;;
+    esac
+done
+
+shift $(($OPTIND - 1))
+
+start_date=$(date --date="$beg" +"%F") || { echo "Invalid start date: $beg" >&2 ; exit 1 ; }
+end_date=$(date --date="$end" +"%F")   || { echo "Invalid end date: $end" >&2 ; exit 1 ; }
+freq_val=$(parse_freq "$FREQ") || exit 1
+IFS=":" ; set -- $freq_val ; freq_n=$1 ; freq_unit=$2
+
+([ -n "$output" ] && output="${output%.ldg}.ldg") || { output=$(mktemp --suffix=".ldg") ; TMP=1 ; }
+[ "$OVWRT" -eq 1 ] && :>"$output" || { askovwrt "$output" && :>"$output" ; }
+
+# :dbg:
+[ $DBG -eq 1 ] && echo "Parsed opts:  locale="${locale}" beg="${beg}" end="${end}" output="${output}" input="${input}" rep="${rep}" QUIET="${QUIET}" OVWRT="${OVWRT}" EDIT="${EDIT}" TMP="${TMP}""
+
+TEMPLATE=""
+if [ -n "$input" ]; then
+    TEMPLATE=$(cat "$input")
+elif [ ! -t 0 ]; then
+    TEMPLATE=$(cat)
+else
+    echo "Error: No input file and no data from stdin." >&2
+    exit 1
+fi
+
+[ -z "$TEMPLATE" ] && { echo "Error: empty template." >&2 ; exit 1 ; }
+
+current="$start_date"
+
+while [ $(date --date="$current" +"%s") -le $(date --date="$end_date" +"%s") ]; do
+    B=$(LC_ALL="$locale" date --date="$date" +"%B" | sed -E 's/(^|[^a-zA-Zûé])([a-zûé])/\1\u\2/g')
+    for K in in A B C D E F G H I M N O P R S T U V W X Y Z a c d e g h b j k l m n p r s t u w x y z ; do
+        eval $(printf '%s="$(LC_ALL="%s" date --date="%s" +%%%s)"' "$K" "$locale" "$current" "$K")
+    done
+    env A="$A" B="$B" C="$C" D="$D" E="$E" F="$F" G="$G" H="$H" I="$I" M="$M" N="$N" O="$O" P="$P" R="$R" S="$S" T="$T" U="$U" V="$V" W="$W" X="$X" Y="$Y" Z="$Z" a="$a" c="$c" d="$d" e="$e" g="$g" h="$h" b="$b" j="$j" k="$k" l="$l" m="$m" n="$n" p="$p" r="$r" s="$s" t="$t" u="$u" w="$w" x="$x" y="$y" z="$z" envsubst <<<"$TEMPLATE"
+    echo
+    current=$(date --date="$current +${freq_n} $freq_unit" +"%F")
+done >"$output"
+
+[ -f "$output" ] && [ $EDIT -gt 0 ] && $EDITOR "$output"
+ledger -f "$output" "$rep" ;
+[ $QUIET -eq 1 ] || cat "$output"
+[ $TMP -eq 1 ] && rm "$output"
+
+exit 0
