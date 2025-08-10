@@ -1,0 +1,30 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+# Feed it a url or file location.
+# If an image, it will view in nsxiv,
+# if a video or gif, it will view in mpv
+# if a playlist, it will play the list in mpv,
+# if a music file or pdf, it will download,
+# otherwise it opens link in browser.
+
+[ "$(file --dereference --mime-type --brief "$1")" = "image/jpeg" ] && url=$(exifjpg -u "$1" 2>/dev/null) || url="$1"
+
+case "$url" in
+    nil) ;;
+    *mkv|*webm|*mp4|*youtube.com/watch*|*youtube.com/playlist*|*youtube.com/shorts*|*youtu.be*|*hooktube.com*|*bitchute.com*|*videos.lukesmith.xyz*|*odysee.com*)
+	setsid -f mpv -quiet "$url" >/dev/null 2>&1 ;;
+    *twitch*)
+	setsid -f ttv "$url" >/dev/null 2>&1 ;;
+    *png|*jpg|*jpe|*jpeg|*gif|*webp)
+	curl -sL "$url" > "/tmp/$(echo "$url" | sed "s/.*\///;s/%20/ /g")" && nsxiv -a "/tmp/$(echo "$url" | sed "s/.*\///;s/%20/ /g")"  >/dev/null 2>&1 & ;;
+    *pdf|*cbz|*cbr)
+	curl -sL "$url" > "/tmp/$(echo "$url" | sed "s/.*\///;s/%20/ /g")" && zathura "/tmp/$(echo "$url" | sed "s/.*\///;s/%20/ /g")"  >/dev/null 2>&1 & ;;
+    *mp3|*flac|*opus|*mp3?source*)
+	qndl "$url" 'curl -LO'  >/dev/null 2>&1 ;;
+    *mpvq*|*playlist|*m3u8|*m3u*)
+        head -n 1 "$url" | grep -E "^#EXTM3U" || sed -i "1i #EXTM3U" "$url" ;
+        setsid -f mpv -quiet --playlist="$url" >/dev/null 2>&1 || setsid -f "$TERMINAL" -e "$EDITOR" "$url" >/dev/null 2>&1 ;;
+    *.vim|*.lua|*.c|*.h|*.css) [ -f "$url" ] && setsid -f "$TERMINAL" -e "$EDITOR" "$url" >/dev/null 2>&1 ;;
+    *) ( [ -f "$url" ] && setsid -f "$TERMINAL" -e "$EDITOR" "$url" >/dev/null 2>&1 ) || setsid -f "$BROWSER" "$url" >/dev/null 2>&1
+esac

@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# Kill the unclutter process with the specified options
+pkill unclutter
+
+g=$(echo $(xdotool getactivewindow getwindowgeometry) | grep "Geometry" | awk '{print $8}')
+x=$(echo $g | cut -d'x' -f1)
+y=$(echo $g | cut -d'x' -f2)
+X=$((x / 2))
+Y=$((y / 2))
+# echo $g $x $y
+
+xdotool getactivewindow mousemove --window %1 $X $Y
+
+xdotool mousedown 1 behave mouse-click click 1
+# Start unclutter with the specified options
+unclutter --timeout 1 --jitter 5 --start-hidden --ignore-scrolling --fork
+
+remaps
+exit 0

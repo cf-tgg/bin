@@ -1,0 +1,122 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#       __  __  __                            __
+#      / / / /_/ / _______  ___  ___ ___ ____/ /_
+#     / _ / __/ _ / __/ _ \/ _ \/ _ / -_/ __/ __/
+#    /_.__\__/_//_\__/\___/_//_/_//_\__/\__/\__/
+
+#    bthconnect --- bluetoothctl wrapper for known devices
+#
+#    DEPENDENCIES
+#        Required: bluez (bluetoothctl)
+#        Optional: fzf dmenu
+#
+#    AUTHOR
+#        cf. <cf.gg.tty@protonmail.com>
+#        Github: <https://github.com/cf-tgg/>
+#        Gitlab: <https://gitlab.com/cf-gg/>
+#        Codeberg: <https://codeberg.org/cfggtty/>
+
+#{{{ Variables
+termcmd=${TERMINAL:-st}
+BTDLS='sonos\nhd440\nlaurence\nkeychron\nfrancoSoundBar\nchambly'
+DMENU=0
+FZF=0
+DISCONNECT=0
+QUIET=0
+#}}}
+
+#{{{ Functions
+btc() {
+  bluetoothctl connect "$1" >/dev/null 2>&1
+  return $?
+}
+
+disconnect() {
+  bluetoothctl disconnect "$1" >/dev/null 2>&1
+  return $?
+}
+
+bt_is_connected() {
+  bluetoothctl info "$1" 2>/dev/null | grep -qi 'connected: yes'
+}
+#}}}
+
+while getopts "dqh" OPT ; do
+    case $OPT in
+        d) DISCONNECT=1 ;;
+        q) QUIET=1 ;;
+        h) usage >&2 ; exit 2 ;;
+    esac
+done
+shift $(($OPTIND - 1))
+
+
+[ -t 1 ] && FZF=1
+[ -t 0 ] || DMENU=1
+
+if [ $# -lt 1 ]; then
+    if [ $FZF -eq 1 ] && command -v fzf >/dev/null 2>&1; then
+        set -- $(printf "$BTDLS" | fzf --multi)
+    elif command -v fzf >/dev/null 2>&1 && [ -n "$termcmd" ]; then
+        tmpfile=$(mktemp) || exit 1
+        trap 'rm -f "$tmpfile"' EXIT HUP INT TERM QUIT
+        "$termcmd" -e sh -c "printf '$BTDLS' | fzf --multi > '$tmpfile'; read -r _"
+        [ -s "$tmpfile" ] && set -- $(cat "$tmpfile") || {
+                printf 'No selection made.\n' >&2
+                exit 1
+            }
+    elif command -v dmenu >/dev/null 2>&1; then
+        argv=$(printf "$BTDLS" | dmenu -p 'BT Dev.:')
+        [ -n "$argv" ] && set -- "$argv" || {
+                printf 'No selection made.\n' >&2
+                exit 1
+            }
+    else
+        printf 'No usable selection tool found.\n' >&2
+        exit 1
+    fi
+fi
+
+cnt=0
+argc=$#
+
+for d in "$@"; do
+    cnt=$((cnt + 1))
+    if [ $DISCONNECT -eq 1 ]; then
+        [ $QUIET -eq 0 ] && printf '%d/%d\tBT disconnecting: %s ... ' "$cnt" "$argc" "$d"
+    else
+        [ $QUIET -eq 0 ] && printf '%d/%d\tBT connection to: %s ... ' "$cnt" "$argc" "$d"
+    fi
+
+    case "$d" in
+        s*) addr="F0:F6:C1:D1:B9:74" ;;  # sonos
+        h*) addr="00:16:94:25:13:35" ;;  # hd440
+        l*) addr="16:77:6F:3E:2C:EE" ;;  # laurence
+        k*) addr="DC:2C:26:0C:F0:5F" ;;  # keychron
+        f*) addr="54:15:89:92:1B:52" ;;  # francoSB
+        c*) addr="C4:30:18:AE:2A:C3" ;;  # chamblySB
+        *) continue ;;
+    esac
+
+    if bt_is_connected "$addr"; then
+        if [ $DISCONNECT -eq 1 ]; then
+            if [ $QUIET -eq 0 ]; then
+                ( disconnect "$addr" && printf ' disconnected.\n' && exit 0 ) || printf ' disconnect failed.\n' >&2
+            else
+                disconnect "$addr" || exit 1
+            fi
+        fi
+    else
+        [ $QUIET -eq 0 ] && printf 'already connected.\n' >&2
+    fi
+
+    if [ $QUIET -eq 0 ]; then
+        ( btc "$addr" && printf ' success.\n' ) || printf ' failed.\n' >&2
+    else
+        btc "$addr" || exit 1
+    fi
+done
+
+exit 0

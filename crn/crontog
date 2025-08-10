@@ -1,0 +1,8 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-08 21:49:32 cf>
+
+# Toggles all cronjobs off/on.
+# Stores disabled crontabs in ~/.config/cronsaved until restored.
+
+( [ -f "${XDG_CONFIG_HOME:-$HOME/.config}/cronsaved" ] && crontab - < "${XDG_CONFIG_HOME:-$HOME/.config}/cronsaved"  && rm "${XDG_CONFIG_HOME:-$HOME/.config}/cronsaved" && notify-send "🕓 Cronjobs re-enabled.") || ( crontab -l > "${XDG_CONFIG_HOME:-$HOME/.config}/cronsaved" && crontab -r && notify-send "🕓 Cronjobs saved and disabled." )

@@ -1,0 +1,31 @@
+#!/bin/bash
+# add missing description to json files
+
+DIR="${1:-.}"
+
+addJsonDesc() {
+  jsonfile="$1"
+  link="$(jq -r .Metadata.OriginalURL "$jsonfile")"
+  yt-dlp --no-download --get-description "$link" > desc.tmp
+  description=$(cat desc.tmp)
+  jq --arg desc "$description" '
+      .Summary.Description = $desc |
+      .Metadata.Description = $desc
+    ' "$jsonfile" > tmp.json && mv tmp.json "$jsonfile"
+  echo "Updated: $jsonfile"
+  rm -f desc.tmp
+}
+
+count=1
+total=$(find "$DIR" -type f -name "*.json" | wc -l)
+
+cd "$DIR" || exit 1
+
+printf "Adding descriptions %s... [%s/%s]" "$DIR" "$count" "$total"
+
+for f in *.json; do
+  jq . -r .Summary.Description "$f" ||\
+  addJsonDesc "$f"
+  printf "Updated: %s [%s/%s]\r" "$f" "$count" "$total"
+  count=$((count + 1))
+done

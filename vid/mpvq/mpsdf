@@ -1,0 +1,25 @@
+#!/bin/sh
+
+MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.m3u8"
+MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+MPV_SOCK="/tmp/mpv.sock"
+
+grepecho() {
+   in="$1"
+   out="$2"
+   grep -qE "$in" "$out" || echo "$in" >> "$out"
+}
+
+mpsdf() {
+   f="$(realpath "$1")"
+   b=$(basename "$f")
+   t=${b%.*}
+   d=$(mediainfo "$f" --Inform="General;%Duration%")
+   s=$((d/1000))
+   grepecho "#EXTINF:$s,$t" "$MPVQ_PLAYLIST"
+   grepecho "$f" "$MPVQ_PLAYLIST"
+   grepecho "$t" "$MPVQ_TITLES"
+   echo '{"command": ["loadfile", "'"$f"'", "append"]}' | socat - "$MPV_SOCK"
+}
+mpsdf "$1" || exit 1
+exit 0

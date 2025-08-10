@@ -1,0 +1,324 @@
+#!/usr/bin/zsh
+#    _   _
+#   | |_| |_ ___
+#   | __| __/ __|
+#   | |_| |_\__ \
+#    \__|\__|___/
+#
+# TTS models completions
+# ttscomp() {
+#     local models=()
+#     for f in "$HOME/Templates/piper/voices/"*.onnx; do
+#         base="${f%.onnx}"
+#         if [[ -f "$base.onnx.json" ]]; then
+#             models+=$(basename "$base")
+#         fi
+#     done
+#     reply=($models)
+#     return 0
+# }
+#
+# # Setup zsh completion
+# compctl -K ttscomp tts
+#
+# # Setup bash completion
+# complete -F ttscomp tts
+
+# Default opts
+record=0
+silent=0
+textout=1
+TTS_MODEL=${TTS_MODEL:-"fr_FR-gilles-low"}
+fr_model="fr_FR-gilles-low"
+en_model="en_US-amy-medium"
+
+usage() {
+    cat <<'EOF'
+    _   _
+   | |_| |_ ___
+   | __| __/ __|
+   | |_| |_\__ \
+    \__|\__|___/   gilles vous lit ça.
+
+    Usage: tts [[-m|--model] [TTS_MODEL]] [-r|--rec] [-s|--silent] <texte>
+    Options:
+        -h, --help      Affiche ce message d'aide
+        -m, --model     Modèle de voix TTS à utiliser (défaut: fr_FR-gilles-low)
+        -r, --rec       Enregistrer la sortie audio
+        -s, --silent    Désactiver la sortie audio
+        -t              Désactiver la sortie texte
+EOF
+    exit 1
+}
+
+OPTS=$(getopt -o hrm:st --long help,rec,silent,model:,textout -n 'tts' -- "$@")
+
+if [ $? != 0 ] ; then echo "Failed parsing options." >&2 ; exit 1 ; fi
+
+eval set -- "$OPTS"
+
+while :; do
+    case "$1" in
+        -h | --help )
+            usage
+            ;;
+        -r | --rec )
+            record=1
+            shift
+            ;;
+        -s | --silent )
+            silent=1
+            shift
+            ;;
+        -m | --model )
+            TTS_MODEL="$2"
+            detected_language=${TTS_MODEL[1,2]}
+            shift 2
+            ;;
+        -t | --textout )
+            textout=0
+            shift
+            ;;
+        -- )
+            shift
+            break
+            ;;
+        * )
+            break
+            ;;
+    esac
+done
+
+# Additional arguments after options
+texte="$@"
+
+# while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+#     case $1 in
+#         -h | --help )
+#             usage
+#             ;;
+#         -r | --rec )
+#             record=true
+#             ;;
+#         -s | --silent )
+#             silent=true
+#             ;;
+#         -m | --model )
+#             shift
+#             TTS_MODEL=$1
+#             detected_language=${TTS_MODEL[1,2]}
+#             ;;
+#         -t)
+#             textout=false
+#             ;;
+#         *)
+#             usage
+#             ;;
+#     esac
+#     shift
+# done
+
+if [ -t 0 ]; then
+
+    if [ -f "$texte" ]; then
+        texte=$(cat "$texte")
+    else
+        texte="$texte"
+    fi
+else
+    texte=$(cat)
+fi
+
+[ -n "$texte" ] || { usage ; exit 1 ; }
+
+# Detection de la langue
+head_in=$(echo "$texte" |head -n1)
+if [ -z "$detected_language" ]; then
+    detected_language=$(python3 -c "import langid; print(langid.classify(\"$head_in\"))" 2>/dev/null | cut -d, -f1 | tr -d "('")
+fi
+
+case "$detected_language" in
+    fr) TTS_MODEL="$fr_model" ;;
+    en) TTS_MODEL="$en_model" ;;
+    *) TTS_MODEL="$TTS_MODEL" ;;
+esac
+
+# Récupère le nombre effectif de colonnes du terminal
+term_width=$(tput cols)
+
+# Calcul de la longueur maximale d'une ligne avec des marges de 2 espaces
+effective_width=$(($term_width - 4))
+
+if [ $textout -eq 1 ]; then
+
+    # Formattage de l'entrée de texte
+    input=$(echo "$texte" | sed 's/\[[0-9;]*[a-zA-Z]//g')
+
+    # Initialisation des variables
+    current_line=""
+    output=""
+
+    # Fonction qui tente de formatter la sortie de texte selon la taille du terminal
+    process_line() {
+        # Si la ligne n'est pas vide..
+        if [[ -n "$current_line" ]]; then
+            # l'ajouter à la sortie finale avec deux espaces d'indentation
+            output+="  ${current_line}\n"
+        fi
+        # reset
+        current_line=""
+    }
+
+    # Fonction pour séparer les long mot qui exèderait la limite.
+    split_word() {
+        word=$1
+        while [[ ${#word} -gt $effective_width ]]; do
+            part=${word[1,$effective_width]}
+            output+="  ${part}\n"
+            word=${word[$(($effective_width + 1)),-1]}
+        done
+        current_line="$word"
+    }
+
+    # pour chaque mot dans l'entrée de texte..
+    for word in ${(s: :)input}; do
+        # ..si le mot excède la limite de caractères
+        if [[ ${#word} -gt $effective_width ]]; then
+            process_line
+            split_word "$word" # ..le couper.
+            # ..sinonsi la ligne est une nouvelle ligne
+        elif [[ ${#current_line} -eq 0 ]]; then
+            # la ligne est le premier mot.
+            current_line="$word"
+            # ..sinonsi ajouter un mot n'excède pas la limite
+        elif [[ $((${#current_line} + ${#word} + 1)) -le $effective_width ]]; then
+            # ..ajouter le mot.
+            current_line+=" $word"
+        else
+            # Sinon traiter la ligne et recommencer
+            process_line
+            current_line="$word"
+        fi
+    done
+    process_line # Ajoute la dernière ligne
+
+    # Imprime le texte final
+    echo -e "$output"
+fi
+
+# Récupères les arguments originaux capturés dans $texte
+output="$texte"
+
+# Derniers ajustements pour le tts
+processed_output=$(echo "$output" | iconv -f utf-8 -t utf-8 | sed 's/\[[0-9;]*[a-zA-Z]//g' | sed -e '/./{H;$!d;}' -e 'x;/^\n*$/!s/\n/ /g')
+
+# Validation des fichiers de configuration pour le model de voix
+if [ ! -f "$HOME/Templates/piper/voices/$TTS_MODEL.onnx" ] || [ ! -f "$HOME/Templates/piper/voices/$TTS_MODEL.onnx.json" ]; then
+    echo "Error: TTS model or configuration file not found."
+    exit 1
+fi
+
+rate="16000"
+case $TTS_MODEL in
+    *low*)
+        rate="16000"
+        ;;
+    *medium*)
+        rate="22050"
+        ;;
+    *high*)
+        rate="22050"
+        ;;
+    *)
+        echo "Unknown TTS model type."
+        exit 1
+        ;;
+esac
+# echo "$rate hz"
+
+# Define filenames and log file
+raw_file="$HOME/out.raw"
+wav_file="$HOME/out.wav"
+log_file="$HOME/Templates/piper/logs/tts.log"
+
+# Start recording from selected source if recording is enabled
+if [ $record -eq 1 ]; then
+    # Tableau hard-coded des moniteurs (en cas de problèmes)
+    # monitor_sources=(
+    #       "bluez_output.F0_F6_C1_D1_B9_74.1.monitor"
+    #       "alsa_output.pci-0000_c1_00.1.pro-output-3.monitor"
+    #       "alsa_output.pci-0000_c1_00.6.analog-stereo.monitor"
+    #       "alsa_input.pci-0000_c1_00.6.analog-stereo.monitor"
+    #       "alsa_output.pci-0000_c1_00.1.pro-output-3.monitor"
+    #       "alsa_output.pci-0000_c1_00.1.pro-output-7.monitor"
+    #       "alsa_output.pci-0000_c1_00.1.pro-output-8.monitor"
+    #       "alsa_output.pci-0000_c1_00.6.pro-output-0.monitor"
+    # )
+    monitor_sources=($(pactl list sources | grep 'node.name' | awk -F '"' '{print $2 ".monitor"}'))
+    selected_source=""
+
+    # Trouver la source active parmi les sources
+    for source in "${monitor_sources[@]}"; do
+            if pactl list | grep -q "${source}"; then
+                    selected_source="${source}"
+                    break
+            fi
+            echo "${selected_source}"
+    done
+
+    if [ -z "$selected_source" ]; then
+            echo "Error: No active monitor source found."
+            exit 1
+    fi
+    # Débuter l'enregistrement
+    parec -d "$selected_source" --format=s16le --rate=48000 --channels=2 > "$raw_file" &
+    parec_pid=$!
+fi
+
+# Si votre son est bien configuré, gilles (ou l'autre) devrait vous dicter l'entrée de texte..
+if [ $silent -eq 1 ]; then
+    echo "$processed_output" | piper-tts --silence_sentence 0.2 --length_scale 1.0 --model "$HOME/Templates/piper/voices/$TTS_MODEL.onnx" -c "$HOME/Templates/piper/voices/$TTS_MODEL.onnx.json"
+else
+    # Ajustez la commande de sortie selon votre configuration de son.
+    #   i.e. alsa: aplay; pulseaudio: paplay/pacat; pipewire: pw-play; etc.
+    # car ces commandes (ici aplay / pacat) n'ont pas exactement la même syntaxe pour les mêmes paramètres.
+    # echo "$processed_output" | piper-tts --silence_sentence 0.2 --length_scale 1.0 --model "$HOME/Templates/piper/voices/$TTS_MODEL.onnx" -c "$HOME/Templates/piper/voices/$TTS_MODEL.onnx.json" --output-raw 2>> "$log_file" | aplay -r "$rate" -f S16_LE -t raw - 2>> "$log_file"
+    echo "$processed_output" | piper-tts --silence_sentence 0.2 --length_scale 1.0 --model "$HOME/Templates/piper/voices/$TTS_MODEL.onnx" -c "$HOME/Templates/piper/voices/$TTS_MODEL.onnx.json" --output-raw 2>> "$log_file" | pacat --raw --rate="$rate" --format=s16le --channels=1 2>> "$log_file"
+fi
+
+# Capture le code de sortie de la dernière commande (la commande de sortie de son)
+exit_status=$?
+
+if [ $record -eq 1 ]; then
+    # Vérification des échec et fermeture du programme
+    if [ $exit_status -ne 0 ]; then
+        echo "Error: piper-tts or aplay command failed. Check log file for details: $log_file"
+        if ps -p $parec_pid >/dev/null 2>&1 ; then
+            kill $parec_pid
+        fi
+        exit 1
+    fi
+
+    # 3 secondes pour terminer le traitement de l'enregistrement
+    timeout=3
+    count=0
+    while ps -p $parec_pid >/dev/null 2>&1 ; do
+        sleep 1
+        count=$((count + 1))
+        if [ $count -ge $timeout ]; then
+            echo "Converting raw file to wav..."
+            kill $parec_pid
+            ffmpeg -f s16le -ar 48000 -ac 2 -i "$raw_file" "$wav_file"
+            mv "$wav_file" "$HOME/tts_$(date +%Y-%m-%d_%H-%M-%S).wav"
+            rm "$raw_file"
+        fi
+    done
+fi
+
+# trait final optionnel en guise de délimiteur lors de sorties multiples en chaîne
+# printf '%s' "$(printf -- '-%.0s' $(seq 1 $term_width))"
+
+exit 0
+
+# TOOO 2025-07-24 17:01: POSIX shell rewrite
+# tts: line 184: ${(s: :)input}: bad substitution

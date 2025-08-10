@@ -1,0 +1,98 @@
+#!/bin/sh
+active_window=$(xdotool getactivewindow)
+
+# Get active window geometry
+eval "$(xdotool getwindowgeometry --shell "$active_window")"
+active_x=$X
+active_y=$Y
+active_width=$WIDTH
+active_height=$HEIGHT
+
+# Get current monitor dimensions using xrandr
+current_monitor=$(xrandr --listmonitors | awk '/\*/ {print $NF}')
+IFS='x+' read -r mon_width mon_height mon_offset_x mon_offset_y <<EOF
+$(xrandr | awk -v mon="$current_monitor" '
+    $0 ~ mon {print $4}
+')
+EOF
+
+export mon_width mon_height mon_offset_x mon_offset_y
+
+# Check if monitor dimensions are correctly assigned
+if [ -z "$mon_width" ] || [ -z "$mon_height" ]; then
+    echo "Error: Unable to fetch monitor dimensions. Check xrandr output." >&2
+    exit 1
+fi
+
+# Function to check if active window covers the full screen
+is_fullscreen() {
+    [ "$active_x" -eq "$mon_offset_x" ] &&
+    [ "$active_y" -eq "$mon_offset_y" ] &&
+    [ "$active_width" -eq "$mon_width" ] &&
+    [ "$active_height" -eq "$mon_height" ]
+}
+
+# Function to calculate remaining space after the active window
+calculate_remaining_space() {
+    remaining_spaces=""
+    if [ "$active_y" -gt "$mon_offset_y" ]; then
+        remaining_spaces="above"
+    fi
+    if [ "$((active_y + active_height))" -lt "$((mon_offset_y + mon_height))" ]; then
+        remaining_spaces="$remaining_spaces below"
+    fi
+    if [ "$active_x" -gt "$mon_offset_x" ]; then
+        remaining_spaces="$remaining_spaces left"
+    fi
+    if [ "$((active_x + active_width))" -lt "$((mon_offset_x + mon_width))" ]; then
+        remaining_spaces="$remaining_spaces right"
+    fi
+    echo "$remaining_spaces"
+}
+
+# Expand active window into a specified direction
+expand_active_window() {
+    case "$1" in
+        above)
+            active_height=$((active_height + active_y - mon_offset_y))
+            active_y=$mon_offset_y
+            winAbove
+            sleep 2
+            return
+            ;;
+        below)
+            active_height=$((mon_height - active_y + mon_offset_y))
+            winUnder
+            sleep 2
+            return
+            ;;
+        left)
+            active_width=$((active_width + active_x - mon_offset_x))
+            active_x=$mon_offset_x
+            winLeft
+            sleep 2
+            return
+            ;;
+        right)
+            active_width=$((mon_width - active_x + mon_offset_x))
+            winRight
+            sleep 2
+            return
+            ;;
+    esac
+}
+
+# # Main loop to expand active window logically
+# while for is_fullscreen; do
+for i in $(seq 1 10); do
+    remaining_space=$(calculate_remaining_space)
+    for direction in $remaining_space; do
+        echo "Expanding $direction"
+        expand_active_window "$direction"
+        if [ "$i" = 10 ]; then
+            break
+        fi
+    done
+done
+
+exit 0

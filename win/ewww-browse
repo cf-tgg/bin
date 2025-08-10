@@ -1,0 +1,103 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-03 05:51:04 cf>
+# Box: cf [Linux 6.15.8-zen1-1-zen x86_64 GNU/Linux]
+
+#                                   __
+#     ___ _    ___    ___    ______/ /  _______ _    ________
+#    / -_| |/|/ | |/|/ | |/|/ /___/ _ \/ __/ _ | |/|/ (_-/ -_)
+#    \__/|__,__/|__,__/|__,__/   /_.__/_/  \___|__,__/___\__/
+#
+#    eww-browse --- Emacs Web Wowser Wrapper
+
+#    NAME
+#        ewww-browse
+
+#    SYNOPSIS
+#        emacsclient eww wrapper launcher for the WMs.
+#        POSIX wrapper to for Emacs' eww-send-region function.
+
+#    CONFIGURATION
+#        see emacsclient
+#        (info "(emacs) Emacs Server")
+#
+
+set -eu
+
+XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-"/run/user/$(id -u)"}
+SOCKET="$XDG_RUNTIME_DIR/emacs/server"
+
+DMENU=0
+
+usage() {
+    env SC=$0 envsubst <<-'MAN'
+
+    ${SC} --- Emacs Web Wowser Wrapper
+
+    NAME
+        ${SC}
+
+    USAGE
+        ${SC} -[dhv] [-d dmenu] [-v verbose] [-h help ]
+
+    OPTIONS
+        -v    verbose
+        -h    help        display this help message
+
+    SEE ALSO
+        emacs(1)    emacsclient(1)   (info "eww")
+
+MAN
+}
+
+while getopts "dh" OPT ; do
+    case $OPT in
+        d) DMENU=1 ;;
+        h) usage >&2 ; exit 2 ;;
+    esac
+done
+shift $((OPTIND-1))
+OPTIND=1
+
+# Input text fed from command line arguments or stdin
+text="$@"
+
+if [ $DMENU -eq 1 ]; then
+    text=$(printf '\n' | dmenu -p '[www]:')
+    # exit silently if no input (most likely called by mistake)
+    [ -n "$text" ] || { echo "[eww] error: no input" >&2 ; exit 1 ; }
+fi
+
+if [ -z "$text" ]; then
+  if [ ! -t 0 ]; then
+    text=$(cat)
+  else
+    text=$(xclip -sel prim 2>/dev/null || xclip -sel clip 2>/dev/null)
+  fi
+fi
+
+[ -n "$text" ] || { echo "[eww] error: no input" >&2 ; exit 1 ; }
+
+# Start Emacs in `server-mode' if not already running
+if ! emacsclient -s "${SOCKET}" -e t >/dev/null 2>&1 ; then
+    [ -z "$(pidof -xs emacs)" ] && emacs -f server-start >/dev/null 2>&1
+    sleep 1
+fi
+
+# Ensure the dedicated frame exists
+emacsclient -s "$SOCKET" -e '
+(unless (seq-find (lambda (f) (equal (frame-parameter f '"'"'name) "eww-browser")) (frame-list))
+  (make-frame-invisible (make-frame '"'"'((name . "eww-browser") (visibility . nil)))))
+' >/dev/null 2>&1
+
+# Send content to EWW in that frame only
+emacsclient -s "$SOCKET" -e "
+(let* ((frame (seq-find (lambda (f) (equal (frame-parameter f 'name) \"eww-browser\")) (frame-list)))
+       (browse-url-browser-function 'eww-browse-url))
+  (when frame
+    (with-selected-frame frame
+      (add-hook 'eww-after-render-hook (lambda () (delete-other-windows)) nil t)
+      (eww \"$text\"))))
+" >/dev/null 2>&1
+
+exit 0

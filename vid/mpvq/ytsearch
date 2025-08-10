@@ -1,0 +1,26 @@
+#!/bin/bash
+
+# Input search query
+search="$*"
+
+# Fetch the search results with yt-dlp
+results=$(yt-dlp "ytsearch:${search}" --get-title --get-id --get-url | paste - - -)
+
+# Prepare an array to map titles to URLs
+declare -A url_map
+
+# Parse results into title-to-URL mapping
+while IFS=$'\t' read -r title id url; do
+    url_map["$title"]="$url"
+done <<< "$results"
+
+# Pass only titles to fzf
+selected_titles=$(printf "%s\n" "${!url_map[@]}" | fzf --multi)
+
+# Check if any titles were selected
+if [[ -n "$selected_titles" ]]; then
+    while read -r title; do
+        url="${url_map[$title]}"
+        echo "$url # $title" >> "$MPVQ_PLAYLIST"
+    done <<< "$selected_titles"
+fi

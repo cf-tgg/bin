@@ -1,0 +1,11 @@
+#!/bin/sh
+
+bookmark="$(xclip -o)"
+file="$HOME/Notes/bmcmd"
+
+if grep -q "^$bookmark$" "$file"; then
+        notify-send "c'déjà fait ça."
+else
+	notify-send "$bookmark -> $file"
+	echo "$bookmark" >> "$file"
+fi

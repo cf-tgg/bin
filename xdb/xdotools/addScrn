@@ -1,0 +1,60 @@
+#!/bin/sh
+# Spawn a virtual monitor using gtf modeline
+# Usage: addScrn <WIDTH> <HEIGHT> <RATE>
+# Arguments are screen width height and rate (Hz)
+
+# WIDTH=2560	# WIDTH=1650	# WIDTH=1280	# WIDTH=640
+# HEIGHT=1440   # HEIGHT=1050   # HEIGHT=720    # HEIGHT=480
+# HZ=60         # HZ=60         # HZ=60         # HZ=60
+
+
+D1=$1
+W1=$2
+H1=$3
+R1=$4
+
+D2=$5
+W2=$6
+H2=$7
+R2=$8
+
+DP1=($D1 $W1 $H1 $R1)
+DP2=($D2 $W2 $H2 $R2)
+
+
+addDisplayMode() {
+	local display=$1
+	local width=$2
+	local height=$3
+	local rate=$4
+
+	# Generate the mode line using gtf
+	MODELINE=($(gtf $width $height $rate -x | grep Modeline | sed 's/Modeline //'))
+	MODE=($(echo $MODELINE | awk '{print $1}'))
+
+	# echo "MODE: " $MODE
+	# echo "MODELINE :" $MODELINE
+
+	# Add the mode and assign it to the display
+	xrandr --newmode $MODELINE
+	xrandr --addmode $display $MODE
+
+	echo "$MODE"
+}
+
+MODE1=$(addDisplayMode ${DP1[@]})
+MODE2=$(addDisplayMode ${DP2[@]})
+OFFSET=($(echo $MODE1 |  tr -d '"' | cut -d'x' -f1 ))
+POS=$((OFFSET + 4816))
+
+echo "MODE1:  " $MODE1
+echo "MODE1:  " $MODE2
+echo "OFFSET: " $OFFSET
+echo "POS:    " $POS
+
+xrandr --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+		--output eDP --mode 2256x1504 --pos 2560x0 \
+		--output DisplayPort-0 --mode $MODE1 --pos 4816x0 \
+		--output DisplayPort-1 --mode $MODE2 --pos $POS
+
+feh ~/Pictures/wals/National\ Gallery\ of\ Art -r --scale-down -z -g "2560x1440+2256+0" --bg-fill

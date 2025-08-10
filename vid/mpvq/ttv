@@ -1,0 +1,33 @@
+#!/bin/sh
+# mpvq/ttv - play twitch streams with mpv or notify if offline
+
+TTV_ICONS="${XDG_CONFIG_HOME:-$HOME/.config}/dunst/icons/ttv"
+[ -d "$TTV_ICONS" ] || mkdir -pv "$TTV_ICONS"
+
+geticon() {
+  link="${1:-$link}"
+  user=${link#https://www.twitch.tv/}
+  icon="$TTV_ICONS/$user.png"
+  uri=$(curl -s "$link" | grep -iEo 'https://static-cdn.jtvnw.net/jtv_user_pictures/[0-9A-Za-z\_\-]*.png'|sort -u |head -n1)
+  [ -f "$icon" ] || wget -q -O "$icon" "$uri"
+  echo "$icon"
+}
+
+link="$1"
+icon=$(geticon "$link" 2>/dev/null)
+user=${link#https://www.twitch.tv/}
+
+mpvcmd() { setsid -f mpv --profile=fast -quiet --force-seekable "$link" >/dev/null 2>&1; }
+live() { timeout 2 yt-dlp -q -U --ignore-no-formats-error "$1" >/dev/null 2>&1 ; }
+
+live "$link"
+case "$?" in
+  1)
+    [ -t 1 ] && echo "$user's not home"
+    notify-send -a "ttv" -r 6969 -i "$icon" "$user" "est pas sur les internets.."
+    exit 1 ;;
+  100|124)
+    mpvcmd && notify-send -a "ttv" -r 6969 -i "$icon" "$user" "en live sur les internets!" ;
+    [ -n "$(pgrep chatterino)" ] || setsid -f chatterino >/dev/null 2>&1
+    exit 0 ;;
+esac

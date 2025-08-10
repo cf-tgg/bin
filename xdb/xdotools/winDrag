@@ -1,0 +1,70 @@
+#!/bin/bash
+
+# Kill the unclutter process if it's running
+pkill unclutter
+
+# Define a temporary file to keep track of the toggle state
+STATE_FILE="/tmp/super_toggle"
+ON_CURSOR="hand2"
+OFF_CURSOR="left_ptr"
+DELAY=0.2  # Minimum delay between toggles to avoid spam
+TIMEOUT=3  # Timeout after which Super key is released if not toggled again
+
+# Check if the state file exists; if not, create it and set the initial state to OFF
+if [ ! -f "$STATE_FILE" ]; then
+    echo "OFF" > "$STATE_FILE"
+fi
+
+# Read the current state
+current_state=$(cat "$STATE_FILE")
+
+# Track time to avoid rapid toggling (debouncing)
+last_toggle_time_file="/tmp/super_last_toggle"
+if [ -f "$last_toggle_time_file" ]; then
+    last_toggle_time=$(cat "$last_toggle_time_file")
+else
+    last_toggle_time=0
+fi
+
+current_time=$(date +%s.%N)
+
+# Calculate the time since the last toggle
+time_since_last_toggle=$(echo "$current_time - $last_toggle_time" | bc)
+
+if (( $(echo "$time_since_last_toggle < $DELAY" | bc -l) )); then
+    # Exit if toggling too rapidly
+    exit 0
+fi
+
+# Save current time as the last toggle time
+echo "$current_time" > "$last_toggle_time_file"
+
+# Handle Super key release and cleanup on script exit
+cleanup() {
+    xdotool keyup Super
+    xsetroot -cursor_name "$OFF_CURSOR"
+    rm -f "$STATE_FILE" "$last_toggle_time_file"
+    exit 0
+}
+
+# Trap signals to ensure cleanup
+trap cleanup SIGINT SIGTERM
+
+if [ "$current_state" = "OFF" ]; then
+    # Set cursor for ON state
+    xsetroot -cursor_name "$ON_CURSOR"
+    # Activate Super key (keydown)
+    xdotool keydown Super
+    echo "ON" > "$STATE_FILE"  # Set state to ON
+
+    # Set a timeout to automatically release the Super key after a delay
+    ( sleep $TIMEOUT && xdotool keyup Super && xsetroot -cursor_name "$OFF_CURSOR" && echo "OFF" > "$STATE_FILE" && unclutter --timeout 1 --jitter 5 --start-hidden --ignore-scrolling --fork ) &
+else
+    # Deactivate Super key (keyup)
+    xdotool keyup Super
+    echo "OFF" > "$STATE_FILE"  # Set state to OFF
+    # Set cursor for OFF state
+    xsetroot -cursor_name "$OFF_CURSOR"
+    # Start unclutter with the specified options
+    unclutter --timeout 1 --jitter 5 --start-hidden --ignore-scrolling --fork
+fi

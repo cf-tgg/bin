@@ -1,0 +1,23 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -eu
+
+S=""
+W=""
+
+while getopts "s:w:h" opt ; do
+    case "$opt" in
+        s) S="$OPTARG" ;;
+        w) W="$OPTARG" ;;
+        h) echo "Usage: $0 [-s <session_name>] [-w <window_name>]"; exit 1 ;;
+    esac
+done
+shift $(($OPTIND - 1))
+OPTIND=1
+
+[ -n "$(tmux list-sessions)" ] || { echo "no session found. Starting anew.." >&2  ; tmux ; exit 0 ; }
+[ -n "$S" ] || S=$(tmux list-sessions | fzf | cut -d: -f1)
+[ -n "$W" ] || W=$(tmux list-windows -t "$S" | fzf | awk '{print $2}' | sed "s/-$//;s/Z$//;s/\#\*$//;s/\#\!//;s/\#$//")
+
+tmux attach -t "${S}:${W}" 2>&1

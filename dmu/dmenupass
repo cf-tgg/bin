@@ -1,0 +1,24 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-07-08 21:23:36 cf>
+
+# SUDO_ASKPASS environment variable: obfuscated password prompt
+# But output is plain text?
+# Maybe running in subshell could help..
+
+prompt() {
+  (
+      exec </dev/null
+      PASS="$(dmenu -P -fn Monospace-18 -p "${1:-Password:}")" || exit 1
+      printf '%s\n' "$PASS"
+      unset PASS
+  ) 2>/dev/null
+}
+
+if [ -n "$ASKPASS_FD" ]; then
+  prompt "$1" >&"$ASKPASS_FD"
+else
+  prompt "$1"
+fi
+
+exit 0

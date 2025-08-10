@@ -1,0 +1,10 @@
+#!/bin/sh
+# If jpeg has embedded meta data read it with `ytjpg' handler script else read it with nsxiv.
+
+f="$1"
+[ -L "$f" ] && f=$(readlink -f "$f")
+if command -v ytjpg "$f" >/dev/null; then
+  ytjpg "$f" &
+else
+  rotdir "$f" | nsxiv - -a -p -sf --anti-alias --alpha-layer 
+fi

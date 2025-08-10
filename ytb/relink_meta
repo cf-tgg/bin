@@ -1,0 +1,70 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -efu
+
+ld="$HOME/Videos/yt"
+[ -d "$ld" ] || mkdir -p "$ld"
+
+log="$(mktemp "${TMPDIR:-/tmp}/exiflinker.XXXXXX.log")"
+list="$(mktemp "${TMPDIR:-/tmp}/exiflinker.XXXXXX.list")"
+
+find "$HOME/Videos/yt/meta" -type f -name '*.jpg' > "$list"
+total=$(wc -l < "$list")
+echo "Processing $total files with GNU parallel..."
+
+process() {
+  f=$1
+  [ -f "$f" ] || exit 1
+
+  u=$(basename "$(dirname "$f")")
+  c=$(exifjpg -c "$f" 2>/dev/null)
+  [ -n "$c" ] || c=$u
+
+  t=$(exifjpg -t "$f" 2>/dev/null)
+  ts=$(exifjpg -s "$f" 2>/dev/null)
+
+  l=$(printf '%s\n' "$t" | sed 's/[\/\\:*?"<>|]/ /g; s/  */ /g; s/^ *//; s/ *$//')
+  outdir="$ld/$c"
+  outlink="$outdir/$l"
+
+  mkdir -p "$outdir"
+
+  if ln -sf "$f" "$outlink"; then
+    [ -n "$ts" ] && touch -d "@${ts}" "$f" "$outlink" 2>/dev/null
+    printf '[OK] %s → %s\n' "$f" "$outlink"
+  else
+    printf '[FAIL] %s\n' "$f"
+  fi
+}
+
+export -f process
+export ld
+ulimit -n 1024
+parallel --progress --joblog "$HOME/.local/var/log/ytrelink.log" -j0 --bar --halt soon,fail=1 process :::: "$list" > "$log" 2>&1
+
+echo "Done. Output log: $log"
+exit 0
+
+# ld="$HOME/Videos/yt"
+# [ -d "$ld" ] || mkdir "$ld"
+
+# for d in "$HOME/Videos/yt/meta" ; do
+#     if [ -d "$d" ]; then
+#         u=$(basename "$d")
+#         find "$d" -type f -name "*.jpg" |  while IFS= read -r f ; do
+#             c=$(exifjpg -c "$f" 2>/dev/nu)       # uploader
+#             [ -n "$c" ] || c="$u"
+#             [ -d "$ld/$c" ] || mkdir "$ld/$c"
+#             t=$(exifjpg -t "$f" 2>/dev/null)      # title
+#             ts=$(exifjpg -s "$f" 2>/dev/null)     # timestamp
+#             l=$(echo "$t" | sed 's/\///g;s/[\/:]//g; s/  / /g; s/^ //; s/\"/'\''/g')   # link name
+#             if ln -sf "$f" "$ld/$c/$l" ; then
+#                 [ -n "$ts" ] && touch -d "@${ts}" "$f" "$l" 2>/dev/null || continue
+#             else
+#                 continue
+#             fi
+#         done
+#     fi
+# done
+# exit 0

@@ -1,0 +1,25 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-07-30 08:00:52 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+# yt-sw-sync --- Update system-wide YT SymlinkFarm
+
+src=${1:-"/home/cf/Videos/yt"}
+dst=${2:-"/var/local/yt"}
+dir_exclude=${3:-"/var/local/yt/meta"}
+
+[ -d "$dst" ] || mkdir -p "$dst"
+rsync -ar --links --update --no-owner --no-group --exclude="*.git/*" "${src}"/ "${dst}"/
+
+src_prefix="\/home\/cf\/Videos"
+dst_prefix="\/var\/local"
+
+for d in "${dst}"/* ; do
+    [ -d "$d" ] && [ "$d" != "$dir_exclude" ] && {
+        find "$d" -type l | while read -r l ; do
+            f=$(readlink "$l" | sed "s/${src_prefix}/${dst_prefix}/")
+            ln -sf "$f" "$l"
+        done
+    } || true
+done

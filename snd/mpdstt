@@ -1,0 +1,184 @@
+#!/bin/sh
+# Search music using MPC (by artist, album, or title)
+
+OPTIONS="s:l:"
+LONGOPTS="simple,language:"
+POPT=$(getopt --options="$OPTIONS" --longoptions="$LONGOPTS" -- "$@")
+eval set -- "$POPT"
+
+while true; do
+  case "$1" in
+    -s|--simple) SIMPLE=0;;
+    -l|--language) LANGUAGE="$2"; shift;;
+    --) shift; break;;
+    *) echo "Invalid option $1" >&2; exit 1;;
+  esac
+  shift
+done
+
+# fallback to default options if none was provided
+[ -z "$LANGUAGE" ] && LANGUAGE="en"
+[ -z "$SIMPLE" ] && SIMPLE=1
+
+# Set VOSKDIR options (default is small english model)
+if [ "$SIMPLE" = 1 ]; then
+  if [ "$LANGUAGE" = "en" ]; then
+    VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-small-en-us-0.15/"
+  elif [ "$LANGUAGE" = "fr" ]; then
+    VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-small-fr-0.22/"
+  fi
+else
+  if [ "$LANGUAGE" = "en" ]; then
+    VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-en-us-0.22/"
+  elif [ "$LANGUAGE" = "fr" ]; then
+    VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-fr-0.22/"
+  fi
+fi
+
+# mpd default locations
+MPDIR="$HOME/Music"
+PLDIR="${XDG_CONFIG_HOME:-$HOME/.config}/mpd/playlists"
+
+# detailed EXTM3U playlist
+PLAYLIST="$PLDIR/streams.m3u"
+
+# cached runtime files for statusbar display
+STREAMS="$HOME/.cache/mpd-streams"
+TITLES="$HOME/.cache/mpd-title"
+
+# feedback function
+feedback() { notify-send "$@"; for arg in "$@"; do printf "%s " "$arg"; done; printf "\n" ; }
+
+# take mic input
+wpctl set-volume @DEFAULT_AUDIO_SINK@ 20%- &
+feedback "Recording..."
+ffmpeg -y -f alsa -ac 1 -i hw:1 -c:a flac -t 4 ~/.cache/audio.flac
+wpctl set-volume @DEFAULT_AUDIO_SINK@ 20%+ &
+
+# convert voice input to text
+feedback "vosk to text..."
+vosk-transcriber -m "$VOSKDIR" -i ~/.cache/audio.flac -o ~/.cache/audio.txt
+read -r audio_in < ~/.cache/audio.txt
+mpc "$audio_in" && exit 0
+
+# main metadata extraction pipeline
+extinf_pipe() {
+   while read -r line; do
+      fpath="$MPDIR/$line"
+      duration=$(mediainfo "$fpath" | grep -i 'Duration' | head -n 1 | awk -F':' '{print $2}' | sed 's/ \(min\|s\) /\:/g' | awk -F':' '{print ($1 * 60) + $2}')
+      title=$(mediainfo "$fpath" | grep -i 'Track name' | head -n 1 | awk -F': ' '{print $2}')
+      artist=$(mediainfo "$fpath" | grep -i 'Artist' | head -n 1 | cut -d':' -f2-)
+      album=$(mediainfo "$fpath" | grep -i 'Album' | head -n 1 | cut -d':' -f2-)
+      bname=$(basename "$fpath")
+      dirname=$(dirname "$fpath")
+      noext=${bname%.*}
+      [ -z "$title" ] && title=$(echo "$noext" | sed 's/\(_\|-\)/ /g; s/\b\(.\)/\u\1/g')
+      [ -z "$artist" ] && artist=$(echo "$line" | awk -F'/' '{print $1}' | sed 's/\(_\|-\)/ /g; s/\b\(.\)/\u\1/g')
+      [ -z "$album" ] && album=$(echo "$dirname" | sed 's/\(_\|-\)/ /g; s/\b\(.\)/\u\1/g')
+      echo "#EXTINF:$duration,$title,$artist,$album" >> "$PLAYLIST"
+      echo "$fpath" >> "$PLAYLIST"
+      echo "$fpath" >> "$STREAMS"
+      echo "$artist - $album - $title" >> "$TITLES"
+      echo "$fpath"
+    done < "${1:-/dev/stdin}"
+}
+
+# direct mpc control
+mpctl() {
+    command="$*"
+    feedback "[MpCtl]" "$command"
+    mpc "$command" || return 1
+    return $?
+}
+
+# add to playlist
+mp_add() {
+    [ -f "$PLAYLIST" ] || echo "#EXTM3U" > "$PLAYLIST"
+    qtype="$1"; query="$2"; feedback "[MPC - $qtype]" "$query"
+    mpc search "$qtype" "$query" | extinf_pipe "$@" | mpc add
+}
+
+parse_input() {
+    input="$1"
+    artist=$(echo "$input" | grep -oiP "(?<=artist |by )[^,]+" | tr -d '\n')
+    title=$(echo "$input" | grep -oiP "(?<=title |song |track )[^,]+" | tr -d '\n')
+    album=$(echo "$input" | grep -oiP "(?<=album )[^,]+" | tr -d '\n')
+    genre=$(echo "$input" | grep -oiP "(?<=genre )[^,]+" | tr -d '\n')
+    feedback "Parsed Input" "Artist: $artist" "Title: $title" "Album: $album" "Genre: $genre"
+    echo "$artist|$title|$album|$genre"
+}
+
+mp_combined_search() {
+    artist="$1"
+    title="$2"
+    album="$3"
+    genre="$4"
+    query=""
+    [ -n "$artist" ] && query+=" Artist $artist"
+    [ -n "$title" ] && query+=" Title $title"
+    [ -n "$album" ] && query+=" Album $album"
+    [ -n "$genre" ] && query+=" Genre $genre"
+
+    feedback "Executing Combined Query:" "$query"
+    results=$(mpc search "$query")
+    if [ -n "$results" ]; then
+        feedback "Results Found" "$results"
+        echo "$results" | extinf_pipe "$@" | mpc add
+    else
+        feedback "[MPC - Fail]" "$query"
+        museplay "$input" &
+    fi
+}
+
+parse_query() {
+  input="$1"
+  case "$input" in
+    *artist*|*singer*|*band*)
+      echo "Artist";;
+    *album*)
+      echo "Album";;
+    *genre*)
+      echo "Genre";;
+    *track*|*title*|*song*)
+      echo "Title";;
+    *)
+      echo "Title";;
+  esac
+}
+
+# search mpd database
+search() { query="$(parse_query "$*")" ; mpc search "$query" ; }
+
+failsafe() {
+    feedback "that failed.. redirecting to museplay..."
+    museplay "$*" &
+    return 0
+}
+
+while true; do
+    case "$audio_in" in
+        "^play"|"^pause"|"^stop"|"^next"|"^previous"|"^prev"|"^shuffle"|"^repeat"|"^toggle"|"^consume"|"^clear"|"^update"|"^current"|"^status")
+            mpctl "$audio_in"
+            exit 0
+            ;;
+        *album*|*track*|*title*|*song*|*titre*|*chanson*|*piste*)
+            query1=$(parse_input "$(cat ~/.cache/audio.txt)")
+            IFS='|' read -r artist title album genre <<< "$query1"
+            query2=$(echo "$audio_in" | sed 's/album\|track\|title\|song\|titre\|chanson\|piste//Ig' | sed 's/^[[:space:]]*//g')
+            feedback "[MPC - Query]" "$query1\n$query2"
+            res1=$(mp_combined_search "$artist" "$title" "$album" "$genre")
+            res2=$(search "$query")
+            if [ -z "$res1" ] && [ -z "$res2" ]; then
+                failsafe "$query"
+                exit 0
+            else
+                [ -n "$res1" ] && echo "$res1" | extinf_pipe "$@" | mpc add && exit 0
+                [ -n "$res2" ] && echo "$res2" | extinf_pipe "$@" | mpc add && exit 0
+                exit 0
+            fi
+            ;;
+        *)  failsafe "$audio_in"
+            exit 0
+            ;;
+    esac
+done

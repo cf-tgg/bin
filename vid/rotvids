@@ -1,0 +1,41 @@
+#!/bin/sh
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <file>" >&2
+    exit 1
+fi
+
+# Store the initial terminal window identifier
+INITIAL_WINDOW_ID=$(xdotool getactivewindow)
+
+# Function to check if the initial window is still active
+is_window_active() {
+    xdotool search --onlyvisible --name "$(xdotool getwindowname "$INITIAL_WINDOW_ID")" 2>/dev/null | grep -q "$INITIAL_WINDOW_ID"
+}
+
+# Process files rotated by rotdir
+rotdir "$1" | while read -r file; do
+    # Stop if the initial window is no longer active
+    if ! is_window_active; then
+        echo "Initial window has closed. Stopping the chain." >&2
+        exit 1
+    fi
+
+    # Ensure absolute path for the file
+    fullpath="$(realpath "$file")"
+    dirname="$(basename "$(dirname "$fullpath")")"
+    title=$(extract_json_jpg "$file" | jq -r '.Summary.Title')
+    uri=$(extract_json_jpg "$file" | jq -r '.Summary.URI')
+
+    # Ensure $title and $uri are valid before proceeding
+    if [ -n "$title" ] && [ -n "$uri" ]; then
+        # Send notification with the image as icon, directory name as header, and title as subject
+        notify-send -i "$fullpath" "$dirname" "$title"
+
+        # Open the media file in mpv, attached to the original window
+        xdotool windowactivate "$INITIAL_WINDOW_ID"
+        xdoswl mpv "$uri"
+    else
+        echo "Metadata missing or incomplete for $file" >&2
+    fi
+done

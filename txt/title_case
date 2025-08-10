@@ -1,0 +1,10 @@
+#!/bin/sh
+# -*- mode: sh; -*-
+
+if [ -t 1 ]; then
+  cat | sed -E 's/(^|[^a-zA-Z])([a-z])/\1\u\2/g'
+else
+  echo "$*" | sed -E 's/(^|[^a-zA-Z])([a-z])/\1\u\2/g'
+fi
+
+exit 0

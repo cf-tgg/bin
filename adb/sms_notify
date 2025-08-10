@@ -1,0 +1,26 @@
+# Define the path to your contacts file
+CONTACTS_FILE="$HOME/.contacts"
+
+# Function to get contact name from phone number
+get_contact_name() {
+    local phone_number="$1"
+    grep -F ":$phone_number" "$CONTACTS_FILE" | cut -d':' -f1 || echo "$phone_number"
+}
+
+# Retrieve new messages using kdeconnect-cli
+kdeconnect-cli --device "${_KDECONNECT_DEFAULT_DEVICE}" --ping-msg | while read -r line; do
+    # Parse the message details (adjust if needed based on message format)
+    if [[ "$line" =~ ^\[([0-9]+)\] ]]; then
+        phone_number="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ From\:\ (.*)$ ]]; then
+        phone_number="${BASH_REMATCH[1]}"
+    elif [[ "$line" =~ Message\:\ (.*)$ ]]; then
+        message="${BASH_REMATCH[1]}"
+
+        # Get contact name from phone number
+        contact_name=$(get_contact_name "$phone_number")
+
+        # Display notification for the received message
+        notify-send "$contact_name" "$message"
+    fi
+done

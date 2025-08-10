@@ -1,0 +1,13 @@
+#!/bin/sh
+# Open an terminal editor in a new terminal window
+
+set -eu
+
+TERMINAL=${TERMINAL:-st}
+EDITOR=${EDITOR:-nvim}
+
+if [ -z "$1" ]; then
+    "$TERMINAL" -e "$EDITOR"
+else
+    "$TERMIAL" -e "$EDITOR" "$@"
+fi

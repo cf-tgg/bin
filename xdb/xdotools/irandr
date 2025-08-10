@@ -1,0 +1,61 @@
+#!/bin/sh
+
+DISPLAYS=$(xrandr | grep 'mm' | awk '{print $1}')
+SELECTION="xrandr"
+RESOLUTIONS=()
+DP_COUNT=1
+DP_SELECT=""
+OFFSET=0
+while [ "$DP_SELECT" != "C'est tout." ]; do
+	DP_SELECT=$(echo -e "$DISPLAYS\nC'est tout." | dmenu -i -p "Écran $COUNT :")
+
+	if [ "$DP_SELECT" = "C'est tout." ]; then
+		break
+	fi
+
+	DP_RES=($(xrandr | awk "/${DP_SELECT}/ {flag=1;next} flag && /Display/ {flag=0; next} flag" | awk '{print $1}'))
+
+	if [ ${#DP_RES[@]} -gt 0 ]; then
+		RES_SELECT=$(echo "${DP_RES[@]}" | sed 's/ /\n/g'  | dmenu -i -l "$#DP_RES" -p "$DP_SELECT Mode :")
+		LENGTH=$(echo "$RES_SELECT" | cut -d x -f1)
+	else
+		LENGTH=$(echo "$RES_SELECT" | cut -d x -f1)
+		WIDTH=$(echo "$RES_SELECT" | cut -d x -f2 | cut -d _ -f1)
+		if [ -z "$LENGTH" ] || [ -z "$WIDTH" ]; then
+			echo "Invalid resolution format. Exiting."
+			exit 1
+		fi
+
+		MODESET=$(cvt $LENGTH $WIDTH | grep 'Modeline' | sed 's/^Modeline //')
+		MODENAME=$(echo -e "$MODESET" | awk '{print $1}')
+		RES_SELECT="$MODENAME" 
+
+		xrandr --newmode $MODESET
+		xrandr --addmode $DP_SELECT "$MODENAME"
+	fi
+
+	OFFSET=$((OFFSET + LENGTH))
+
+	case $DP_COUNT in
+		1)
+			COMMAND="--output $DP_SELECT --mode $RES_SELECT --pos 0x0"
+			POFFSET=${LENGTH}
+		;;
+		2)
+			COMMAND="--output $DP_SELECT --mode $RES_SELECT --pos ${POFFSET}x0 --primary"
+		;;
+		*)
+			OFFSET=$((OFFSET - LENGTH))
+			COMMAND="--output $DP_SELECT --mode $RES_SELECT --pos ${OFFSET}x0"
+		;;
+	esac
+	echo $COMMAND
+	SELECTION+=" $COMMAND"
+	((DP_COUNT++))
+done
+
+echo "${SELECTION[@]} ; feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg" | xclip -selection clipboard
+$SELECTION
+feh --bg-fill ~/Pictures/wals/0001_gaspesie.jpg
+
+

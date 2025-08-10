@@ -1,7 +1,7 @@
 #!/bin/sh
-# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
-# Time-stamp: <2025-07-16 20:14:11 cf>
-# [Linux 6.15.4-zen2-1-zen x86_64 GNU/Linux]
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-08 20:02:31 cf>
+# Box: cf [Linux 6.15.8-zen1-1-zen x86_64 GNU/Linux]
 
 MSG="$HOME/.local/mail/ssh-msg.log"
 HST="$HOME/.local/var/log/ssh-chat.log"
@@ -9,40 +9,60 @@ MBX="$HOME/.local/mail/sshchat"
 NEW="$MBX/new/msg.$(date +"%F_%H%M")"
 MCR="$MBX/cur/$(date +%F)"
 HOSTS="dg3s dg3 rdg3"
+
+BLKSIG=19
+BARICON="/tmp/msgboxicon"
+
+ding() {
+    speaker-test -t wat -w ding.wav -l 1 >/dev/null 2>&1
+}
+
 updateicon() {
-    echo "$1" >/tmp/msgboxicon
-    pkill -RTMIN+19 "${STATUSBAR:-dwmblocks}"
-    return 0
+    echo "$1" > /tmp/msgboxicon
+    pkill -RTMIN+19 "dwmblocks" || {
+        dwb=$(pgrep dwmblocks | xargs -r ps | grep ${GPG_TTY##*/} | awk '{print $1}')
+        kill -53 "$dwb"
+    }
 }
 
 rotchat() {
     a="$1" ; b="$2" ; c="$3"
     diff "$a" "$b" | sed -n 's/^< //p' | sed '/^$/d' > "$c" && cmp -s "$a" "$b" || cp -f "$a" "$b"
-    updateicon ""
     return 0
 }
 
-rotchat "$MSG" "$HST" "$NEW"
+
 case $BLOCK_BUTTON in
-   1) ([ -f "$NEW"] && emc "$NEW" && mv "$NEW" "$MCR") || { emc "$MSG" || emc "$HST" ; } ;;
-   2) if ! "$TERMINAL" -e sshchat blanky rpie 5992 ; then
-          for host in HOSTS ; do
+   1) ([ -f "$NEW" ] && emc "$NEW" && mv "$NEW" "$MCR") || { emc "$MSG" || emc "$HST" ; } ;;
+   2) if ! ( $TERMINAL -e "sshchat blanky rpie 5992" ) ; then
+          for host in $HOSTS ; do
               if "$TERMINAL" -e "ssh -J $host sshchat blanky rpie 5009" ; then
                   break
               fi
           done
       fi
       ;;
-   3) rsync rpie:~/.local/var/log/ssh-msg.log ~/.local/var/log/ssh-msg.log ;;
-   6) emc "$0" ;;
+   3) rsync rpie:~/.local/var/log/ssh-msg.log ~/.local/var/log/ssh-msg.log || true ;;
+   6) emacsclient -cn -s "$EMACS_SOCKET_NAME" -a "" $0 || $TERMINAL -e nvim $0 || true ;;
 esac
 
-#  [ -n "$(pgrep -x sb-msgup)" ] || setsid -f sb-msgup >/dev/null 2>&1
 
-if [ -f "$NEW" ]; then
-    CNT=$(grep -c . "$NEW")
-    ( [ $CNT -lt 1 ] && rm -f "$NEW" >/dev/null && updateicon "" ; printf "🤍\\n" ) || { updateicon "${CNT}" ; printf "💖\\n" ; }
-else
-    updateicon ""
-    printf "🤍\\n"
-fi
+
+mailcheck() {
+    find "$MBX" -type f -empty -exec rm -f {} \; >/dev/null 2>&1
+    CNT=$(find "${MBX}/new" -type f | wc -l )
+    if [ $CNT -gt 1 ]; then
+        updateicon "$CNT"
+        printf "💖\\n"
+    elif [ $CNT -le 0 ]; then
+        updateicon ""
+        printf "🤍\\n"
+    fi
+    return 0
+}
+
+rotchat "$MSG" "$HST" "$NEW"
+mailcheck
+
+icon=$(mailcheck)
+printf '%s' "$icon"

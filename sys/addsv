@@ -1,16 +1,12 @@
 #!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-05 11:10:23 cf>
+# Box: cf [Linux 6.15.8-zen1-1-zen x86_64 GNU/Linux]
 # runit sv symlink helper
 # Usage: addsv <service_name>
 
 SV="$1"
+( [ -d "/etc/runit/sv/${SV}" ] && ln -s /etc/runit/sv/"${SV}" /run/runit/service ) || { echo "error: could not find $SV in /etc/runit/sv/${SV}" >&2 ; exit 1 ; }
+sv status "${SV}"
 
-if [ -d /etc/runit/sv/"${SV}"]; then 
-	# Add a service:
-	ln -s /etc/runit/sv/"${SV}" /run/runit/service
-
-	# Start/stop/restart a service: sv <start/stop/restart> <service>
-	sv status "${SV}"
-else
-	echo "${SV} does not exist in /etc/runit/sv"
-	exit 1
-fi
+exit 0

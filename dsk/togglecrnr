@@ -1,0 +1,11 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-09 16:07:10 cf>
+
+picom_conf="$HOME/.config/picom/picom.conf"
+ln=$(grep -n "corner-radius" "$picom_conf" | head -n 1 | cut -d: -f1)
+cv=$(grep -n "corner-radius" "$picom_conf" | head -n 1 | awk -F '=' '{print $2}' | tr -d '; ')
+
+([ $cv -gt 0 ] && sed -i 's/corner-radius = 9/corner-radius = 0/' "$picom_conf" ) || sed -i '11s/0/9/' "$picom_conf"
+
+exit 0

@@ -1,0 +1,7 @@
+#!/bin/dash
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-07-31 14:48:11 cf>
+# Box: cf [Linux 6.15.8-zen1-1-zen x86_64 GNU/Linux]
+
+[ -f "$HOME/.env" ] && . "$HOME/.env"
+exec dash -l

@@ -1,0 +1,8 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 16:28:59 cf>
+# Box: [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+url="$1"
+[ -n "$url" ] || exit 1
+emacsclient --alternate-editor="" --socket-name="/run/user/$(id -u)/emacs/server" -e "'(eww-browse \"${url}\")'" -f delete-other-windows >/dev/null 2>&1

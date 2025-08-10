@@ -1,0 +1,32 @@
+type mpvjson struct {
+	Metadata struct {
+		Channel              string
+		ChannelFollowerCount float64
+		Chapters             []struct {
+			StartTime float64 `json:"start_time,omitempty"`
+			Title     string  `json:"title,omitempty"`
+		}
+		CommentCount   float64
+		Duration       float64
+		DurationString string
+		ID             string
+		LikeCount      float64
+		OriginalURL    string
+		Playlist       interface{}
+		PlaylistIndex  interface{}
+		Resolution     string
+		Timestamp      float64
+		Title          string
+		UploadDate     string
+		Uploader       string
+		UploaderID     string
+		UploaderURL    string
+	}
+	Summary struct {
+		Absolute_Path string `json:"Absolute Path,omitempty"`
+		Date          string
+		Duration      string
+		Original_URI  string `json:"Original URI,omitempty"`
+		Title         string
+	}
+}

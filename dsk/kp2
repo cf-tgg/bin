@@ -1,0 +1,15 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -e
+psel=$(xclip -selection primary -o 2>/dev/null)
+
+[ -n "$psel" ] || { echo "no primary selection" >&2 ; exit 1 ; }
+
+echo "$psel" | xsel -s -a
+
+ssel=$(xclip -selection secondary -o 2>/dev/null)
+
+if command -v notify-send >/dev/null 2>&1 ; then
+    notify-send "[ KP2 primary append to secondary ]" "$ssel"
+fi

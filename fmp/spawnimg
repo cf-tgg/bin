@@ -1,0 +1,10 @@
+#!/bin/sh
+
+dir="$1"
+cpt="$2"
+
+for i in $(seq 1 "$cpt"); do
+    nsxiv "$dir" -n "$i" -S2 -b -p -a -z 50 &
+done
+
+exit

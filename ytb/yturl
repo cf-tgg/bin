@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Function to convert YouTube URL
+convert_youtube_url() {
+    # Check if the number of arguments is correct
+    if [ "$#" -ne 1 ]; then
+        echo "Usage: $0 <youtube_url>"
+        exit 1
+    fi
+
+    url="$1"
+
+    # Check if the URL is a valid YouTube video URL
+    if [[ $url =~ ^https:\/\/www\.youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)$ ]]; then
+        video_id=${BASH_REMATCH[1]}
+        shortened_url="https://youtu.be/$video_id"
+        echo "$shortened_url" | xclip -selection clipboard
+        mpv "$shortened_url"
+        exit 0  # Success
+    else
+        echo "Invalid YouTube video URL"
+        exit 1  # Failure
+    fi
+}
+
+# Check if an argument is provided
+if [ $# -eq 1 ]; then
+    convert_youtube_url "$1"
+else
+    echo "Usage: $0 <youtube_url>"
+    exit 1
+fi

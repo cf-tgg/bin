@@ -1,0 +1,175 @@
+#!/bin/bash
+
+# Default options
+record=false
+silent=false
+TTS_MODEL="en_GB-southern_english_female-low"
+
+# Show usage
+usage() {
+    echo "Usage: piper [[-m|--model] [TTS_MODEL]] [-r|--rec] [-s|--silent] <wordcount> <text>"
+    exit 1
+}
+
+while [[ "$1" =~ ^- && ! "$1" == "--" ]]; do
+    case $1 in
+        -r | --rec )
+            record=true
+            ;;
+        -s | --silent )
+            silent=true
+            ;;
+        -m | --model )
+            shift
+            TTS_MODEL=$1
+            ;;
+        *)
+            usage
+            ;;
+    esac
+    shift
+done
+if [[ "$1" == '--' ]]; then shift; fi
+
+
+# Ensure both .onnx and .json files exist
+if [ ! -f "$HOME/Templates/piper/voices/$TTS_MODEL.onnx" ] || [ ! -f "$HOME/Templates/piper/voices/$TTS_MODEL.onnx.json" ]; then
+    echo "Error: TTS model or configuration file not found."
+    exit 1
+fi
+
+rate="16000"
+case $TTS_MODEL in
+    *low*)
+        rate="16000"
+        ;;
+    *medium*)
+        rate="22050"
+        ;;
+    *high*)
+        rate="22050"
+        ;;
+    *)
+        echo "Unknown TTS model type."
+        exit 1
+        ;;
+esac
+
+echo "$rate Hz"
+# Define filenames and log file
+raw_file="$HOME/out.raw"
+wav_file="$HOME/out.wav"
+log_file="$HOME/Templates/piper/logs/piper.log"
+
+# Start recording from selected source if recording is enabled
+if [ "$record" = true ]; then
+
+    # monitor_sources=($(pactl list sources | grep 'node.name' | awk -F '"' '{print $2 ".monitor"}'))
+    monitor_sources=(
+        "bluez_output.F0_F6_C1_D1_B9_74.1.monitor"
+        "alsa_output.pci-0000_c1_00.1.pro-output-3.monitor"
+        "alsa_output.pci-0000_c1_00.6.analog-stereo.monitor"
+        "alsa_input.pci-0000_c1_00.6.analog-stereo.monitor"
+    )
+    selected_source=""
+
+    # Loop through monitor sources to find an active one
+    for source in "${monitor_sources[@]}"; do
+        if pactl list | grep -q "$source"; then
+            selected_source="$source"
+            break
+        fi
+    done
+
+    if [ -z "$selected_source" ]; then
+        echo "Error: No active monitor source found."
+        exit 1
+    fi
+
+    # Start recording
+    parec -d "$selected_source" --format=s16le --rate=48000 --channels=2 > "$raw_file" &
+    parec_pid=$!
+fi
+
+# Check if input is provided via arguments or stdin
+if [ -t 0 ]; then
+    # Terminal is connected, check for arguments
+    if [ -z "$1" ]; then
+        usage
+    fi
+    wordcount="$1"
+    question="${@:2}"
+else
+    # Input is provided via stdin
+    question=$(cat)
+    wordcount='300'
+fi
+
+case "$TTS_MODEL" in
+    *fr*)
+        prompt="Expliquez en moins de $wordcount mots, $question"
+        ;;
+    *en*)
+        prompt="Explain in less than $wordcount words, $question"
+        ;;
+    *)
+        echo "Unknown TTS model language."
+        exit 1
+        ;;
+esac
+
+# Use tgpt to get the response
+tgpt_output=$(tgpt -q "$prompt")
+
+if [ $? -ne 0 ]; then
+    echo "Error: tgpt command failed"
+    exit 1
+fi
+# Process the output with sed and tr, then pass it to piper-tts and aplay
+processed_output=$(echo "$tgpt_output" | sed 's/\*\*/"/g' | tr -d '#' | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/ /g' | sed -e 's/^ *//' -e 's/ *$//'| tr -s ' ')
+
+# Process the output with sed and tr, then pass it to piper-tts and aplay
+# processed_output=$(echo "$tgpt_output" | sed 's/\*\*/"/g' | tr -d '#' | sed -e ':a' -e 'N' -e '$!ba' -e 's/\n/ /g' | sed -e 's/^ *//' -e 's/ *$//'| tr -s ' ')
+ echo "$processed_output"
+
+# Assuming piper-tts and aplay commands are properly set up and paths are correct
+echo "$processed_output" | piper-tts --model "$HOME/Templates/piper/voices/$TTS_MODEL.onnx" -c "$HOME/Templates/piper/voices/$TTS_MODEL.onnx.json" --output-raw 2>>"$log_file" | aplay -r "$rate" -f S16_LE -t raw - 2>> "$log_file"
+
+# Check if piper-tts or aplay failed
+if [ $? -ne 0 ]; then
+    echo "Error: piper-tts or aplay command failed. Check log file for details: $log_file"
+    exit 1
+fi
+
+# Capture the exit status of piper-tts and aplay
+exit_status=$?
+
+if [ "$record" = true ]; then
+
+    # Check if piper-tts or aplay failed
+    if [ $exit_status -ne 0 ]; then
+        echo "Error: piper-tts or aplay command failed. Check log file for details: $log_file"
+        # Terminate parec process if it's still running
+        if ps -p $parec_pid > /dev/null; then
+            kill $parec_pid
+        fi
+        exit 1
+    fi
+
+    # Wait for parec process to finish (timeout after 3 seconds)
+    timeout=3
+    count=0
+    while ps -p $parec_pid > /dev/null; do
+        sleep 1
+        count=$((count + 1))
+        if [ $count -ge $timeout ]; then
+            echo "Converting raw file to wav..."
+            kill $parec_pid
+            ffmpeg -f s16le -ar 48000 -ac 2 -i "$raw_file" "$wav_file"
+            mv "$wav_file" "$HOME/tts_$(date +%Y-%m-%d_%H-%M-%S).wav"
+            rm "$raw_file"
+        fi
+    done
+fi
+
+exit 0

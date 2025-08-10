@@ -1,0 +1,161 @@
+#!/bin/bash -e
+# Import JSON and thumbnails for notifications and metadata, then embed JSON directly into JPG files.
+
+uri="$1"
+
+if [ -z "$uri" ]; then
+    echo "Usage: $0 <YouTube Channel URL>"
+    exit 1
+fi
+
+getlinks() {
+    uri="$1"
+
+    if [ -z "$uri" ]; then
+        echo "Usage: $0 <YouTube Channel URL>"
+        exit 1
+    fi
+
+    DESTINATION="$HOME/Videos/yt/meta"
+    [ ! -d "$DESTINATION" ] && mkdir -p "$DESTINATION"
+
+    # Parse uploader information
+    yt-dlp "$uri" -j --skip-download | while read -r uploaderinfo; do
+        uploaderurl=$(jq -r '.uploader_url' <<< "$uploaderinfo")
+        uploaderid=$(jq -r '.uploader_id' <<< "$uploaderinfo")
+        uploader=$(jq -r '.uploader' <<< "$uploaderinfo")
+
+        if [ -z "$uploaderurl" ] || [ -z "$uploaderid" ] || [ -z "$uploader" ]; then
+            echo "Error: Missing uploader data for URL: $uri"
+            continue
+        fi
+
+        # Attempt to fetch video and subscriber counts
+        page_content=$(curl -s "$uploaderurl")
+        videocount=$(grep -Eo '[0-9]+(K|M)? videos' <<< "$page_content" | head -n 1)
+        subcount=$(grep -Eo '[0-9]+(K|M)? subscribers' <<< "$page_content" | head -n 1)
+
+        echo "$uploader"
+        echo "$uploaderid"
+        echo "$videocount"
+        echo "$subcount"
+
+        # Extract the numeric values
+        vcount=${videocount//[^0-9.]/}
+        vcount=${vcount%%.*}
+        scount=${subcount%%.*}
+
+        # Check for existing links and count
+        uploader_dir="$HOME/Videos/yt/$uploader"
+        if [ -d "$uploader_dir" ]; then
+            lcount=$(find "$uploader_dir" -type l | wc -l)
+            upid=${uploaderid##@}
+            thumb="$HOME/Pictures/icons/dunst_icons/ytchannels/${upid}.png"
+            if [ "$lcount" -eq "$vcount" ]; then
+                dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "$uploader" "\n$videocount\n$subcount\n$uploaderid"
+                printf "%s à jour\n%s\n%s\n%s" "$uploader" "$videocount" "$subcount" "$uploaderid"
+                return 0
+            else
+                mcount=$((vcount - lcount))
+                dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "$uploader ($uploaderid)" "$mcount/$vcount vidéos\n$scount"
+                echo "$mcount unlinked $uploader videos."
+                continue
+            fi
+        else
+            if [ ! -f "$thumb" ]; then
+              pp=$(grep -Eo 'https://yt3.[a-zA-Z0-9_=/?.&%-]+' <<< "$page_content" | grep "s900" | sort -u | head -n 1)
+              wget -q "$pp" -O "$thumb" || cp "$HOME/Pictures/icons/dunst_icons/youtube.png" "$thumb"
+            fi
+            dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 1000 "faming $vcount symlinks for $uploaderid" "\n$uploader\n$videocount\n$subcount"
+            echo "No existing directory for $uploader. Creating new links."
+            continue
+        fi
+    done
+}
+getlinks "$uri"
+
+embed_json_thumbnail() {
+    local json_file="$1"
+    local image_file="$2"
+
+    if [[ ! -f "$json_file" ]]; then
+        echo "JSON file $json_file does not exist."
+        return 1
+    fi
+
+    # Embed the JSON data into the image using exiftool
+    if exiftool -overwrite_original -UserComment="$(<"$json_file")" "$image_file"; then
+        echo "Successfully embedded JSON into $image_file."
+    else
+        echo "Failed to embed JSON into $image_file."
+        return 1
+    fi
+}
+
+# Get the current date in UTC
+dldate=$(date -u +"%Y-%m-%d %H:%M:%S")
+cf="~cf."
+
+# Main process to process metadata and thumbnails
+yt-dlp -j --write-comments --no-download "$uri" | jq -c -r \
+    --arg dldate "$dldate" --arg cf "$cf" '
+    {
+        Title: .title,
+        Date: .upload_date,
+        Duration: .duration_string,
+        URI: .original_url,
+        ID: .id,
+        Thumbnail: .thumbnail,
+        Uploader: .uploader,
+        Resolution: .resolution,
+        LikeCount: .like_count,
+        CommentCount: .comment_count,
+        Channel: .channel,
+        ChannelFollowerCount: .channel_follower_count,
+        UploaderID: .uploader_id,
+        UploaderURL: .uploader_url,
+        UploadDate: .upload_date,
+        Timestamp: .timestamp,
+        Playlist: .playlist,
+        PlaylistIndex: .playlist_index,
+        Tags: .tags,
+        Chapters: [ .chapters[]? | {start_time, title} ],
+        Comments: [
+            (.comments[]? | select(.like_count > 10 or .is_pinned == true or .author_is_uploader == true or .is_favorited == true)
+            | {id: .id, author: .author, author_thumbnail: .author_thumbnail, author_url: .author_url, since: ._time_text, timestamp: .timestamp, text: .text, like_count: .like_count, is_pinned: .is_pinned, author_is_uploader: .author_is_uploader})
+        ],
+        DownloadDate: $dldate,
+        Signature: $cf
+    }' | while read -r metadata; do
+    title=$(echo "$metadata" | jq -r '.Title')
+    uploader=$(echo "$metadata" | jq -r '.Uploader')
+    video_thumbnail=$(echo "$metadata" | jq -r '.Thumbnail')
+
+    if [ -n "$title" ] && [ -n "$uploader" ]; then
+        # Sanitize the title
+        sanitized_title=$(echo "$title" | tr -cd '[:alnum:]_-' | tr ' ' '_')
+
+        uploader_dir="$DESTINATION/$uploader"
+        mkdir -p "$uploader_dir" && cd "$uploader_dir" || exit 1
+
+        # Store metadata as JSON file
+        json_file="$uploader_dir/$sanitized_title.json"
+        echo "$metadata" > "$json_file"
+
+        # Download video thumbnail and embed JSON directly
+        if [ -n "$video_thumbnail" ]; then
+            wget -q "$video_thumbnail" -O "$uploader_dir/$sanitized_title-thumb.jpg"
+            magick "$uploader_dir/$sanitized_title-thumb.jpg" "$uploader_dir/$sanitized_title-thumbnail.jpg"
+            rm "$uploader_dir/$sanitized_title-thumb.jpg"
+            embed_json_thumbnail "$json_file" "$uploader_dir/$sanitized_title-thumbnail.jpg"
+            mv "$uploader_dir/$sanitized_title-thumbnail.jpg" "$uploader_dir/$sanitized_title.jpg" -f
+            sane_title=$(echo "$title" | sed 's/\///g; s/  / /g; s/^ //')
+            [ -d "$HOME/Videos/yt/$uploader" ] || mkdir -p "$HOME/Videos/yt/$uploader" && \
+                ln -sf "$uploader_dir/$sanitized_title.jpg" "$HOME/Videos/yt/$uploader/$sane_title"
+        fi
+        echo "Processed: $title"
+        rm "$json_file"
+    else
+        echo "Missing metadata... Skipping..."
+    fi
+done

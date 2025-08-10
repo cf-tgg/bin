@@ -1,0 +1,128 @@
+#!/bin/sh
+#          _                  __            __
+#    ___  (_)__  ___ ________/ /____ ____  / /_
+#   / _ \/ / _ \/ -_) __/___/ __/ _ `/ _ \/ __/
+#  / .__/_/ .__/\__/_/      \__/\_, / .__/\__/
+# /_/    /_/                   /___/_/
+#
+# piper-tgpt -- A smol local conversational ai model.
+#
+# Dependencies:
+#    + tgpt
+#    + piper-tts and voice model(s)
+#    + vosk and speech model(s)
+#    + vosk-transcriber
+#    + a working pulseaudio or alsa sound server.
+#
+# On arch-based distros using yay AUR helper:
+# $ yay -S piper-tts vosk tgpt
+# $ pipx install vosk-transcriber
+
+VERBOSE=1
+SIMPLE=0
+TEXTOUT=1
+LANGUAGE=${1:-}
+FR_MODEL="fr_FR-gilles-low"
+EN_MODEL="en_US-amy-medium"
+HISTORY_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/piper-tgpt"
+
+[ -d "$HISTORY_DIR" ] || mkdir -p "$HISTORY_DIR"
+
+settings() {
+  lang="$(setxkbmap -query | grep -oP 'layout:\s*\K\w+')"
+  [ "$lang" = "ca" ] && LANGUAGE="fr"
+  [ "$lang" = "us" ] && LANGUAGE="en"
+  if [ "$SIMPLE" = 0 ]; then
+    if [ "$LANGUAGE" = "en" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-small-en-us-0.15/"
+      TTS_MODEL="$EN_MODEL"
+    elif [ "$LANGUAGE" = "fr" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-small-fr-0.22/"
+      TTS_MODEL="$FR_MODEL"
+    fi
+  else
+    if [ "$LANGUAGE" = "en" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-en-us-0.22/"
+      TTS_MODEL="$EN_MODEL"
+    elif [ "$LANGUAGE" = "fr" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-fr-0.22/"
+      TTS_MODEL="$FR_MODEL"
+    fi
+  fi
+  vosk=$(basename "$VOSKDIR"|cut -d- -f3-)
+  echo "$LANGUAGE 🎙️"
+  [ "$VERBOSE" -eq 1 ] && echo "[::VERBOSE=$VERBOSE::SIMPLE=$SIMPLE::MODEL=$vosk::]"
+  if [ "$VERBOSE" -eq 1 ]; then
+    notify-send "piper-tgpt" "[:::$vosk:::] $LANGUAGE 🎙️"
+  else
+    notify-send "$LANGUAGE 🎙️"
+  fi
+}
+
+[ "$LANGUAGE" = "fr*" ] || [ "$LANGUAGE" = "en*" ] || settings
+
+# Validation des fichiers de configuration
+[ ! -f "$HOME/Templates/piper/voices/$TTS_MODEL.onnx" ] || [ ! -f "$HOME/Templates/piper/voices/$TTS_MODEL.onnx.json" ] && \
+  { echo "Error: TTS model configuration file not found." ; exit 1 ; }
+
+[ -d  "$VOSKDIR" ] || { echo "Error: missing or invalid vosk speech model path." ; exit 1 ; }
+
+# Model rate value
+RATE="16000"
+
+case "$TTS_MODEL" in
+    *low*) RATE="16000" ;;
+    *medium*) RATE="22050" ;;
+    *high*) RATE="22050" ;;
+    *) { echo "Error: couldn't figure out TTS model rate." ; exit 1 ; } ;;
+esac
+
+updateicon() {
+   echo "$1" > /tmp/recordingicon
+   pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+}
+
+record() {
+  mpc volume 20
+  updateicon "🎙️"
+  ffmpeg -y -f alsa -ac 1 -i hw:1 -c:a flac -t 5 ~/.cache/audio.flac
+  echo $! > /tmp/recordingpid
+  return 0
+}
+
+killrec() {
+  recpid=$(cat /tmp/recordingpid)
+  [ -n "$recpid" ] && kill -15 "$recpid"
+  [ -f "/tmp/recodingpid" ] && rm -f /tmp/recordingpid
+  updateicon ""
+  mpc volume 80
+  pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+  return 0
+}
+
+record && killrec && vosk-transcriber -m "$VOSKDIR" -i ~/.cache/audio.flac -o ~/.cache/audio.txt >/dev/null 2>&1
+read -r texte < ~/.cache/audio.txt
+
+[ -n "$texte" ] || exit 0
+
+# Réponse du modèle tgpt
+tgpt_output=$(tgpt -q "$texte" -h -quiet -provider ollama)
+[ "$TEXTOUT" -eq 1 ] && {
+  # Tentative de nommer le fichier par concaténation des divisions de la réponse. (tgpt les divise par `###')
+  title=$(echo "$tgpt_output" | grep "^###" | tr -d '#' | tr -t '\n' ' ' | sed "s/ /_/g;s/^_//;s/_$//")
+  [ -z "$title" ] && title=$(date +"%Y-%m-%d_%H%M-%S")
+  text_f="$HISTORY_DIR/$title.md"
+  # Sortie du texte de la réponse dans l'éditeur de terminal standard. (neovim) TODO: Test behaviour on GUI EDITORS
+  echo "$tgpt_output" >"$text_f" && setsid -f "$TERMINAL" -e "$EDITOR" "$text_f" &
+} || [ -t 1 ] && echo "$texte" # Sinon, s'il y a un terminal, réponse par sortie standard (stdout).
+
+# Traitement pour lecture tts. FIXME: Some garbage output remains..
+output=$(echo "$tgpt_output" | iconv -f utf-8 -t utf-8 | sed 's/\[[0-9;]*[a-zA-Z]//g' | sed -e '/./{H;$!d;}' -e 'x;/^\n*$/!s/\n/ /g'| sed "s/^###/- /")
+
+# Sortie du TTS sur la sortie de son défault `@DEFAULTSINK@'
+{ echo "$output" | piper-tts --silence_sentence 0.2 --length_scale 1.0 --model "$HOME/Templates/piper/voices/$TTS_MODEL.onnx" -c "$HOME/Templates/piper/voices/$TTS_MODEL.onnx.json" --output-raw | pacat --raw --rate="$RATE" --format=s16le -d "@DEFAULTSINK@" --channels=1 ; } >/dev/null 2>&1
+
+###  NOTE: for Alsa: use `aplay' instead of `pacat', comment the preceding and uncomment the following line. ###
+# { echo "$output" | piper-tts --silence_sentence 0.2 --length_scale 1.0 --model "$HOME/Templates/piper/voices/$TTS_MODEL.onnx" -c "$HOME/Templates/piper/voices/$TTS_MODEL.onnx.json" --output-raw | aplay -f s16le -r "$RATE" --raw -d "@DEFAULTSINK@" --channels=1 ; } >/dev/null 2>&1
+
+exit 0

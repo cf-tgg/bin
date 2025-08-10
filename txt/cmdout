@@ -1,0 +1,8 @@
+#!/bin/sh
+
+tmpcmd=$(mktemp --suffix=cmdout)
+cat > "$tmpcmd"
+cmd="$(echo "${LAST_CMD%|*}")"
+printf '```%s\n%s\n```\n' "$cmd" "$(cat "$tmpcmd")" | xclip -in -sel clip
+printf '```%s\n%s\n```\n' "$cmd" "$(cat "$tmpcmd")"
+rm -f "$tmpcmd"

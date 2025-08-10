@@ -1,0 +1,39 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <file>" >&2
+    exit 1
+fi
+
+playlist="/tmp/nsxiv.playlist"
+[ ! -f "$playlist" ] && touch "$playlist"
+trap 'rm -f "$playlist"' EXIT
+
+INITIAL_WINDOW_ID=$(xdotool getactivewindow)
+images=()
+while IFS= read -r file; do
+    images+=("$file")
+done
+
+if [ "${#images[@]}" -eq 0 ]; then
+    notify-send "nsxiv" "No files found in the current instance."
+    exit 1
+fi
+
+index=1
+for file in "${images[@]}"; do
+    realpath_file=$(realpath "$file")
+    mpvqstr=$(exiftool -s3 -UserComment "$realpath_file" | jq -r '"\(.Summary.URI // .URI) # \(.Summary.Title // .Title)"')
+    echo "$mpvqstr" >> "$playlist"
+    title=$(echo "$mpvqstr" | cut -d'#' -f2 | sed 's/^ *//; s/ *$//')
+    titles+="$index. $title"$'\n'
+    ((index++))
+done
+notify-send "nsxiv Playlist" "$titles"
+
+if [ -s "$playlist" ]; then
+   xdotool windowactivate "$INITIAL_WINDOW_ID"
+   xdoswl mpv --playlist="$playlist" --profile=fast --no-resume-playback
+else
+    notify-send "nsxiv" "No valid metadata found for playlist."
+fi

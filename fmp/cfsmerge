@@ -1,0 +1,60 @@
+#!/bin/bash
+# Script liant les batch de vidéos suivant les transitions de fondu enchaînés (crossfade)
+
+# Extraction des durées de chaque vidéo d'entrée via mediainfo
+get_duration() {
+  duration=$(mediainfo --Inform="General;%Duration%" "$1")  # Get duration in milliseconds
+  echo "$((duration / 1000))"  # Convert to seconds
+}
+
+# Liste des fichiers d'entrée
+inputs=($(ls *.mp4))
+
+# Initialisation des variables
+INP=()
+OFFSET=()
+TRANSITION_DURATION=1  # Transition duration in seconds
+
+# Parcours de chaque fichier d'entrée
+for i in "${!inputs[@]}"; do
+  f="${inputs[$i]}"
+
+  # Récupération de la durée de la vidéo en secondes
+  duration=$(get_duration "$f")
+
+  # Ajout de l'entrée à la liste des entrées
+  INP+=("-i" "$f")
+
+  # Calcul des valeurs `offset` pour chaque transition
+  if [ "$i" -eq 0 ]; then
+    # la première transition est calculée comme suit: `durée_totale_entrée_1 - temps_de_transition (1s)`
+    OFFSET+=($((duration - TRANSITION_DURATION)))
+  else
+    # pour les transitions suivantes: `durée_totale_entrée_1 + durée_totale_entrée_2 - temps_de_transition (1s)`
+    prev_duration=${OFFSET[$((i - 1))]}
+    OFFSET+=($((prev_duration + duration - TRANSITION_DURATION)))
+  fi
+done
+
+# Construction du filtre de transition
+FILTER=""
+for i in "${!inputs[@]}"; do
+  if [ "$i" -lt $((${#inputs[@]} - 1)) ]; then
+    FILTER+="[v${i}][$((i+1)):v]xfade=transition=fade:duration=$TRANSITION_DURATION:offset=${OFFSET[$i]}[v$((i+1))];"
+  fi
+done
+
+# Ajout du filtre final
+FINAL_FILTER="[v$(( ${#inputs[@]} - 1 ))]format=yuv420p[vout]"
+
+# Construction de la commande finale
+FFMPEG_CMD="ffmpeg "
+FFMPEG_CMD+="${INP[*]} "
+FFMPEG_CMD+="-filter_complex \"${FILTER}${FINAL_FILTER}\" -map \"[vout]\" -c:v libx264 -crf 20 -y out.mp4"
+
+# Affichage de la commande finale
+echo "$FFMPEG_CMD"
+echo "$FFMPEG_CMD" | xclip -selection clipboard
+echo "Commande copiée dans le presse-papier."
+echo "Concaténation finale..."
+eval "$FFMPEG_CMD"

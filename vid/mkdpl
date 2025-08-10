@@ -1,0 +1,16 @@
+#!/bin/sh
+
+PLDIR=${YTZD:-"$HOME/Videos/playlists/ytzf"}
+SAVED=${YTZF:-"$HOME/Videos/playlists/ytzf/.saved"}
+[ -d "$PLDIR" ] || mkdir -p "$PLDIR"
+[ -f "$SAVED" ] || touch "$SAVED"
+[ $# -lt 1 ] || [ ! -d "$1" ] && d=$(find "$HOME/Videos/yt/" -maxdepth 1 -mindepth 1 -type d -not -path "$HOME/Videos/yt/meta" | fzf --delimiter='/' --with-nth=6)  || d="$1"
+p=$(echo "${d##*/}" | sed "s/ /-/g;s/\'//g")
+pl="$HOME/Videos/playlists/ytzf/${p}.m3u8"
+find "$d" -mindepth 1 -maxdepth 1 -type l | while read -r l
+do
+	exifjpg -M "$l" 2> /dev/null | tee -a "$pl" || continue
+done
+[ -f "$pl" ] && head -n1 "$pl" | grep --color=auto -q "#EXTM3U" || sed -i "1i #EXTM3U" "$pl" || continue
+vcount=$(grep -c "#EXTINF" "$pl")
+printf "%s\t%s\n" "$p" "$pl" | tee -a "$SAVED" && printf "Piped $vcount videos in $p playlist. done.\n"

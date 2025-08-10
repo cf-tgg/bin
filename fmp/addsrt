@@ -1,0 +1,105 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-04 17:18:13 cf>
+# Author: cf [Linux 6.15.8-zen1-1-zen x86_64 GNU/Linux]
+# URL: https://github.com/cf-tgg/bin/addsrt
+
+# addsrt --- Add matched subtitle track to video stream
+
+# SYNTAX
+#    addsrt <target>
+
+# SHORT DESCRIPTION
+#    Dirty ffmpeg wrapper to match and embed subtitles.
+
+# DESCRIPTION
+#    This wrapper isn't meant to fit all possible use cases: it
+#    tries to match video files by grepping for .srt files of similar
+#    title, it also checks if subtitle track is french or english by their
+#    prefix ([en]glish or [fr]ench).
+#    For now (2025-08-04), it works for most my use cases, I might extend it
+#    if I ever have the need to.
+
+#  USAGE
+#     To ensure the u
+
+
+# EXAMPLES
+
+#   Embed subtitles in current directory
+#       ```sh
+#       $ addsrt
+#       ```
+
+match_srt() {
+    f="${1%.*}"
+    match=$(echo "$f_name" | sed "/\(\_\|[[:digit:]]\)//g;s/[[:upper:]]/\L&/g;s/\./\-/g")
+    find . -type f -name "*.srt" | grep -iE "$match" | tail -n1
+}
+
+srt_lang() {
+     f=${1%.*}
+     match=$(echo "$f_name" | sed "/\(\_\|[[:digit:]]\)//g;s/[[:upper:]]/\L&/g;s/\./\-/g")
+     l=$(find . -type f -name "*.srt" | grep -iE "$match" | grep "\(en\|fr\)" | sed "s/$f//;s/\(-\|_\|\.\|\/\|srt\)//g;")
+     [ "${l:0:2}" = "en" ] && srt_lang="${l:0:3}" || srt_lang="${l:0:2}"
+     [ -n "$srt_lang" ] && echo "$srt_lang"
+}
+
+askchar() {
+   char="$1"
+   if [ -z "$char" ]; then
+      stty -echo -icanon
+      char=$(dd bs=1 count=1 2>/dev/null)
+      stty sane
+   fi
+   ( [ -n "$char" ] && echo "$char" ) || return 1
+}
+
+embedsrt() {
+	f="$1"
+	f_ext="${f##*.}"
+	out_f="out.${f_ext}"
+	srt_f=$(match_srt "$f")
+	srt_l=$(srt_lang "$f")
+	[ -f "$srt_f" ] || {
+		echo "Subtitle file not found."
+		return 1
+	}
+	[ -n "$srt_l" ] || {
+		echo "Subtitle language not found."
+		return 1
+	}
+	ffmpeg -hide_banner -sub_charenc UTF-8 -i "$f" -i "$srt_f" -map 0 -map 1 -c:v copy -c:a copy -c:s mov_text -metadata:s:s:0 language="$srt_l" "$out_f" -y && echo "${srt_f#./} ${srt_l} subtitles embedded in $out_f"
+	ans="n"
+	if [ "$(stat --format="%s" "$out_f")" -ge "$(stat --format="%s" "$f")" ] ; then
+
+                if [ $INTERACTIVE -eq 1 ]; then
+	            ans="n"
+	            printf "%s matches original file size. Finalize embedding %s? [y/N] " "$out_f" "$f"
+	            if askchar | grep -qi "^y" ; then
+		        mv -iv -f "$out_f" "$f" && echo "Embedding finalized: $f"
+	            else
+		        echo "Embedding not finalized."
+	            fi
+	        else
+	            mv -iv -f "$out_f" "$f" && echo "Embedding finalized: $f"
+	        fi
+        else
+	    echo "Embedding not finalized." >&2
+	fi
+}
+
+while getopts "ih" OPT ; do
+ 	case $OPT in
+ 	    i) INTERACTIVE=1 ;;
+            h) echo "Usage: addsrt <target_video_match>" >&2 ; exit 2 ;;
+ 	esac
+done
+shift $(($OPTIND-1))
+OPTIND=1
+
+for video in "$@" ; do
+    ( embedsrt "$video" ) || { echo "failed to embedsrt." >&2 ; exit 1 ; }
+done
+
+exit 0

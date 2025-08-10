@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# Function to convert duration to seconds
+duration_to_seconds() {
+    local time="$1"
+    local h m s
+    h=0
+    IFS=: read -r m s <<EOF
+$time
+EOF
+    if [ -z "$s" ]; then
+        s=$m
+        m=0
+    fi
+    echo $((h * 3600 + m * 60 + s))
+}
+
+# Function to convert seconds to H:M:S format
+seconds_to_hms() {
+    local seconds="$1"
+    printf "%02d:%02d:%02d" $((seconds / 3600)) $(((seconds % 3600) / 60)) $((seconds % 60))
+}
+
+# Function to sanitize a line (removing invisible characters)
+sanitize_line() {
+    echo "$1" | tr -cd '[:print:]\n' | sed 's/[^[:alnum:][:punct:][:space:]]//g'
+}
+
+# Validate input file
+input_file=$1
+[ ! -f "$input_file" ] && { echo "File not found!"; exit 1; }
+
+# Process each line
+while IFS= read -r raw_line; do
+    line=$(sanitize_line "$raw_line")
+
+    # Extract timestamp or range
+    range=$(echo "$line" | grep -oE '[0-9]{1,2}:[0-9]{2}(-[0-9]{1,2}:[0-9]{2})?$')
+    title=$(echo "$line" | sed "s/$range//" | sed 's/[[:space:]]*$//')
+
+    # Skip lines without valid timestamp or range
+    if [ -z "$range" ]; then
+        echo "Skipping line without valid timestamp or range: $line" >&2
+        continue
+    fi
+
+    if echo "$range" | grep -q '-'; then
+        # Handle range format
+        start=$(echo "$range" | cut -d- -f1)
+        end=$(echo "$range" | cut -d- -f2)
+        start_seconds=$(duration_to_seconds "$start")
+        end_seconds=$(duration_to_seconds "$end")
+        duration_seconds=$((end_seconds - start_seconds))
+        formatted_start=$(seconds_to_hms "$start_seconds")
+        formatted_duration=$(seconds_to_hms "$duration_seconds")
+        echo "$formatted_start	$formatted_duration	$title"
+    else
+        # Handle single timestamp as duration
+        duration_seconds=$(duration_to_seconds "$range")
+        formatted_duration=$(seconds_to_hms "$duration_seconds")
+        echo "$(seconds_to_hms 0)	$formatted_duration	$title"
+    fi
+done < "$input_file"

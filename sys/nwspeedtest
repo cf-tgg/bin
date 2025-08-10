@@ -1,0 +1,23 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-03 14:24:00 cf>
+# Box: cf [Linux 6.15.8-zen1-1-zen x86_64 GNU/Linux]
+
+ts=$(date +"%F_%H%M%S")
+png="$HOME/Pictures/speedtests/${ts}.png"
+log="$HOME/.local/var/log/speedtest_${ts}.log"
+
+if speedtest | tee "$log" ; then
+    [ -f "$log" ] && {
+        url=$(grep "URL" "$log" | awk -F: '{print $2}' | tr -d ' ')
+        [ -n "$url" ] && wget "${url}.png" -O "$png" || return 1
+        [ -f "$png" ] && nsxiv -p -b -sf "$png"
+    } || return 1
+    if [ ! -t 1 ]; then
+        notify-send "[speedtest] ${ts}" "$(tail -n 5 "$log")"
+    fi
+else
+   ( [ -t 1 ] && echo "something went wrong, try again." >&2 ) || notify-send "[speedtest] ${ts}" "something went wrong, try again."
+fi
+
+return 0

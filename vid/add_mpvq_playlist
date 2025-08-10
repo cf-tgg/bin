@@ -1,0 +1,83 @@
+#!/bin/bash
+
+PLAYLIST_FILE="$HOME/.cache/mpvq_playlist"
+MONGO_URI="$(pass mongo_mpvq)"  # Update with actual MongoDB URI
+DATABASE="mpvq"
+COLLECTION="playlist"
+
+# Function to insert data into MongoDB
+insert_to_mongo() {
+    local json_data="$1"
+    echo "$json_data" | mongosh "$MONGO_URI" --eval "db.$COLLECTION.insert($json_data)"
+}
+
+# Function to process each URI
+process_uri() {
+    local uri="$1"
+    local title
+    local date
+    local duration
+    local absolute_path
+    local media_info
+    local playlist_no
+
+    # Decode the file URI if it starts with "file://"
+    if [[ "$uri" == file://* ]]; then
+        uri=${uri#file://}
+    fi
+
+    # Handle YouTube URLs
+    if echo "$uri" | grep -iqE "^https?://"; then
+        title=$(yt-dlp --get-title "$uri" 2>/dev/null)
+        date=$(yt-dlp --get-date "$uri" 2>/dev/null)
+        duration=$(yt-dlp --get-duration "$uri" 2>/dev/null)
+        absolute_path="$uri"
+        playlist_no="YouTube"
+    else
+        # Handle local files
+        absolute_path=$(realpath "$uri")  # Get absolute path
+        title=$(mediainfo --Inform="Video;%Title%" "$absolute_path" 2>/dev/null)
+        date=$(mediainfo --Inform="General;%Recorded_Date%" "$absolute_path" 2>/dev/null)
+        duration=$(mediainfo --Inform="General;%Duration/String3%" "$absolute_path" 2>/dev/null)
+
+        # Retrieve MediaInfo
+        media_info=$(mediainfo --Output=JSON "$absolute_path")
+
+        # Extract relevant metadata from MediaInfo (optional)
+        media_info=$(echo "$media_info" | jq '.media[0] | {General: .general, Video: .video[0], Audio: .audio[0]}')  # Adjust extraction as needed
+
+        playlist_no="File"
+    fi
+
+    # Create JSON object
+    json_data=$(jq -n \
+        --arg no "$playlist_no" \
+        --arg title "$title" \
+        --arg date "$date" \
+        --arg duration "$duration" \
+        --arg original_uri "$uri" \
+        --arg absolute_path "$absolute_path" \
+        --argjson media_info "$media_info" \
+        '{
+            "Files": {
+                "PlaylistInfo": {
+                    "No": $no,
+                    "Title": $title,
+                    "Date": $date,
+                    "Duration": $duration,
+                    "Original URI": $original_uri,
+                    "Absolute Path": $absolute_path
+                },
+                "MediaInfo": $media_info
+            }
+        }'
+    )
+
+    # Insert JSON data into MongoDB
+    insert_to_mongo "$json_data"
+}
+
+# Read URIs from the playlist file and process each one
+while read -r uri; do
+    process_uri "$uri"
+done < <(grep -iE "file:|http" "$PLAYLIST_FILE" | awk '{print $1}' | tr -d '\r')

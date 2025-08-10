@@ -1,0 +1,28 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:26:45 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+# dmenu select dwm patches and opens suckless in browser
+# Define the file containing the patch names and URLs
+
+patch_file="$HOME/.local/bin/dmenu/dwm_patches"
+
+# Check if the file exists
+if [ ! -f "$patch_file" ]; then
+	echo "File $patch_file not found!"
+	exit 1
+fi
+
+# Extract the patch names and URLs from the file, remove quotes from patch names, and present them with dmenu
+selected=$(awk -F' ' '{gsub(/'\''/, "", $1); print $1}' "$patch_file" | dmenu  -p "dwm patches:")
+
+# find the full line to extract the second argument
+url=$(awk -F' ' -v sel="$selected" '{gsub(/'\''/, "", $1); if ($1 == sel) print $2}' "$patch_file")
+
+# Check if a selection was made
+if [ -n "$selected" ]; then
+	# Open the selected URL in qutebrowser
+	$BROWSER "$url"
+fi
+exit 0

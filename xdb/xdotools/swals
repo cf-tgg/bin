@@ -1,0 +1,54 @@
+#!/bin/sh
+
+# Ensure .windowList exists and is readable
+source ~/Scripts/WM/getwinIDs
+
+WINDOW_LIST=".windowList"
+LOG_FILE="dwmswallow.log"
+
+# Grep for $1 and retrieve window IDs and classes into arrays
+GRPW=($(grep "$1" "$WINDOW_LIST" | cut -d ';' -f 1))
+CLASS=($(grep "$1" "$WINDOW_LIST" | cut -d ';' -f 2))
+
+# Clear previous log file
+> "$LOG_FILE"
+
+# Loop through each index of GRPW (assuming both arrays have the same length)
+for ((i=0; i<${#GRPW[@]}; i++)); do
+    window_id="${GRPW[i]}"
+    window_class="${CLASS[i]}"
+    
+    # Execute dwmswallow and log errors
+    if ! dwmswallow "$window_id" "$WINDOWID" 2>> "$LOG_FILE"; then
+        # echo "Failed to swallow window $window_id with class $window_class" >> "$LOG_FILE"
+        echo "$window_id $window_class a eu du mal à passer.. " >> "$LOG_FILE"
+    else
+        # echo "Successfully swallowed window $window_id with class $window_class"
+        echo "fenêtre $window_id $window_class bien avalée "
+    fi
+    
+    # Optional: Add a short delay to ensure the swallow command is processed
+    sleep 0.08
+done
+
+COUNT=$(( ${#GRPW[@]} ))
+ROUND=$(( COUNT + 1 ))
+
+# Output success message and copy 'unswal' to clipboard
+# echo "Swallowed $COUNT windows 👅..."
+echo "$COUNT f'nêtres avalées 👅..."
+echo "unswal $ROUND" | xclip -in -selection clipboard
+
+# Check if script was called with '--unswal' option and execute xdotool commands
+if [[ "$@" == *"--unswal"* ]]; then
+    for i in $(seq 1 "$ROUND"); do 
+        xdotool key super+shift+apostrophe super+j
+    done
+    echo "🤮 $COUNT $CLASS régurgitées icitte.."
+fi
+
+# Print log file contents for debugging
+if [[ -s "$LOG_FILE" ]]; then
+    # echo "Errors occurred during swallowing. Check $LOG_FILE for details."
+    echo "Des erreurs sont survenuent pendant l'avalage. Check icitte $LOG_FILE pour plus de détails."
+fi

@@ -1,0 +1,13 @@
+# Function to start ffmpeg and capture its PID
+# start_ffmpeg() {
+#     local device=$1
+#     ffmpeg -f x11grab -s ${SIZE} -i :0.0+${SPOS} -f v4l2 $device &
+#     ffmpeg_pid=$!
+#}
+
+# Check if /dev/video0 is busy, if so, use /dev/video1
+# if fuser /dev/video0; then
+#     start_ffmpeg "/dev/video1"
+# else
+#     start_ffmpeg "/dev/video0"
+# fi

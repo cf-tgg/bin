@@ -1,0 +1,7 @@
+#!/bin/sh
+# Shell wrapper for wikitoggle.py to toggle from french to english wikipedia page variants in qutebrowser.
+# usage: config.bind('WE', 'spawn --userscript /path/to/wikilang.sh {url};;cmd-later 500 open {clipoard}')
+
+xclip -o -selection clipboard | xclip -selection secondary
+wikitoggle.py "$1" | xclip -selection clipboard
+sleep 2 && xclip -o -selection secondary | xclip -selection clipboard

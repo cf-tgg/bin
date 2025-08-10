@@ -1,0 +1,12 @@
+#!/bin/sh
+# smol maim wrapper to screenshot all active monitors at individually instead of combined.
+
+# Save them wherever you please.
+SCREENSHOT_DIR="$HOME/Pictures"
+maim pic-full-$(date '+%y%m%d-%H%M-%S').png
+xrandr | grep 'mm' | awk '{if ($3 == "primary") {print $1, $4} else {print $1, $3}}' | \
+    while read -r n g; do
+       time=$(date +%Y-%m-%d_%H%M-%S)
+       # echo "maim --hidecursor --capturebackground --geometry="$G" "${n}_${time}.png""
+       maim --hidecursor --capturebackground --geometry="$g" "$SCREENSHOT_DIR/${n}_${time}.png"
+    done

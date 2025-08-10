@@ -1,0 +1,30 @@
+#!/bin/sh
+# Calculate the percentage of disk space used by a directory
+
+dir="$1"
+
+# Check if the argument is provided and if it is a valid directory
+if [ ! -d "$dir" ]; then
+  echo "Usage: $0 <directory>"
+  exit 1
+fi
+
+# Get the size of the directory in bytes
+dir_size=$(du -sb "$dir" | awk '{print $1}')
+
+# Get the total disk space of the filesystem containing the directory in bytes
+total_size=$(df "$dir" --block-size=1 | awk 'NR==2 {print $2}')
+
+# Debugging: Print intermediate values
+echo "Directory size (bytes): $dir_size"
+echo "Total filesystem size (bytes): $total_size"
+
+# Check if values are valid
+if [ -z "$dir_size" ] || [ -z "$total_size" ] || [ "$total_size" -eq 0 ]; then
+  echo "Error: Failed to calculate disk space. Ensure the directory and filesystem are accessible."
+  exit 1
+fi
+
+# Calculate the percentage
+percentage=$(echo "scale=2; ($dir_size/$total_size)*100" | bc)
+echo "The directory '$dir' uses $percentage% of the total disk space."

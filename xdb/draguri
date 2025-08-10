@@ -1,0 +1,58 @@
+#!/bin/sh
+
+FILE_PATH="$1"  
+DRAG_APP="xdotool"  
+URI_MIME="text/uri-list"  
+
+select_entry() {
+    entry=$(grep -v "^#" "$FILE_PATH" | dmenu -l 10)  
+    [ -n "$entry" ] || exit 1  
+
+    
+    if [[ "$entry" =~ ^(https?://|file://|/).+ ]]; then
+        
+        uri=$(echo "$entry" | sed 's/ /%20/g')
+        
+        printf "%s" "$uri" | xclip -selection clipboard -t "$URI_MIME"
+
+        $DRAG_APP mousedown 1
+        sleep 0.2
+        $DRAG_APP mousemove_relative 50 50
+        $DRAG_APP mouseup 1
+    else
+        echo "Invalid entry. Make sure it's a URL or file path."
+        exit 1
+    fi
+}
+
+
+click_open() {
+    entry=$(grep -v "^#" "$FILE_PATH" | dmenu -l 10)
+    [ -n "$entry" ] || exit 1
+    
+    if [[ "$entry" =~ ^(https?://).+ ]]; then
+        xdg-open "$entry"  
+    elif [[ "$entry" =~ ^(file://|/).+ ]]; then
+        if file --mime-type "$entry" | grep -q 'video\|audio'; then
+            mpv "$entry"  
+        else
+            xdg-open "$entry"  
+        fi
+    else
+        echo "Invalid entry."
+        exit 1
+    fi
+}
+
+case "$2" in
+    drag)
+        select_entry
+        ;;
+    open)
+        click_open
+        ;;
+    *)
+        echo "Usage: $0 <file_path> {drag|open}"
+        exit 1
+        ;;
+esac

@@ -1,0 +1,18 @@
+#!/bin/bash
+
+playlist_file="$HOME/.cache/mpvq/mpvq.playlist"
+dragged_title="$1"
+
+if [[ -z "$dragged_title" ]]; then
+    echo "No file path provided."
+    exit 1
+fi
+
+dragged_file_path=$(grep -F "$dragged_title" "$playlist_file" | cut -d'#' -f1- | sed 's/^[ \t]*//')
+
+uri="$dragged_file_path"
+
+{
+    echo "Title: $dragged_title"
+    echo "URI List: $uri"
+} | xclip -selection clipboard -t "text/text-uri"

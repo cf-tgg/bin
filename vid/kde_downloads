@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+DOWNLOAD_DIR="$HOME/Downloads"
+
+# Define the source directories
+SOURCE_PICTURES_DIR="primary:Pictures/Messages"
+SOURCE_MOVIES_DIR="primary:Movies/Messages"
+
+# Define the target download directory
+DOWNLOAD_DIR="$HOME/Downloads"
+
+# Move all files from the Pictures/Messages folder to DOWNLOAD_DIR
+echo "Moving files from Pictures/Messages..."
+mv "$SOURCE_PICTURES_DIR"/* "$DOWNLOAD_DIR/"
+
+# Move all files from the Movies/Messages folder to DOWNLOAD_DIR
+echo "Moving files from Movies/Messages..."
+mv "$SOURCE_MOVIES_DIR"/* "$DOWNLOAD_DIR/"
+
+# Notify completion
+echo "Files moved successfully to $DOWNLOAD_DIR"
+
+# File extensions to look for (images and videos)
+IMAGE_EXTENSIONS="jpg|jpeg|png|gif|bmp"
+VIDEO_EXTENSIONS="mp4|mkv|webm|avi"
+
+# Use inotifywait to monitor the directory for new files
+inotifywait -m -e create --format "%f" "$KDECONNECT_DIR" | while read -r filename; do
+    # Check if the file is an image or video
+    if [[ "$filename" =~ \.($IMAGE_EXTENSIONS)$ ]] || [[ "$filename" =~ \.($VIDEO_EXTENSIONS)$ ]]; then
+        # Move the file to DOWNLOAD_DIR
+        mv "$KDECONNECT_DIR/$filename" "$DOWNLOAD_DIR/"
+        # Notify about the file move
+        notify-send "File moved" "Moved '$filename' to $DOWNLOAD_DIR"
+    fi
+done

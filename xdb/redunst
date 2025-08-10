@@ -1,0 +1,17 @@
+#!/bin/sh
+# Workaround to force restart dunst if somehow it stops working
+# even though the process is still running (e.g. after switching tty)
+# Additionally runs [[~/.local/bin/remaps][remaps]] script
+# which probably needs to be refreshed as well.
+# Bound to:
+# - <Shift+F10> in dwm
+# - <XF86AudioMedia> (F12) in EXWM
+
+redunst() {
+    export DISPLAY="$DISPLAY";
+    killall dunst ;
+    setsid -f dunst;
+    remaps ;
+    return 0 ;
+}
+redunst

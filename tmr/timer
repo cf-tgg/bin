@@ -1,0 +1,104 @@
+#!/bin/bash
+
+# Function to display the timer
+display_timer() {
+    local hours=$((seconds / 3600))
+    local minutes=$((seconds / 60 % 60))
+    local remaining_seconds=$((seconds % 60))
+    printf "\r%02d:%02d:%02d" $hours $minutes $remaining_seconds
+}
+
+convert_to_seconds() {
+    local time="$1"
+
+    # Check if the input contains colons (e.g., %H:%M:%S or %M:%S)
+    if [[ $time =~ ^([0-9]{1,2}):([0-9]{2}):([0-9]{2})$ ]]; then
+        local hours="${BASH_REMATCH[1]}"
+        local minutes="${BASH_REMATCH[2]}"
+        local seconds="${BASH_REMATCH[3]}"
+        echo $((hours * 3600 + minutes * 60 + seconds))
+    elif [[ $time =~ ^([0-9]{1,2}):([0-9]{2})$ ]]; then
+        local minutes="${BASH_REMATCH[1]}"
+        local seconds="${BASH_REMATCH[2]}"
+        echo $((minutes * 60 + seconds))
+
+    # Check if the input contains 'h', 'm', or 's' (e.g., 1h30m45s)
+    elif [[ $time =~ ([0-9]+)h ]]; then
+        local hours="${BASH_REMATCH[1]}"
+        time="${time/${BASH_REMATCH[0]}/}"
+    fi
+
+    if [[ $time =~ ([0-9]+)m ]]; then
+        local minutes="${BASH_REMATCH[1]}"
+        time="${time/${BASH_REMATCH[0]}/}"
+    fi
+
+    if [[ $time =~ ([0-9]+)s ]]; then
+        local seconds="${BASH_REMATCH[1]}"
+    fi
+
+    # If time components were found, convert them to seconds
+    if [[ -n "$hours" || -n "$minutes" || -n "$seconds" ]]; then
+        echo $(( (hours * 3600) + (minutes * 60) + seconds ))
+
+    # Check if input is purely numeric
+    elif [[ $time =~ ^[0-9]+$ ]]; then
+        if [[ ${#time} -eq 2 ]]; then
+            echo $((time * 60))
+        elif [[ ${#time} -eq 4 ]]; then
+            local hours="${time:0:2}"
+            local minutes="${time:2:2}"
+            echo $((hours * 3600 + minutes * 60))
+        else
+            echo "$time"
+        fi
+    else
+        echo "0"
+    fi
+}
+
+# Validation de saisie
+if [ -z "$1" ]; then
+    echo "Mauvais format de temps: %M || %H%M || %H:%M:%S || %M:%S || %h%m%s"
+    exit 1
+fi
+
+# Conversion des secondes
+total_seconds=$(convert_to_seconds "$1")
+if [ -z "$total_seconds" ] || [ "$total_seconds" -le 0 ]; then
+    echo "Format invalide: %M || %H%M || %H:%M:%S || %M:%S || %h%m%s"
+    exit 1
+fi
+
+seconds=$total_seconds
+
+# Shift pour passer le premier argument (la duration du compteur)
+shift
+
+# Lire de stdin
+if [ ! -t 0 ]; then
+    # Si stdin n'est pas un terminal lire du pipeline
+    actions=$(cat -)
+else
+    # Sinon, lire les arguments
+    actions="$@"
+fi
+
+# Affiche le temps restant avant la fin du compteur
+while [ $seconds -gt 0 ]; do
+    display_timer
+    sleep 1
+    seconds=$((seconds - 1))
+done
+
+echo
+
+[ -z "$actions" ] && actions="speaker-test -t wav -w ding.wav -l 1 >/dev/null 2>&1"
+eval "$actions"
+
+exit 0
+
+# NOTE: To convert wav to a mono format readable by speaker-test:
+# f="$HOME/Music/Sounds/ding.wav" ; n=${f##*/} ; t=${f%.wav}_mono.wav
+# sox "$f" -r 48000 -c 1 -b 16 "$t" && sudo mv "$t" /usr/share/sounds/alsa/"$n"
+# cf.: ./wav2mono quick wrapper

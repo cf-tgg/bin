@@ -1,0 +1,37 @@
+#!/bin/sh
+# ythb - testing
+
+log_file="ythb.log"
+process_name="nsxiv"
+monitor_log="ythb.ps"
+count=78
+
+monitor_and_kill() {
+    echo "Monitoring $process_name until $count instances are detected..." >>"$log_file"
+    while true; do
+        current_count=$(pgrep -c "$process_name")
+        if [ "$current_count" -ge "$count" ]; then
+            echo "[$(date +%H:%M:%S.%N)]" >>"$log_file"
+            echo "$count instances of $process_name detected. sleeping 2s.. " >>"$log_file"
+            sleep 2
+            echo "Terminating all..." >>"$log_file"
+            killall "$process_name" 2>/dev/null || echo "No processes killed." >>"$log_file"
+            break
+        fi
+        sleep 1
+    done
+}
+
+for n in $(seq 1 200); do
+    N=$((79+n))
+    start=$(date +%s.%N)
+    echo "[$(date +%H:%M:%S.%N)] [ ythb - test $n j=$N ] | start." >>"$log_file"
+    echo "cmd: parallel -j0+$N nsxiv \"{}\" -sF < metadirs" >>"$log_file"
+    time parallel -j0+$N nsxiv "{}" -sF < metadirs
+    monitor_and_kill &
+    tail -f "$monitor_log" &
+    echo "[$(date +%H:%M:%S.%N)] [ ythb - test $n - j=$N ] | end." >>"$log_file"
+    end=$(date +%s.%N)
+    elapsed=$(echo "$end - $start" | bc)
+    echo "[Test - ] Completed in $elapsed seconds." >>"$log_file"
+done

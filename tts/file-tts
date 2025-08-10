@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Check if a file argument is provided
+if [ -z "$1" ]; then
+    echo 'Provide a file to read and record'
+    exit 1
+fi
+
+file="$1"
+fname=$(basename "$file")
+name="${fname%.*}"
+
+# Use gilles_dit command to read and convert text to speech
+gilles_dit "$(cat "$file" | tr '\n' ';' | sed 's/;/; /g')"
+
+# Wait for conversion to finish (adjust sleep time if needed)
+sleep 3
+
+# Move the output file to the correct location with the correct name
+mv "$HOME/feeds/wav/temp/out.wav" "$HOME/feeds/wav/$name.wav"
+mv "$file" "$HOME/feeds/lu"
+
+exit 0

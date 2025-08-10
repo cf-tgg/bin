@@ -1,0 +1,13 @@
+#!/bin/sh
+
+icon_list="$HOME/window_icons"
+
+xwininfo| grep -E 'xwininfo: Window id:' | awk '{print $4}'| while read -r winid; do
+    [ -z "$winid" ] && win_icons_align && break
+    idx="$(grep -nFx "$winid"  "$icon_list" | cut -d: -f1)"
+    [ -n "$idx" ] && sed -i "${idx}d" "$icon_list" && break
+    grep -qF "$winid" "$icon_list" || echo "$winid" >> "$icon_list"
+done
+win_icons_align
+
+exit 0

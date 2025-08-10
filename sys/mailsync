@@ -1,20 +1,37 @@
 #!/bin/sh
 # -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
-# Time-stamp: <2025-07-28 05:13:50 cf>
+# Time-stamp: <2025-08-08 17:02:49 cf>
 # cf [Linux 6.15.4-zen2-1-zen x86_64 GNU/Linux]
 
 MBX="${MAIL:-$HOME/.local/mail}/sshchat"
+NEW="$MBX/new"
+CUR="$MBX/cur"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
+STATE_FILE="$STATE_DIR/smscheck.last"
+
 MSG="$HOME/.local/mail/ssh-msg.log"
 HST="$HOME/.local/var/log/ssh-chat.log"
 CHT="$MBX/new/$(date +"%F_%H%M%S")"
-MCR="$MBX/cur"
-XDG_STATE_HOME=${XDG_STATE_HOME:-"$HOME/.local/state"}
-export XDG_STATE_HOME
+
+BLKSIG=19
+BLKICON="/tmp/msgboxicon"
+
+# Cleanup empty files from MAILBOX
+find "$MBX" -type f -empty -exec rm -f {} \; >/dev/null 2>&1
+
+mkdir -p "$NEW" "$CUR" "$STATE_DIR"
 
 updateicon() {
-    echo "$1" >/tmp/msgboxicon
-    pkill -RTMIN+19 -u "$USER" "${STATUSBAR:-dwmblocks}"
-    return 0
+    blksig=${BLKSIG:-19}
+    iconf=${BLKICON:-"/tmp/msgboxicon"}
+    echo "$1" > "$iconf"
+    (
+        pkill -RTMIN+"$blksig" dwmblocks 2>/dev/null || { pgrep dwmblocks | xargs -r kill -$((blksig+34)) 2>/dev/null ; }
+    ) || notify-send -i "$HOME/Pictures/icon/dunst_icons/handup.png" -t 2000 "ça sonne..." 2>/dev/null
+}
+
+ding() {
+    speaker-test -t wav -w ding.wav -l 1 >/dev/null 2>&1
 }
 
 rotchat() {
@@ -24,12 +41,9 @@ rotchat() {
     return 0
 }
 
-ding() {
-    speaker-test -t wav -w ding.wav -l 1 >/dev/null 2>&1
-}
-
+# Rsync latest ssh-msg.log from primary hosts
 SRC_PATH=".local/var/log/ssh-msg.log"
-DEST_PATH="$HOME/.local/mail/ssh-msg.log"
+DEST_PATH="$MSG"
 LOG_FILE="$HOME/.local/var/log/mailsync.log"
 HOSTS="rpie dg3s rdg3 dg3"
 
@@ -39,10 +53,14 @@ for host in $HOSTS; do
     fi
 done
 
-ts=$(date +%s)
-tmr=$((ts - 30))
+# If recent (last 10s), try via jump hosts
+now=$(date +%s)
+case $(uname) in
+    *BSD|Darwin) mtime=$(stat -f %m "$DEST_PATH" 2>/dev/null) ;;
+    *)           mtime=$(stat -c %Y "$DEST_PATH" 2>/dev/null) ;;
+esac
 
-if [ "$(stat -c "%Y" "$DEST_PATH" 2>/dev/null)" -lt "$tmr" ]; then
+if [ "$mtime" ] && [ $((now - mtime)) -lt 10 ]; then
     for jhost in rdg3 dg3 dg3s ; do
         if rsync -e "ssh -J $jhost" -aiv rpie:~/"$SRC_PATH" "$DEST_PATH" >> "$LOG_FILE" 2>&1 ; then
             break
@@ -50,33 +68,53 @@ if [ "$(stat -c "%Y" "$DEST_PATH" 2>/dev/null)" -lt "$tmr" ]; then
     done
 fi
 
-rotchat "$MSG" "$HST" "$CHT"
+# --- NEW: process ssh-msg.log for new content in last 60s ---
+case $(uname) in
+    *BSD|Darwin) mtime=$(stat -f %m "$MSG" 2>/dev/null) ;;
+    *)           mtime=$(stat -c %Y "$MSG" 2>/dev/null) ;;
+esac
 
-[ -f "$CHT" ] && {
+[ -f "$MSG" ] || exit 0
+[ "$mtime" ] && [ $((now - mtime)) -gt 60 ] && exit 0
+
+[ -f "$STATE_FILE" ] || { wc -l <"$MSG" >"$STATE_FILE"; exit 0; }
+
+last_lines=$(cat "$STATE_FILE")
+total_lines=$(wc -l <"$MSG")
+
+[ "$total_lines" -le "$last_lines" ] && exit 0
+
+tail -n $((total_lines - last_lines)) "$MSG" | while IFS= read -r line; do
+    sender=$(printf '%s\n' "$line" | awk -F 'est dans la place' '{print $1}' | cut -d ']' -f2- | tr -d ' ')
+    [ -n "$sender" ] || sender=$(printf '%s\n' "$line" | awk -F'] ' '{print $2}' | cut -d ':' -f1 | tr -d ' ')
+    [ -z "$sender" ] && sender="unknown"
+
+    ts=$(date +%s)
+    file_ts=$(date -u -R)
+
+    {
+        printf 'From: %s <sshchat@localhost>\n' "$sender"
+        printf 'To: %s@localhost\n' "$USER"
+        printf 'Subject: New message from %s\n' "$sender"
+        printf 'Date: %s\n' "$file_ts"
+        printf 'Message-ID: <%s.%s@localhost>\n' "$ts" "$sender"
+        printf 'Content-Type: text/plain; charset=UTF-8\n'
+        printf '\n'
+        printf '%s\n' "$line"
+    } > "$NEW/$sender.$ts"
+done
+
+printf '%s\n' "$total_lines" >"$STATE_FILE"
+
+# If new files appeared, ding + icon
+if find "$NEW" -type f -newermt "1 minute ago" | grep -q .; then
     ding
-    name=$(grep "~~" "$CHT" | awk -F 'est dans la place' '{print $1}' | cut -d ']' -f2- | tr -d ' ')
-    [ -n "$name" ] || name=$(awk -F'] ' '{print $2}' | cut -d ':' -f1 | tr -d ' ')
-    cat "$CHT" >> "$HOME/.local/mail/sshchat/cur/${name}.$(date +"%F")"
-    emc -r "$HOME/.local/mail/sshchat/cur/${name}.$(date +"%F")"
-    mv "$CHT" "$MCR" >/dev/null 2>&1
+    updateicon "🔔"
+else
     updateicon ""
-}
-
-find "$MCR" -type f -empty -exec rm -f {} \; >/dev/null 2>&1
-
-state_file="${XDG_STATE_HOME}/smscheck.last"
-[ -f "$state_file" ] || touch "$state_file"
-curr_mtime=$(stat -c "%Y" "$MSG" 2>/dev/null) || exit 1
-
-if [ ! -f "$state_file" ]; then
-  printf '%s\n' "$curr_mtime" > "$state_file"
-  exit 0
 fi
 
-prev_mtime=$(cat "$statefile")
-if [ "$curr_mtime" != "$prev_mtime" ]; then
-    pkill -RTMIN+20 "${STATUSBAR:-dwmblocks}"
-fi
-
+# Cleanup empty files from cur/
+find "$CUR" -type f -empty -exec rm -f {} \; >/dev/null 2>&1
 
 exit 0

@@ -1,0 +1,54 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-27 19:42:12 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+# XSelection Listen & Log
+
+t=""
+out=""
+last_value=""
+log=0
+log_file="$HOME/.local/xa.log"
+background=0
+
+while getopts "xco:b" opt; do
+    case $opt in
+        x) t="primary" ;;
+        c) t="clipboard" ;;
+        o) log=1; out="$OPTARG" ;;
+        b) background=1 ;;
+        *) echo "Usage: $(basename $0) [-x | -c] [-o output_file] [-b]" >&2; exit 1 ;;
+    esac
+done
+
+[ -n "$t" ] || { echo "Error: Specify either -x or -c for selection type." >&2; exit 1; }
+
+# log
+background_log() {
+    tail -F "$out" | while read -r e; do
+        [ "$e" != "$last_logged" ] && \
+            printf "[%s]\t%s\n" "$(date +"%Y-%m-%d %H:%M:%S")" "$e" | tee -a "$log_file"
+        last_logged="$e"
+    done
+}
+
+while :; do
+    current_value="$(xclip -selection "$t" -o 2>/dev/null)"
+
+    if [ "$current_value" != "$last_value" ]; then
+        clear
+        printf "%s\n" "$current_value"
+        [ -n "$out" ] && printf "%s\n" "$current_value" >> "$out"
+        last_value="$current_value"
+    fi
+    sleep 1
+    if [ "$log" -eq 1 ]; then
+        if [ "$background" -eq 1 ]; then
+            background_log &
+        else
+            background_log
+        fi
+        log=0
+    fi
+done

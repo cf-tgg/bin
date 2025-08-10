@@ -1,0 +1,68 @@
+#!/bin/bash
+
+MONGO_URI=$(pass mongo_mpvq)
+MONGO_DB="mpvq"
+MONGO_COLLECTION="yt"
+
+SOURCE="$HOME/Videos/yt/meta"
+IMPORTED="$HOME/Videos/yt/imported"
+
+[ ! -d "$IMPORTED" ] && mkdir -p "$IMPORTED" && \
+    echo "Created directory '$IMPORTED'."
+
+[ ! -d "$SOURCE" ] && echo "No metadata directory found. Exiting." && \
+    exit 1
+
+for uploader_dir in "$SOURCE"/*; do
+
+    if [ ! -d "$uploader_dir" ]; then
+        continue
+    fi
+
+    uploader=$(basename "$uploader_dir")
+    tmpfile=$(mktemp)
+
+    echo "[" > "$tmpfile"
+
+    first=true
+    for metadata_file in "$uploader_dir"/*.json; do
+        if [ ! -f "$metadata_file" ]; then
+            continue
+        fi
+
+        video_id=$(jq -r '.Metadata.ID' "$metadata_file")
+
+        if mongosh "$MONGO_URI" --quiet --eval "db.$MONGO_COLLECTION.find({ID: '$video_id'}).count() > 0" | grep -q 'true'; then
+            echo "Video with ID '$video_id' already exists. Skipping import."
+            continue
+        fi
+
+        # Add a comma before subsequent objects in the JSON array
+        if [ "$first" = true ]; then
+            first=false
+        else
+            echo "," >> "$tmpfile"
+        fi
+
+        jq --arg uploader "$uploader" '. + {Uploader: $uploader}' "$metadata_file" >> "$tmpfile"
+    done
+
+    echo "]" >> "$tmpfile"
+
+    if [ -s "$tmpfile" ]; then
+        mongoimport --uri "$MONGO_URI" \
+            --db "$MONGO_DB" --collection "$MONGO_COLLECTION" \
+            --file "$tmpfile" --jsonArray
+        echo "Metadata for uploader '$uploader' imported successfully."
+        notify-send "Metadata for uploader '$uploader' imported successfully."
+    else
+        echo "No metadata found for uploader '$uploader'. Skipping."
+        notify-send "No metadata found for uploader '$uploader'. Skipping."
+    fi
+
+    mv "$uploader_dir" "$HOME/Videos/yt/imported"
+    rm "$tmpfile"
+    notify-send "'$uploader' metadata files moved to '$IMPORTED'"
+done
+
+notify-send "db import complete."

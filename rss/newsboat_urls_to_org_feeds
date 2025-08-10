@@ -1,0 +1,21 @@
+#!/bin/sh
+# convert newsboat urls to org-mode feeds
+
+feed_dir="News/feeds"
+[ -d "$feed_dir" ] || mkdir -p "$feed_dir"
+urls="$HOME/.config/newsboat/urls"
+
+cat "$urls" | grep -vE '^[#"]' | while read -r feed name ; do
+    if [ -z "$name" ]; then
+        n=$(echo "$feed" | sed "s/^https:\/\///;s/www.//;s/.xml$//;s/.rss$//;s/.com//;s/\//-/g;s/-$//;s/-r-/-/;s/\./-/g") ;
+        title=$(echo "$n" | sed "s/-/ /g;" | sed -E 's/(^|[^a-zA-Z])([a-z])/\1\u\2/g')
+        name="$title"
+        d="$feed_dir/${n}.org"
+    else
+        name=$(echo "$name" | tr -d '~"')
+        title=$(echo "$name" |tr -d "'")
+        n=$(echo "$title" | tr -d " ")
+        d="$feed_dir/${n}.org"
+    fi
+    printf '("%s"\n  "%s"\n  "~/%s" "%s")\n\n' "$title" "$feed" "$d" "$name"
+done

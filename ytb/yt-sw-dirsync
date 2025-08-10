@@ -1,0 +1,21 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-07-30 09:15:18 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+t="$1"
+d=${t##*/}
+
+printf 'src: %s\ndst: %s\n' "$t" "${d}"
+[ -d /home/cf/Videos/yt/meta/"${d}" ] || { echo "source directory ${d} does not exist" >&2 ; exit 1 ; }
+
+rsync -ar --no-owner --no-group --mkpath /home/cf/Videos/yt/meta/"${d}"/ /var/local/yt/meta/"${d}"/
+rsync -ar --no-owner --mkpath --links /home/cf/Videos/yt/"${d}"/ /var/local/yt/"${d}"/
+
+find /var/local/yt -type d -exec chmod 0755 {} \;
+find /var/local/yt/meta -type f -exec chmod 0644 {} \;
+
+find /var/local/yt/"${d}" -type l | while read -r l ; do
+    f=$(readlink "$l" | sed "s/\/home\/cf\/Videos/\/var\/local/")
+    ln -sf "$f" "$l" || continue
+done

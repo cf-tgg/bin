@@ -1,0 +1,8 @@
+#!/bin/bash
+
+INPUT=$1
+OUTPUT=$2
+TEMP="transforms.trf"
+
+ffmpeg -i $INPUT -vf vidstabdetect -f null $TEMP
+ffmpeg -i $INPUT -vf vidstabtransform=smoothing=5:input=$TEMP $OUTPUT

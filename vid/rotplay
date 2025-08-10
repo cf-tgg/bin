@@ -1,0 +1,49 @@
+#!/bin/bash
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <file>" >&2
+    exit 1
+fi
+
+# Define variables
+playlist_file=".playlist"
+initial_file="$1"
+initial_window_id=$(xdotool getactivewindow)
+
+# Ensure .playlist exists
+if [ ! -f "$playlist_file" ]; then
+    touch "$playlist_file"
+fi
+
+extract_entry() {
+    exiftool -s3 -UserComment "$1" | jq -r '"\(.Summary.URI // .URI) # \(.Summary.Title // .Title)"'
+}
+
+# Check if the initial file exists in the playlist
+if ! grep -Fxq "$(extract_entry "$initial_file")" "$playlist_file"; then
+    extract_entry "$initial_file" >> "$playlist_file"
+fi
+
+reordered_playlist=$(mktemp) || exit 1
+trap 'rm -f "$reordered_playlist"' EXIT
+
+{
+    # Add the initial file as the first entry
+    echo "$(extract_entry "$initial_file")"
+    grep -Fxv "$(extract_entry "$initial_file")" "$playlist_file"
+} > "$reordered_playlist"
+
+mv "$reordered_playlist" "$playlist_file"
+
+fullpath="$(realpath "$initial_file")"
+dirname="$(basename "$(dirname "$initial_file")")"
+title=$(exiftool -s3 -UserComment "$initial_file" | jq -r '.Summary.Title // .Title')
+
+xdotool windowactivate "$initial_window_id"
+notify-send -i "$fullpath" "$dirname" "$title"
+
+if [ -s "$playlist_file" ]; then
+   xdoswl mpv --no-resume-playlist --playlist="$playlist_file" --no-load-scripts
+else
+    notify-send "Playlist is empty."
+fi

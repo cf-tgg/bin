@@ -1,0 +1,218 @@
+#!/bin/bash
+
+# Path to the mpv socket
+MPV_SOCK="/tmp/mpv.sock"
+USE_DMENU=true
+
+# Parse arguments
+for arg in "$@"; do
+    case "$arg" in
+        -dmenu|--dmenu|-d)
+            USE_DMENU=false
+            shift
+            ;;
+        *) exit 0
+            ;;
+    esac
+done
+
+# Function to send a command to mpv
+send_command() {
+    echo "{\"command\": [$1]}" | socat - "$MPV_SOCK"
+}
+
+# Function to toggle play/pause
+toggle_play_pause() {
+    send_command '"cycle", "pause"'
+}
+
+# Function to skip to the next chapter
+next_chapter() {
+    send_command '"add", "chapter", 1'
+}
+
+# Function to go to the previous chapter
+prev_chapter() {
+    send_command '"add", "chapter", -1'
+}
+
+# Function to move to the next track
+next_track() {
+    send_command '"playlist-next"'
+}
+
+prev_track() {
+    send_command '"playlist-prev"'
+}
+
+adjust_volume() {
+    adjustment=$1
+    send_command '"add", "volume", '"$adjustment"
+}
+
+get_title() {
+    title=$(echo '{"command": ["get_property", "media-title"]}' | socat - "$MPV_SOCK" | jq -r '.data')
+    clean_title=$(basename "${title%.*}" | sed 's/ \[[[:alnum:]_-]*\]$//')
+    [ -n "$clean_title" ] && notify-send "$clean_title" || echo "$clean_title" > "$HOME/.cache/mpvq/current.video"
+    return 0
+}
+
+# Retrieve the playlist entries from mpv IPC
+get_playlist() {
+    playlist=""
+    index=0
+    while :; do
+        entry=$(echo '{"command": ["get_property", "playlist/'"$index"'/filename"]}' | socat - "$MPV_SOCK" | jq -r '.data // empty')
+        [[ -z "$entry" ]] && break
+        playlist+="$index $entry"$'\n'
+        ((index++))
+    done
+    [ -n "$playlist" ] && notify-send "$playlist" || echo "$playlist"
+    return 0
+}
+
+show_playlist() {
+    playlist=""
+    index=0
+    while :; do
+        entry=$(echo '{"command": ["get_property", "playlist/'"$index"'/filename"]}' | socat - "$MPV_SOCK" | jq -r '.data // empty')
+        [[ -z "$entry" ]] && break
+        title=$(basename "${entry%.*}" | sed 's/ \[[[:alnum:]_-]*\]$//')
+        playlist+="$title"$'\n'
+        ((index++))
+    done
+    [ -n "$playlist" ] && notify-send "$playlist" || echo "$playlist"
+    return 0
+}
+
+load_media() {
+    selection=$(printf "file\ndirectory\nplaylist" | dmenu -i -p "Select media type:")
+    [[ -z "$selection" ]] && return  # Exit if no selection
+    case "$selection" in
+        file)
+            media=$(find ~/Videos -type f -exec file --mime-type {} + | grep -iE 'video/' | cut -d: -f1 | dmenu -p "Select file:")
+            [[ -z "$media" ]] && return
+            echo '{"command": ["loadlist", "'"$media"'", "append"]}' | socat - "$MPV_SOCK"
+            # send_command "\"loadfile\", \"$media\""
+            # echo "'{\"command\": [\"loadfile\", \"${media}\"]}'" | socat - "$MPV_SOCKET"
+            ;;
+        directory)
+            dir=$(find ~/Videos -type d | dmenu -i -p "Select directory:")
+            [[ -z "$dir" ]] && return
+            playlist=$(find "$dir" -type f -exec file --mime-type {} + | grep -iE 'video/' | cut -d: -f1)
+            [[ -z "$playlist" ]] && return
+            while IFS= read -r file; do
+                echo '{"command": ["loadfile", "'"$file"'", "append"]}' | socat - "$MPV_SOCK"
+            done <<< "$playlist"
+            ;;
+        playlist)
+            playlist_file=$(find ~/Videos/playlists -type f -exec file --mime-type {} + | sed 's|^.*/||' | dmenu -i -p "Select playlist:")
+            [[ -z "$playlist_file" ]] && return
+            playlist="$HOME/Videos/playlists/$playlist_file"
+            echo '{"command": ["loadlist", "'"$playlist"'", "append"]}' | socat - "$MPV_SOCK"
+            # send_command "\"loadlist\", \"$HOME/Videos/playlists/$playlist_file\""
+            ;;
+    esac
+}
+
+append_media() {
+    media=$(find ~/Videos -type f -exec file --mime-type {} + | grep -iE 'video/' | cut -d: -f1 | dmenu -i -p "Select file:")
+    [[ -z "$media" ]] && return
+    echo '{"command": ["loadfile", "'"$media"'", "append"]}' | socat - "$MPV_SOCK"
+    # send_command "\"loadfile\", \"$media\", \"append-play\""
+}
+
+remove_current_media() {
+    send_command "\"playlist-remove\", 0"
+}
+
+load_playlist() {
+    playlist=$(find ~/Videos/playlists -type f -name "*m3u*" | dmenu -i -p "Enter playlist path:")
+    [[ -z "$playlist" ]] && return  # Exit if input is empty
+    send_command "\"loadfile\", \"$playlist\", \"replace\""
+}
+
+append_playlist() {
+    playlist=$(dmenu -p "Enter playlist path to append:")
+    [[ -z "$playlist" ]] && return  # Exit if input is empty
+    send_command "\"loadfile\", \"$playlist\", \"append-play\""
+}
+
+select_track() {
+    get_playlist | dmenu -i -l 10 -p "Select track to move:" | awk '{print $1}'
+}
+
+select_position() {
+    seq 0 $(($(get_playlist | wc -l) - 1)) | dmenu -i -p "New position:"
+}
+
+reorder_playlist() {
+    while :; do
+        track=$(get_playlist | dmenu -i -l 10 -p "Select track to move:")
+        case "$track" in
+            "") return ;;    # Return to main menu
+            "Main Menu") return ;;
+            "Quit") exit 0 ;;
+            *) ;;
+        esac
+        track=$(select_track)
+        [[ -z "$track" ]] && exit 0
+        new_position=$(select_position)
+        [[ -z "$new_position" ]] && continue
+        send_command "\"playlist-move\", $track, $new_position"
+    done
+}
+
+main_menu() {
+    echo -e " prev\npchpt\nplay  pause\nnchpt\n next\n🔊up\n🔉down\nplaylist\n reorder\n add\nadd playlist\n remove\nnew playlist\nload\nmedia-title\ncommand\nquit" | \
+        dmenu -i -p "mpvq remote ipc:" || echo ""
+}
+
+# Dispatcher
+while :; do
+    if $USE_DMENU; then
+        choice=$(main_menu)
+        [[ -z "$choice" ]] && continue
+    else
+        if [ "$1" = "cmd" ]; then
+            read -r -p "mpvq command: " choice
+        else
+            choice="$1"
+        fi
+    fi
+    case "$choice" in
+        "command"|"cmd"|"jsonipc"|"ipc"|"send_command"|"send")
+            cmd=$(dmenu -p "Enter command:")
+            [[ -n "$cmd" ]] && send_command "$cmd" ;;
+        "play  pause"|"play"|"pause"|"pl"|"pa") toggle_play_pause ;;
+        " next"|"next"|"next track"|"nextrack") next_track ;;
+        " prev"|"previous"|"prev") prev_track ;;
+        "nchpt"|"next chap"|"nextchpt"|"next chpt"|"next_chapter"|"next chapter") next_chapter ;;
+        "pchpt"|"prevchpt"|"prev chapter"|"prev chap"|"prev_chapter"|"previous chapter") prev_chapter ;;
+        "🔉down"|"volume down") adjust_volume -15 ;;
+        "🔊up"|"volume up") adjust_volume 15 ;;
+        "volume"|"vol"|"set volume"|"v")
+            vol=${2:-$(dmenu -p "set volume:")}
+            [[ -n "$vol" ]] && adjust_volume "$vol" ;;
+        " reorder"|"order"|"reorder"|"reorder playlist") reorder_playlist ;;
+        "playlist"|"show playlist"|"update"|"get_titles"|"updateplaylist") show_playlist ;;
+        "title"|"get title"|"get_title"|"current_title"|"media-title"|"get_property media-title") get_title ;;
+        "+"|"+ add"|"add"|"append_media"|"append"|"apnd"|"Append Media") append_media ;;
+        "-"|" remove"|"remove_media"|"remove"|"del"|"delete"|"Remove Current Media") remove_current_media ;;
+        "add playlist"|"addpl"|"append playlist"|"append_playlist"|"Append Playlist") append_playlist ;;
+        "load file"|"load new"|"load"|"load media"|"load_media") load_media ;;
+        "new playlist"|"new pl"|"load_playlist"|"load playlist"|"newpl"|"npl"|"Load Playlist") load_playlist ;;
+        ":q"|"quit"|"exit"|"q"|"Quit"|SIGHUP|SIGINT) exit 0 ;;  # Exit if "Quit" or "" is selected
+        *) exit 0 ;;
+    esac
+done
+
+# load_media() {
+#     media=$(printf '%s\n' "$(find ~/Videos -type f )"|dmenu -p "Enter file path or URL:")
+#     [[ -z "$media" ]] && return  # Exit if input is empty
+#     send_command "\"loadfile\", \"$media\""
+# }
+
+# media=$(dmenu -p "Enter file path or URL to append:")
+# [[ -z "$media" ]] && return  # Exit if input is empty
+# send_command "\"loadfile\", \"$media\", \"append-play\""

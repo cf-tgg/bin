@@ -1,0 +1,23 @@
+#!/bin/sh
+# POSIX-compliant URL encoding function
+
+urlencode() {
+    encoded=""
+    length=$(printf "%s" "$1" | wc -c)
+    i=1
+    while [ "$i" -le "$length" ]; do
+        char=$(printf "%s" "$1" | cut -c "$i")
+        case "$char" in
+            [a-zA-Z0-9.~_-]) encoded="${encoded}${char}" ;;
+            *) encoded="${encoded}$(printf '%%%02X' "'$char")" ;;
+        esac
+        i=$((i + 1))
+    done
+    printf "file:///%s" "$encoded"
+}
+
+# loop throught all arguments as URLs to encode
+for i in "$@"; do
+  urlencode "$1"
+  printf '%s\n' "$i"
+done

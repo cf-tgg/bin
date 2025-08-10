@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# Set as a cron job to check for new RSS entries for newsboat.
+# If newsboat is open, sends it an "R" key to refresh.
+
+notify=$(which notify-send 2>/dev/null)
+newsboat=$(which newsboat 2>/dev/null)
+
+[ -z "$notify" ] && "$TERMINAL" -e pacman -S dunst
+[ -z "$newsboat" ] && "$TERMINAL" -e pacman -S newsboat
+
+$notify "📰 Updating RSS feeds..."
+
+pgrep -f $newsboat && /usr/bin/xdotool key --window "$(/usr/bin/xdotool search --name "^newsboat$")" R && exit 0
+
+echo 🔃 > /tmp/newsupdate
+pkill -RTMIN+6 "${STATUSBAR:-dwmblocks}"
+$newsboat -x reload
+rm -f /tmp/newsupdate
+pkill -RTMIN+6 "${STATUSBAR:-dwmblocks}"
+/usr/bin/notify-send "📰 RSS feed update complete."

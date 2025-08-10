@@ -1,0 +1,38 @@
+#!/bin/sh
+
+usage() {
+  while read -r line ; do echo "$line" ; done << EOF
++-------------------------------------------------------------------------------+
+| exifjpg_playlist - generate a playlist from ytln embedded images              |
+|-------------------------------------------------------------------------------+
+| Syntax                                                                        |
+|    exifjpg_playlist [playlist_file.m3u8] <embedded_jpeg_images>               |
++-------------------------------------------------------------------------------+
+| Description                                                                   |
+|     Generates a valid HLS m3u8 playlist from embedded jpeg thumbnails created |
+|   by the ytln command. If no playlist file is specified as first argument,    |
+|   a default playlist is created with a default name of datetime               |
+|   %Y%m%d_%H%M-%S.m3u8. The playlist is automatically launched in              |
+|   mpv once all entries have been written. All invalid entries (no embedded    |
+|   url), are skipped.                                                          |
++-------------------------------------------------------------------------------+
+EOF
+return 1
+}
+
+mk_extjpg_playlist() {
+  playlist="$(date +%Y%m%d_%H%M-%S).m3u8"
+  for f in "$@" ; do
+    [ -z "$(exifjpg -u "$f" 2>/dev/null)" ] && continue
+  exifjpg -gtu "$f" | {
+    read -r d ; read -r t ; read -r u ;
+      s=$(echo "$d" | awk -F: 'NF==3 {print $1*3600+$2*60+$3} ; NF==2 {print $1*60+$2 }; NF==1 {print $1}');
+      printf "#EXTINF:%s,%s\n%s\n" "$s" "$t" "$u" ;
+    } | tee -a "$playlist"
+  done
+  [ -f "$playlist" ] || return 1
+  echo "$playlist" | cut -d. -f2 | grep -q -E 'm3u8' || mv "$playlist" "$playlist.m3u8" -f
+  sed -i "1i #EXTM3U" "$playlist" && setsid -f mpv --profile=fast --playlist="$playlist" >/dev/null 2>&1
+}
+
+mk_extjpg_playlist "$@" || usage && exit 1

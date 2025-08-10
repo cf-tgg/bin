@@ -1,0 +1,26 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-09 07:17:05 cf>
+
+print_head() {
+    h=$(printf 'Date\tTitle\tDuration\tUri\tThumbnail\n')
+    [ -f "$f" ] || echo "$h" > "$f" ;
+    [ "$(head -n 1 "$f")" = "$h" ] || sed -i "1i ${h}" "$f"
+}
+
+print_extinf() {
+    [ -L "$1" ] && f=$(readlink -f "$1") || f=$(realpath "$1")
+    exifjpg -S "\t" -Dtgu "$f"
+}
+
+tmpf=$(mktemp)
+print_head >"$tmpf" || { rm -f "$tmpf" ; exit 1 ; }
+
+for f in "$@" ; do
+    print_extinf "$f" | tee -a "$tmpf"
+done
+
+[ -f "$tmpf" ] && emc "$tmpf" || { rm -f "$tmpf" ; exit 1 ; }
+[ -f "$tmpf" ] && rm -f "$tmpf" >/dev/null
+
+exit 0

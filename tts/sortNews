@@ -1,0 +1,20 @@
+#!/bin/sh
+
+TEMP_DIR="$HOME/NewsFeed/temp"
+SAVE_DIR="$HOME/NewsFeed"
+
+# Create the save directory if it doesn't exist
+mkdir -p "$SAVE_DIR" "$TEMP_DIR"
+
+# Process each file in the temp directory
+for file in "$TEMP_DIR"/*; do
+    # Extract the publication date from the file content
+    pub_date=$(grep -m 1 '^Date:' "$file" | awk '{print $2, $3, $4, $5, $6}')
+    timestamp=$(date -d "$pub_date" +%Y%m%d_%H%M)
+
+    # Get the base name of the file
+    base_name=$(basename "$file")
+
+    # Rename the file with the timestamp prefix
+    mv "$file" "$SAVE_DIR/${timestamp}_$base_name"
+done

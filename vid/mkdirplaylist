@@ -1,0 +1,48 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -eu
+
+PLDIR=${YTZD:-"$HOME/Videos/playlists/ytzf"}
+SAVED=${YTZF:-"$HOME/Videos/playlists/ytzf/.saved"}
+
+[ -d "$PLDIR" ] || mkdir -p "$PLDIR"
+[ -f "$SAVED" ] || touch "$SAVED"
+
+mkdpl() {
+    d="$1"
+    p=$(echo "${d##*/}" | sed "s/ /-/g;s/'//g;s/&/N/g")
+    pl="$HOME/Videos/playlists/ytzf/${p}.m3u8"
+    find "$d" -mindepth 1 -maxdepth 1 -type l | while read -r l ; do
+        ( [ -t 1 ] && exifjpg -M "$l" | tee -a "$pl" ) || { exifjpg -M "$l" 2>/dev/null >>"$pl" ; } || continue
+    done
+
+    if [ -f "$pl" ]; then
+        ( head -n 1 "$pl" | grep -q "#EXTM3U" ) || sed -i "1i #EXTM3U" "$pl"
+        vcount=$(grep -c "#EXTINF" "$pl")
+        if [ ! -t 1 ]; then
+            command -v notify-send 2>/dev/null && notify-send "Piped $vcount videos in $p playlist. done."
+        else
+            printf "%s\t%s\n" "$p" "$pl" | tee -a "$SAVED" && echo "Piped $vcount videos in $p playlist. done."
+        fi
+    else
+        echo "playlist creation failed: no such file: $pl" >&2
+        return 1
+    fi
+    return 0
+}
+
+
+
+if [ $# -lt 1 ]; then
+    d=$(find "$HOME/Videos/yt/" -maxdepth 1 -mindepth 1 -type d -not -path "$HOME/Videos/yt/meta" | fzf --delimiter='/' --with-nth=6)
+    mkdpl "$d"
+else
+    for t in "$@" ; do
+        mkdpl "$t"
+    done
+fi
+
+unset p l pl t d vcount >/dev/null 2>&1
+
+exit 0

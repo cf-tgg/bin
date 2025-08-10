@@ -1,0 +1,17 @@
+#!/bin/sh
+# The focused window swallows the one under.
+
+# Évaluer
+eval "$(xdotool getactivewindow getwindowgeometry --shell)"
+
+# Calculer
+tX=$((X + WIDTH / 4))
+tY=$((Y + HEIGHT + 50))
+
+# Identifier
+target=$(xdotool mousemove $tX $tY getmouselocation | awk '{print $4}' | cut -d':' -f2)
+
+# Avaler
+dwmswallow "$target" "$WINDOW"
+
+exit 0

@@ -1,0 +1,22 @@
+#!/bin/sh
+
+MPC_LOG="$HOME/.cache/mpc_search.log"
+PCOUNT=$(mpc playlist | wc -l)
+
+notify() {
+  notify-send -a "mpctl" -r 9998 "$1" "$(mpc-playlist | nl | tail -n 10)"
+}
+
+input="$*"
+[ -z "$input" ] && exit 1
+echo "mpc-search_input: $input" >> "$MPC_LOG"
+[ "$(mpc search any "$*"|wc -l)" -eq 0 ] && exit 1
+mpc search any "$*" | fzf --multi | mpc add
+newcount=$(mpc playlist | wc -l)
+if [ "$PCOUNT" -ne "$newcount" ]; then
+  notify "$((newcount - PCOUNT)) additions:"
+  exit 0
+else
+  notify "no changes."
+  exit 1
+fi

@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ -n "$(pidof pcmanfm-qt)" ]; then
+  pcmanfm ~/Videos/yt
+else
+  pcmanfm-qt ~/Videos/yt
+fi

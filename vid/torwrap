@@ -1,0 +1,16 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-05 10:09:57 cf>
+# Box: cf [Linux 6.15.8-zen1-1-zen x86_64 GNU/Linux]
+
+ifinstalled stig transmission-cli || exit 1
+
+! pidof transmission-daemon >/dev/null && transmission-daemon && notify-send "Starting torrent daemon..."
+
+dwmblocks_kill() {
+    n=$1
+    j=$((n+34))
+    pkill -RTMIN+${n} "${STATUSBAR:-dwmblocks}" || kill -${j} $(pidof dwmblocks |xargs -r ps | grep ${GPG_TTY##*/} | awk '{print $1}')
+}
+
+"$TERMINAL" -e stig ; dwmblocks_kill 7

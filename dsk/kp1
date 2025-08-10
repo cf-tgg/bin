@@ -1,0 +1,14 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -e
+
+csel=$(xclip -selection clipboard -o 2>/dev/null)
+[ -n "$csel" ] || { echo "nothing in clipboard" >&2 ; exit 1 ; }
+
+echo "$csel" | xclip -in -selection primary
+psel=$(xclip -selection primary -o 2>/dev/null)
+
+if command -v notify-send >/dev/null 2>&1 ; then
+    [ "$psel" = "$csel" ] && notify-send "[ KP1 clipboard to primary ]" "$psel"
+fi

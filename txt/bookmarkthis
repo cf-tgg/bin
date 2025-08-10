@@ -1,0 +1,13 @@
+#!/bin/sh
+
+bookmark=$(xclip -sel prim -o)
+file="$HOME/Documents/Notes/snippets"
+
+if grep -q "^$bookmark$" "$file"; then
+    notify-send "c'déjà fait ça.."
+else
+    notify-send "$bookmark -> $file"
+    echo "$bookmark" >> "$file"
+fi
+
+exit 0

@@ -1,0 +1,44 @@
+#!/bin/sh
+
+
+printq() {
+    echo "$*" 
+    echo
+    while read -r l; do
+        echo "$l" 
+    done << 'EOF'
+Please provide all answers in org-mode syntax using the following format:
+```
+#+title: {Topic}
+#+author: {user}
+#+date: %datetime%
+
+* {Topic_Header}
+
+{intro}
+
+** {command_header}
+{description_of_the_command}
+
+#+begin_src shell :results output
+sudo {cmd}
+#+end_src
+
+** {configuration_header}
+{details_of_the_configuration}
+
+#+begin_src conf {file_path}
+{configuration}
+#+end_src
+
+```
+
+Ensure that each answer contains actionable shell commands or configurations for deployment and testing within org-mode buffers.
+Add header-args for tangle as needed.
+EOF
+    return 0 ;
+}
+
+printq "$@" | xclip -in -selection clipboard
+
+echo "clipped."

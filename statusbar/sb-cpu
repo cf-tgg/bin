@@ -1,30 +1,31 @@
 #!/bin/sh
-# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
-# Time-stamp: <2025-07-02 12:39:30 cf>
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-07-30 00:26:42 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+#  sb-cpu --- CPU module
+#  notify-send "🖥 CPU module " "\- Shows CPU temperature.
+#  - Click to show intensive processes.
+#  - Middle click to open htop."
 
 cava_send_key() {
-    [ -f "/tmp/cava.winid" ] && cava=$(cat /tmp/cava.winid)
-    [ -n "$cava" ] && xdotool key --window "$cava" "$@" || return 1
-    return 0
+    [ -f "/tmp/cava.winid" ] && {
+        cava=$(cat /tmp/cava.winid) ; [ -n "$cava" ] && xdotool key --window "$cava" "$@" || return 1
+    } || true
 }
 
 case $BLOCK_BUTTON in
 	1) notify-send "🖥 CPU hogs" "$(ps axch -o cmd:15,%cpu --sort=-%cpu | head)\\n(100% per core)" ;;
-	2) if [ -f "/tmp/cava.winid" ]; then
-               cava=$(cat /tmp/cava.winid)
-               ( [ ! -f "/tmp/cava.hidden" ] && xdo hide "$cava" && echo "$cava" >/tmp/cava.hidden ) || { xdo show "$cava" && rm -f "/tmp/cava.hidden" ; }
-           fi
-           ;;
-	3) "$TERMINAL" -e htop ;;
-        4) cava_send_key Left  ;;
-        5) cava_send_key Right ;;
-	6) emc "$0" ;;
+	2) # if cava pid file exists toggles cavabar terminal window
+            [ -f "/tmp/cava.winid" ] && {
+                cava=$(cat /tmp/cava.winid)
+                # if no hidden token          hide the window and create the hidden token              else display the window and remove the hidden token
+                ( [ ! -f "/tmp/cava.hidden" ] && xdo hide "$cava" && echo "$cava" >"/tmp/cava.hidden" ) || { xdo show "$cava" && rm -f "/tmp/cava.hidden" ; }
+            } || true ;; # else do nothing
+	3) $TERMINAL -e htop ;;
+        4) cava_send_key Left || true ;;
+        5) cava_send_key Right || true ;;
+	6) $VISUAL -cn $0 || $TERMINAL -e nvim $0 ;;
 esac
 
-
 sensors | awk '/Tctl/ {print "🌡" $2}'
-
-
-#  notify-send "🖥 CPU module " "\- Shows CPU temperature.
-#  - Click to show intensive processes.
-#  - Middle click to open htop."

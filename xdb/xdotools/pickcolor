@@ -1,0 +1,11 @@
+#!/bin/sh
+
+cleanup() {
+    kill "${COLORPICKER_PID}"
+    echo "Exiting and cleaning up..."
+    exit 0
+}
+notify-send "colorpicker: select to clipboard"
+colorpicker --preview --one-shot --display="${DISPLAY}" --short | xclip -selection clipboard
+COLORPICKER_PID=$!
+trap cleanup INT TERM QUIT HUP

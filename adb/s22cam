@@ -1,0 +1,28 @@
+#!/bin/sh
+
+cleanup() {
+    cam="/tmp/s22cam.pid"
+    rec="/tmp/s22rec.pid"
+    for t in "$cam" "$rec" ; do
+        [ -f "$t" ] && pid=$(cat "$t") || continue
+        if kill -0 "$pid" 2>/dev/null; then
+            kill -2 "$pid"
+            wait "$pid"
+        fi
+        [ -f "$t" ] && rm -f "$t"
+    done
+}
+
+trap 'cleanup' EXIT HUP QUIT INT TERM
+
+while :; do
+    scrcpy --select-tcpip --video-source=camera --v4l2-sink=/dev/video2 --camera-facing=front &
+    cam_pid=$!
+    echo "$cam_pid" >/tmp/s22cam.pid
+    mpv --title="s22" --quiet --really-quiet --force-seekable=yes --no-resume-playback --load-scripts=no --untimed --cache=no --demuxer-lavf-format=video4linux2 --demuxer-lavf-o=video_size=1920x1080,input_format=mjpeg av://v4l2:/dev/video2 2>/dev/null &
+    rec_pid=$!
+    echo "$rec_pid" >/tmp/s22rec.pid
+    wait "$rec_pid"
+done
+
+exit 0

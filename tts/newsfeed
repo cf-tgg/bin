@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Directory to store the feed content
+output_dir="feeds"
+mkdir -p "$output_dir"
+
+# Function to process each feed
+process_feed() {
+    feed_url=$1
+    feed_name=$(echo "$feed_url" | sed 's/[^a-zA-Z0-9]/_/g')
+
+    # Fetch the feed content using newsboat
+    newsboat -x reload
+    newsboat -x print-unread > "${output_dir}/${feed_name}_content.txt"
+
+    # Extract titles and text content
+    awk '/^Title:/ { print $0 } /^Link:/ { next } /^Date:/ { next } /^Feed:/ { next } /^--$/ { print "" } { print $0 }' "${output_dir}/${feed_name}_content.txt" > "${output_dir}/${feed_name}.txt"
+
+    # Cleanup
+    rm "${output_dir}/${feed_name}_content.txt"
+}
+
+# Read the feeds from the urls file
+while IFS= read -r feed_url; do
+    process_feed "$feed_url"
+done < ~/.config/newsboat/urls
+
+echo "Feed content saved in $output_dir"

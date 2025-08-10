@@ -1,0 +1,12 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -e
+
+csel=$(xclip -selection clipboard -o 2>/dev/null)
+
+[ -n "$csel" ] || { echo "empty clipboard" >&2 ; exit 1 ; }
+
+if command -v notify-send >/dev/null 2>&1 ; then
+    notify-send "[ KP4 Clipboard Content ]" "$csel"
+fi

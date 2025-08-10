@@ -1,0 +1,6 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
+# Time-stamp: <2025-07-05 15:40:33 cf>
+
+[ -n "$(pidof -xs emacs )" ] || emacsclient -c --alternate-editor="" --socket-name="/run/user/1000/emacs/server" -F '((name . "spmacs") (visibility . nil))'
+( dwmswallow "$WINDOWID" -c "Emacs" ;  emacsclient -c --socket-name="/run/user/1000/emacs/server" --alternate-editor="" -F '((name . "spmacs"))' ) || exit 1

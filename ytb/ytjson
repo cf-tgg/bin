@@ -1,0 +1,80 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+ytjson() {
+ uri="$1"
+ dldate=$(date -u +"%Y-%m-%d %H:%M:%S")
+ cf="~cf."
+ yt-dlp "$uri" -q --skip-download --no-warnings --no-abort-on-error --write-comments --write-thumbnail -j | jq -c -r --arg dldate "$dldate" --arg cf "$cf" --arg uri "$uri" '
+                {
+                Title: .title,
+                Date: .upload_date,
+                Duration: .duration_string,
+                URI: (.webpage_url // $uri),
+                ID: .id,
+                Thumbnail: .thumbnail,
+                Description: .description,
+                Uploader: .uploader,
+                Resolution: .resolution,
+                LikeCount: .like_count,
+                ViewCount: .view_count,
+                CommentCount: .comment_count,
+                Channel: .channel,
+                ChannelFollowerCount: .channel_follower_count,
+                ChannelURL: .channel_url,
+                ChannelID: .channel_id,
+                UploaderID: .uploader_id,
+                UploaderURL: .uploader_url,
+                UploadDate: .upload_date,
+                Timestamp: .timestamp,
+                Playlist: (.playlist? // ""),
+                PlaylistIndex: (.playlist_index? // ""),
+                Subtitles: (.subtitles | {english: (.en? // []), french: (.fr? // [])}),
+                Categories: (.categories[]?| select(. != "")),
+                Tags: [ .tags[]?| select(. != "") ],
+                Chapters: [ .chapters[]? | {start_time, title} ],
+                Comments: (
+                .comments | map(select(
+                .author_is_uploader == true
+                or .is_pinned == true
+                or .like_count >= 10
+                or .text != ""))
+                | sort_by(.timestamp)
+                | reverse
+                | .[:100]
+                | map({
+                id: .id,
+                author: .author,
+                author_thumbnail: .author_thumbnail,
+                author_url: .author_url,
+                since: ._time_text,
+                timestamp: .timestamp,
+                text: .text,
+                like_count: .like_count,
+                is_pinned: .is_pinned,
+                author_is_uploader: .author_is_uploader
+            })),
+            DownloadDate: $dldate,
+            Signature: $cf
+        }' | while read -r metadata; do
+
+ title=$(echo "$metadata" | jq -r '.Title')
+ uploader=$(echo "$metadata" | jq -r '.Uploader')
+
+ if [ -z "$title" ] || [ -z "$uploader" ]; then
+ echo "Missing metadata... Skipping..."
+ continue
+ fi
+ sanitized_title=$(echo "$title" | tr -cd '[:alnum:]_-' | tr ' ' '_')
+ json_file="$sanitized_title.json"
+ echo "$metadata" > "$json_file" || { echo "failed to create $json_file" >&2 ; return 1 ; }
+ done
+
+ return 0
+}
+
+for l in "$@" ;  do
+    ytjson "$l" 2>"$HOME/.local/var/log/ytjson.fail.log"
+done
+
+exit 0

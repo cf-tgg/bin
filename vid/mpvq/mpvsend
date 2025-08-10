@@ -1,0 +1,12 @@
+#!/bin/sh
+
+MPV_SOCK="/tmp/mpv.sock"
+[ -S "$MPV_SOCK" ] || mkfifo "$MPV_SOCK"
+
+for f in "$@"; do
+    p=$(realpath "$f")
+    u=$(exifjpg -u "$p") || u="$p"
+    echo '{"command": ["loadfile", "'"$u"'", "append"]}' | socat - "$MPV_SOCK" >/dev/null 2>&1
+done
+
+exit 0

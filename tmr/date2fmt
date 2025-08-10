@@ -1,0 +1,113 @@
+#!/bin/sh
+# -*- mode: sh; -*-
+
+set -e
+
+VERBOSE=${VERBOSE:-0}
+FMT=
+infmt=
+out=
+
+usage() {
+    cat <<MAN
+    date2fmt --- Wrapper for `date` format specifiers to be called as options.
+
+    SYNTAX
+        $0 [-v verbose ] -[[OPTCHAR] [input_date]]
+
+    DESCRIPTION
+        input date is output to date format specifier specified by OPTCHAR
+
+    USAGE
+        Default output date format is ISO 8601 date (i.e. `date +%F`).
+        OPTCHAR sets output format for its OPTARG.
+        When input comes from STDIN, last OPTCHAR sets output format.
+
+    OPTIONS
+        No options are mandatory. (Default output format specifier: +%F)
+            -v        verbose        outputs both inputs and outputs.
+
+    DATE FORMAT SPECIFIERS
+         For full specification see `man 1 date`.
+
+         -A         full day name
+         -B         full month name
+         -C         2-digit century
+         -D         American format month/day/year (%m/%d/%y)
+         -E         alternate representation
+         -F         ISO 8601 year-month-date (%Y-%m-%d)
+         -G         4-digit ISO 8601 week-based year
+         -H         hour (00-23)
+         -I         hour (01-12)
+         -M         minute (00-59)
+         -N         fractional part of seconds since epoch, in nanoseconds
+         -O         alternative format modifier
+         -P         lower case locale dependent am/pm
+         -R         24-hour notation time (%H:%M)
+         -S         seconds (00-60)
+         -T         24-hour notation with seconds (%H:%M:%S)
+         -U         week number of current year, Sunday based (00-53)
+         -V         ISO 8601 week number of current year,
+                    week 1 has 4 days in current year (01-53)
+         -W         week number of current year, Monday based (00-53)
+         -X         locale dependent time representation without date
+         -Y         full year
+         -Z         timezone name
+         -a         abbreviated day name
+         -c         preferred locale date and time
+         -d         day of month (01-31)
+         -e         day of month ( 1-31)
+         -g         2-digit ISO 8601 week-based year
+         -h, -b     abbreviated month name
+         -j         day of year (001-366)
+         -k         hour ( 0-23)
+         -l         hour ( 1-12)
+         -m         month (01-12)
+         -p         locale dependent AM/PM
+         -r         locale dependent a.m. or p.m. time (%I:%M:%S %p)
+         -s         seconds since the epoch
+         -t         tab
+         -u         day of week (1-7, 1=Monday)
+         -w         day of week (0-6, 0=Sunday)
+         -x         locale dependent date representation without time
+         -y         2-digit year (00-99)
+         -z         UTC offset
+
+    CURRENTLY UNSUPPORTED
+
+        n        newline
+        ^    convert lowercase characters to uppercase
+        _    left pad numeric values with spaces
+
+    RATIONALE
+        I'm experimenting with option parsing with getopts and after observing
+        that `getopts` parses options as single char and that most `date` format
+        specifiers are also single char, I wrote this wrapper so that all option
+        arguments ($OPTARG) would be formatted to date format of it's option opt
+        char (e.g. `$0 -B 2025-06-10` => June). I also wanted stdin support for
+        pipes, but since the colon `:` makes OPTARG a mandatory argument,
+        I'd have no safe way to ensure input gets the right option format...
+        Anyways, I see it as a fun way to test the behaviour of these coreutils.
+
+     SEE ALSO
+        `man 1 date` `
+MAN
+}
+
+[ $# -lt 1 ] && usage
+
+while getopts "A:B:C:D:E:F:G:H:I:M:N:O:P:R:S:T:U:V:W:X:Y:Z:a:c:d:e:g:h:b:j:k:l:m:n:p:r:s:t:u:w:x:y:z:v" char ; do
+    case "$char" in
+       v) VERBOSE=1 ;;
+       *) FMT="$char" || FMT="F"
+          infmt="$OPTARG" || infmt=$(cat)
+          outfmt=$(date -d @"${infmt}" +%"${FMT}")
+          [ $VERBOSE -ge 1 ] && {
+              printf '%-30s %-30s\n' "$infmt" "$outfmt"
+          } || date -d @"${infmt}" +%"${FMT}"
+          ;;
+    esac
+done
+shift $(($OPTIND - 1))
+
+exit 0

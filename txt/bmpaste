@@ -1,0 +1,6 @@
+#!/bin/sh
+# bmpaste saved commands
+
+BM_FILE="$HOME/Documents/Notes/bmcmd"
+
+xdotool type "$(grep -v '^#' "$BM_FILE" | dmenu -i -l 20)"

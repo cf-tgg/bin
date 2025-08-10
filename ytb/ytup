@@ -1,0 +1,143 @@
+#!/bin/bash -e
+
+uri="$*"
+
+if [ -z "$uri" ]; then
+    echo "Usage: $0 <YouTube Channel URL>"
+    exit 1
+fi
+
+DESTINATION="$HOME/Videos/yt/meta"
+SYMLINK_DIR="$HOME/Videos/yt"
+THUMBNAIL_DIR="$HOME/Pictures/icons/dunst_icons/ytchannels"
+CF_SIGNATURE="~cf."
+
+# Ensure destination and symlink directories exist
+mkdir -pv "$DESTINATION" "$SYMLINK_DIR" "$THUMBNAIL_DIR"
+trap 'exit 0' SIGINT SIGPIPE INT HUP
+
+embed_json_thumbnail() {
+    local json_file="$1"
+    local image_file="$2"
+
+    if [[ ! -f "$json_file" || ! -f "$image_file" ]]; then
+        echo "JSON or image file missing: $json_file / $image_file"
+        return 1
+    fi
+
+    exiftool -m -q -overwrite_original -UserComment="$(<"$json_file")" "$image_file" && \
+        echo "Embedded JSON into $image_file." && return 0 || \
+        echo "Failed to embed JSON into $image_file."
+    return 1
+}
+
+yt-dlp -q --no-warnings --skip-download --no-abort-on-error -j "$uri" | while read -r uploaderinfo; do
+    if [[ -z "$uploaderinfo" ]]; then
+        echo "No uploader info received. Skipping."
+        continue
+    fi
+    uploader=$(jq -r '.uploader' <<< "$uploaderinfo")
+    uploader_id=$(jq -r '.uploader_id' <<< "$uploaderinfo")
+    uploader_url=$(jq -r '.uploader_url' <<< "$uploaderinfo")
+    channel_url=$(jq -r '.channel_url' <<< "$uploaderinfo")
+
+    if [ -z "$uploader" ] || [ -z "$uploader_id" ]; then
+        echo "Error: Missing uploader data for URL: $uri"
+        continue
+    fi
+
+    upid=${uploader_id##@}
+    thumb="$THUMBNAIL_DIR/$upid.png"
+
+    uploader_thumbnail=$(curl -s "$uploader_url" | grep -Eo 'https://yt3.[a-zA-Z0-9_=/?.&%-]+'| grep "s900"| sort -u | head -n 1)
+    [ ! -f "$thumb" ] && wget -q "$uploader_thumbnail" -O "$thumb"
+
+    uploader_json="$THUMBNAIL_DIR/$upid.json"
+    uploader_dir="$SYMLINK_DIR/$uploader"
+    [ ! -d "$uploader_dir" ] && setsid ytln "$uploader_url" &
+    dldate=$(date -u +"%Y-%m-%d %H:%M:%S")
+
+    vcount=$(curl -s "$uploader_url" | grep -Eo '[0-9\.]+(K|M)? videos' | tail -n 1)
+    vcount=${vcount// videos/}
+    echo "vcount: $vcount"
+    subcount=$(curl -s "$uploader_url" | grep -Eo '[0-9\.]+(K|M)? subscribers' | tail -n 1)
+    subcount=${subcount// subscribers/}
+    echo "subcount: $subcount"
+
+    convert_to_number() {
+        value="$1"
+        reverse="$2"
+
+        if [ "$reverse" = "-r" ]; then
+            # Convert numeric value back to shortened form with suffix
+            if echo "$value >= 1000000" | bc -l | grep -q 1; then
+                echo "$value / 1000000" | bc -l | awk '{printf "%.1fM\n", $1}'
+            elif echo "$value >= 1000" | bc -l | grep -q 1; then
+                echo "$value / 1000" | bc -l | awk '{printf "%.1fK\n", $1}'
+            else
+                printf "%.0f\n" "$value" # Strip decimal if no conversion needed
+            fi
+        else
+            # Convert from shortened form to numeric value
+            case "$value" in
+                *K) value=${value//K/}; echo "$value * 1000" | bc ;;
+                *M) value=${value//M/}; echo "$value * 1000000" | bc ;;
+                *) echo "$value" ;;
+            esac
+        fi
+    }
+
+    vcount=$(convert_to_number "$vcount")
+    vcount=${vcount%.*}
+    echo "vidcount: $vcount"
+    subcount=$(convert_to_number "$subcount")
+    subcount=${subcount%.*}
+    echo "subcount: $subcount"
+
+    [ -f "$idcount" ] && idcount=$(wc -l < "$DESTINATION/$uploader/.vids") || idcount=0
+    echo "idcount: $idcount"
+    incount=$(find "$DESTINATION/$uploader" -type f -name '*.jpg' | wc -l)
+    echo "linkcount: $incount"
+    mcount=$((vcount - incount))
+
+    if [[ "$idcount" =~ ^[0-9]+$ ]] && [ "$idcount" -gt 0 ]; then
+        [ -d "$uploader_dir" ] && [ "$idcount" -ne "$incount " ] && mkchannel_idlist "$uploader_dir" || continue
+    fi
+
+    infos(){
+        vc=$(convert_to_number "$vcount" -r)
+        sc=$(convert_to_number "$subcount" -r)
+        printf "%s, %s Vidéos, %s Suiveux\n" "$uploader_id" "$vc" "$sc"
+    }
+
+    vc=$(convert_to_number "$vcount" -r)
+    sc=$(convert_to_number "$subcount" -r)
+    # Notification logic
+    if [ "$incount" -eq "$vcount" ]; then
+        dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 3000 "$uploader" \
+            "$(infos)\nTous les oeufs dans la ferme.\n[$incount/$vc] 🥚"
+        infos
+    else
+        dunstify -a "ytdlp" -i "$thumb" -r 9999 -t 3000 "$uploader" \
+            "$(infos)\n$mcount oeufs manquants à la ferme.\n[$incount/$vc] 🥚"
+    fi
+
+    # Generate JSON metadata
+    jq -n --arg uploader "$uploader" --arg upid "$upid" \
+        --arg uploader_url "$uploader_url" --arg channel_url "$channel_url" \
+        --arg dldate "$dldate" --arg sig "$CF_SIGNATURE" \
+        --argjson vcount "$vcount" --argjson mcount "$mcount" \
+        '{
+            Uploader: $uploader,
+            UploaderID: $upid,
+            UploaderURL: $uploader_url,
+            ChannelURL: $channel_url,
+            Unlinked: $mcount,
+            Videos: $vcount,
+            LastUpdate: $dldate,
+            Signature: $sig
+        }' > "$uploader_json"
+    # Process image and embed metadata
+    magick "$thumb" -quality 100 "$thumb"
+    embed_json_thumbnail "$uploader_json" "$thumb" || echo "Failed to embed JSON into $thumb."
+done || { echo "Error occurred while processing the pipeline."; exit 1; }

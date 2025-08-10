@@ -1,0 +1,139 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#  Copyright (C) 2025 cf dot gg
+
+#  Author: cf <cf.gg.tty@protonmail.com>
+#  Github: <https://github.com/cf-tgg/>
+#  Gitlab: <https://gitlab.com/cf-gg/>
+#  Codeberg: <https://codeberg.org/cfggtty/>
+
+#  Version: 0.1.0
+
+#    NAME
+#        maimsync --- maim wrapper with rsync output
+#
+#    SYNTAX
+#        maimsync -[t:o:sfwcidvh]
+#
+#    SYNOPSIS
+#
+#      TODO 2025-06-25: write synopsis
+#
+#    OPTIONS
+#        -t        <rsync_target>        SSH HostName
+#        -o        <file_name>           Name of output image file
+#        -c        copy image            Output to clipboard instead of file (no rsync)
+#        -d, -i    dmenu, interactive    Interactive selection of options
+#        -f        full screen           Screenshot the full screen
+#        -a        area                  Screenshot a selected area
+#        -w        window                Screenshot the active window
+#
+#    EXAMPLES
+#
+#      TODO 2025-06-25: write examples
+
+set -eu
+
+output_name="$(date '+%F_%H%M-%S').png"
+xclip_cmd="xclip -sel clip -t image/png"
+
+DMENU=0
+CURRENT_WINDOW=0
+FULL_SCREEN=0
+A_SELECTED_AREA=0
+COPY=0
+VERBOSE=0
+SSH_CONFIG="$HOME/.ssh/config"
+SYNC_TARGET="dg3"
+OUTPUT=""
+SYNC_HOST="${XDG_CACHE_HOME:-$HOME/.cache}/sync_host"
+TERMINAL="${TERMINAL:-st}"
+NOTIFY_CMD="notify-send"
+
+notify() {
+    if [ ! -t 1 ]; then
+        [ -n "$NOTIFY_CMD" ] && command -v "$NOTIFY_CMD" >/dev/null 2>&1 && "$NOTIFY_CMD" "$@"
+    else
+        printf '%s\n' "$*"
+    fi
+}
+
+dmenu_select() {
+    output_name="$(date '+%F_%H%M-%S').png"
+    if [ "$COPY" -eq 1 ]; then
+        case "$(printf 'a selected area\ncurrent window\nfull screen\n' | dmenu -l 6 -i -p 'Screenshot (copy) which area?')" in
+            "a selected area") maim -u -s | $xclip_cmd && notify "Screenshot copied: selected area" ;;
+            "current window") maim -q -d 0.2 -i "$(xdotool getactivewindow)" | $xclip_cmd && notify "Screenshot copied: current window" ;;
+            "full screen") maim -q -d 0.2 | $xclip_cmd && notify "Screenshot copied: full screen" ;;
+        esac
+    else
+        case "$(printf 'a selected area\ncurrent window\nfull screen\na selected area (copy)\ncurrent window (copy)\nfull screen (copy)\n' | dmenu -l 6 -i -p 'Screenshot which area?')" in
+            "a selected area")
+                out="${OUTPUT:-pic-selected-$output_name}"
+                maim -u -s "$out" && notify "Screenshot saved: $out"
+                ;;
+            "current window")
+                out="${OUTPUT:-pic-window-$output_name}"
+                maim -q -d 0.2 -i "$(xdotool getactivewindow)" "$out" && notify "Screenshot saved: $out"
+                ;;
+            "full screen")
+                out="${OUTPUT:-pic-full-$output_name}"
+                maim -q -d 0.2 "$out" && notify "Screenshot saved: $out"
+                ;;
+            "a selected area (copy)") maim -u -s | $xclip_cmd && notify "Screenshot copied: selected area" ;;
+            "current window (copy)") maim -q -d 0.2 -i "$(xdotool getactivewindow)" | $xclip_cmd && notify "Screenshot copied: current window" ;;
+            "full screen (copy)") maim -q -d 0.2 | $xclip_cmd && notify "Screenshot copied: full screen" ;;
+        esac
+    fi
+}
+
+while getopts "t:o:safwcidvh" OPT; do
+    case "$OPT" in
+        o) OUTPUT="$OPTARG" ;;
+        t) SYNC_TARGET="$OPTARG" ;;
+        w) CURRENT_WINDOW=1 ;;
+        f) FULL_SCREEN=1 ;;
+        a) A_SELECTED_AREA=1 ;;
+        c) COPY=1 ;;
+        i|d) DMENU=1 ;;
+        v) VERBOSE=1 ;;
+        h) printf 'Usage: %s [-a] [-w] [-f] [-c] [-i] [-d] [-o output_file] [-t sync_target]\n' "$0" >&2
+           exit 2
+            ;;
+    esac
+done
+shift $((OPTIND - 1))
+
+SELECTION=$((CURRENT_WINDOW + FULL_SCREEN + A_SELECTED_AREA))
+[ "$SELECTION" -ge 1 ] || DMENU=1
+
+[ "$DMENU" -eq 1 ] && dmenu_select || {
+    if [ "$COPY" -eq 1 ]; then
+        [ "$CURRENT_WINDOW" -eq 1 ] && maim -q -d 0.2 -i "$(xdotool getactivewindow)" | $xclip_cmd && notify "Screenshot copied: current window"
+        [ "$FULL_SCREEN" -eq 1 ] && maim -q -d 0.2 | $xclip_cmd && notify "Screenshot copied: full screen"
+        [ "$A_SELECTED_AREA" -eq 1 ] && maim -u -s | $xclip_cmd && notify "Screenshot copied: selected area"
+    else
+        [ "$CURRENT_WINDOW" -eq 1 ] && { out="${OUTPUT:-pic-window-$output_name}"; maim -q -d 0.2 -i "$(xdotool getactivewindow)" "$out" && notify "Screenshot saved: $out" ; }
+        [ "$FULL_SCREEN" -eq 1 ] && { out="${OUTPUT:-pic-full-$output_name}"; maim -q -d 0.2 "$out" && notify "Screenshot saved: $out"; }
+        [ "$A_SELECTED_AREA" -eq 1 ] && { out="${OUTPUT:-pic-selected-$output_name}"; maim -u -s "$out" && notify "Screenshot saved: $out"; }
+    fi
+}
+
+if [ -z "$SYNC_TARGET" ] || ! awk '/^Host/ {print $2}' "$SSH_CONFIG" | grep -qx "$SYNC_TARGET"; then
+    if [ ! -t 1 ]; then
+        "$TERMINAL" -e sh -c "awk '/^Host/ {print \$2}' '$SSH_CONFIG' | fzf > '$SYNC_HOST'"
+        [ -s "$SYNC_HOST" ] && SYNC_TARGET=$(cat "$SYNC_HOST") || { notify "No target host specified" ; exit 1; }
+    else
+        SYNC_TARGET=$(awk '/^Host/ {print $2}' "$SSH_CONFIG" | fzf)
+    fi
+fi
+
+if [ -n "${out:-}" ] && [ -f "$out" ] && [ -n "$SYNC_TARGET" ]; then
+    rsync "$out" "${SYNC_TARGET}:~/synced_${out}" && notify "Screenshot synced to $SYNC_TARGET"
+else
+    [ -n "${out:-}" ] && [ ! -f "$out" ] && notify "No screenshot file to sync"
+    exit 1
+fi
+
+exit 0

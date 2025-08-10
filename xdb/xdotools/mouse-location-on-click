@@ -1,0 +1,186 @@
+#!/bin/bash
+
+# Function to handle mouse click event
+handle_click() {
+    # Extract the X and Y coordinates from the event
+    local x=$(echo $1 | awk '{print $2}')
+    local y=$(echo $1 | awk '{print $3}')
+
+while true; do
+    xdotool search . behave %@ mouse-enter windowfocus
+done
+
+xdotool mouse-down behave %@ mouse-enter sleep 0.2 mouse-up 
+xdotool search yy
+
+    xdotool search --onlyvisible . behave %@ mouse-enter getmouselocation
+
+
+    while true; do 
+        xdotool search --onlyvisible . behave %@ mouse-enter click 1 getmouselocation --shell
+    done
+
+
+# xdotool - mouse move click 1 grabs windowId swallows 
+# Tile Stack []= 
+# Quick center swap 1st TAG eats master until last slave take over.
+for i in {1..12}; do 
+    a=$(xdotool mousemove 1181 277 click 1 selectwindow  )
+    b=$(xdotool mousemove 1412 126 click 1)
+    c=$(dwmswallow $a $b ;xdotool selectwindow)
+done
+
+# TopLeft --> TopRight / Master eats stacks
+for i in {2..8}; do
+    a=$(xdotool mousemove 532 111   click 1 getwindowfocus -f)
+    b=$(xdotool mousemove 2101 106 click 1 getwindowfocus -f)
+    c=$(dwmswallow $a $b ;xdotool getwindowfocus -f)
+done
+
+while true; do
+  xdotool search --onlyvisible . behave %@ mouse-enter click 1 getmouselocation --shell
+done
+
+mouse-enter
+# Print the cursor location whenever the mouse enters a currently-visible window:
+#
+focus
+# Fires when the window gets input focus.
+
+# blur: Fires when the window loses focus.
+#
+# 
+#
+ # behave window action command ...
+ #
+# selectwindow
+   # Get the window id (for a client) by clicking on it. Useful for having scripts query you humans for what window  to
+   # act on. For example, killing a window by clicking on it:
+
+# valid events:
+# mouse-enter
+#        Fires when the mouse enters a window. This is similar to 'mouse over' events in javascript, if that helps.
+# mouse-leave
+#        Fires when the mouse leaves a window. This is the opposite of 'mouse-enter'
+# mouse-click
+#        Fires when the mouse is clicked. Specifically, when the mouse button is released.
+# focus
+#        Fires when the window gets input focus.
+# blur
+#        Fires when the window loses focus.
+# Print the cursor location whenever the mouse enters a currently-visible
+    # window:
+    # xdotool search --onlyvisible . behave %@ mouse-enter getmouselocation
+    # # Print the window title and pid whenever an xterm gets focus
+    # xdotool search --class xterm behave %@ focus getwindowname getwindowpid
+
+    # Emulate focus-follows-mouse
+    # xdotool search . behave %@ mouse-enter windowfocus
+
+# getwindowpid [window]
+#    Output  the  PID owning a given window. This requires effort from the application owning a window and may not work
+#    for all windows. This uses _NET_WM_PID property of the window. See "EXTENDED WINDOW MANAGER HINTS" below for  more
+#    information.
+#
+#    If  no  window  is  given, the default is '%1'. If no windows are on the stack, then this is an error. See "WINDOW
+#    STACK" for more details.
+#
+#    Example: Find the PID for all xterms:
+#     xdotool search --class xterm getwindowpid %@
+#
+# getwindowname [window]
+#    Output the name of a given window, also known as the title. This is the text displayed in the window's titlebar by
+#    your window manager.
+#
+#    If no window is given, the default is '%1'. If no windows are on the stack, then this is  an  error.  See  "WINDOW
+#    STACK" for more details.
+#
+# getwindowgeometry [options] [window]
+#    Output  the  geometry  (location  and  position)  of a window. The values include: x, y, width, height, and screen number.
+#
+#    --shell : Output values suitable for 'eval' in a shell.
+#
+# getwindowfocus [-f]
+#    Prints the window id of the currently focused window. Saves the result to the window stack.
+#
+# windowsize [options] [window] width height
+#    Set the window size of the given window. If no window is given, %1 is the  default. 
+#
+# Percentages  are valid for width and height. They are relative to the geometry of the screen the window is on. For
+# example, to make a window the full width of the screen, but half height:
+#
+#  xdotool windowsize I<window> 100% 50%
+#
+#  Percentages are valid with --usehints and still mean pixel-width relative to the screen size.
+#
+# options :
+#    --usehints
+#        Use window sizing hints (when available) to set width and height.  This is useful on terminals for setting the
+#        size based on row/column of text rather than pixels.
+#
+#    --sync
+#        After sending the window size request, wait until the window is actually resized. If no change  is  necessary,
+#        we will not wait. This is useful for scripts that depend on actions being completed before moving on.
+#
+#        Note:  Because  many  window  managers may ignore or alter the original resize request, we will wait until the
+#        size changes from its original size, not necessary to the requested size.
+#
+#    Example: To set a terminal to be 80x24 characters, you would use:
+#     xdotool windowsize --usehints some_windowid 80 24
+#
+# windowmove [options] [window] x y
+#    Move the window to the given position. If no window is given, %1 is the default. 
+#
+#    If  the  given  x  coordinate  is  literally 'x',
+#    then the window's current x position will be unchanged.
+#    The same applies for 'y'.
+#
+#    Examples:
+#
+#     xdotool getactivewindow windowmove 100 100    # Moves to 100,100
+#     xdotool getactivewindow windowmove x 100      # Moves to x,100
+#     xdotool getactivewindow windowmove 100 y      # Moves to 100,y
+#     xdotool getactivewindow windowmove 100 y      # Moves to 100,y
+#
+#    Percentages are valid for width and height. They are relative to the geometry of the screen the window is on.  For
+#    example, to make a window the full width of the screen, but half height:
+#
+#     xdotool windowmove I<window> 100% 50%
+#
+#    --sync
+#        After  sending  the window move request, wait until the window is actually moved. If no movement is necessary,
+#        we will not wait. This is useful for scripts that depend on actions being completed before moving on.
+#
+#    --relative
+#        Make movement relative to the current window position.
+#
+# windowfocus [options] [window]
+#    Focus a window. If no window is given, %1 is the default. See "WINDOW  STACK"  and  "COMMAND  CHAINING"  for  more
+#    details.
+#
+#    Uses XSetInputFocus which may be ignored by some window managers or programs.
+#
+#    --sync
+#        After  sending the window focus request, wait until the window is actually focused. This is useful for scripts
+#        that depend on actions being completed before moving on.
+#
+# windowmap [options] [window]
+#    Map a window. In X11 terminology, mapping a window means making it visible on the screen. If no window  is  given,
+#    %1 is the default. See "WINDOW STACK" and "COMMAND CHAINING" for more details.
+#
+#    --sync
+#        After  requesting  the  window  map,  wait  until  the window is actually mapped (visible). This is useful for
+#        scripts that depend on actions being completed before moving on.
+#
+# windowminimize [options] [window]
+#    Minimize a window. In X11 terminology, this is called 'iconify.'  If no window is given, %1 is  the  default.  See
+#    "WINDOW STACK" and "COMMAND CHAINING" for more details.
+#
+#    --sync
+#        After  requesting the window minimize, wait until the window is actually minimized. This is useful for scripts
+#        that depend on actions being completed before moving on.
+#
+# windowraise [window_id=%1]
+#    Raise the window to the top of the stack. This may not work on all window managers. If no window is given,  %1  is
+#    the default. See "WINDOW STACK" and "COMMAND CHAINING" for more details.
+

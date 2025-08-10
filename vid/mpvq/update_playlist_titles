@@ -1,0 +1,81 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.m3u8"
+TMP_PLAYLIST="$HOME/.cache/mpvq/mpvq.tmp"
+TMP_LOG="$HOME/.cache/mpvq/mpvq.log"
+MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+
+export MPVQ_PLAYLIST
+export MPVQ_TITLES
+
+[ -f "$TMP_LOG" ] || :>"$TMP_LOG"
+
+echo "#EXTM3U" > "$TMP_PLAYLIST"
+
+extract_hls_titles() {
+    in="$1" ; out="$2"
+    grep -E '#EXTINF' "$in" | sed "s/\(^#EXTINF:[^,]*,\)\(.*\)\(,[0-9]\{4\}-[0-9]\{2\}-[0-9]\{2\}\)/\2/" > "$out"
+}
+
+
+awk '/^#EXTINF:/ { inf = $0; getline; if ($0 ~ /^http/) print inf "\n" $0 }' "$MPVQ_PLAYLIST" > "$TMP_PLAYLIST"
+grep -v "\(#EXT\|^http\)" "$MPVQ_PLAYLIST" | while read -r entry; do
+    echo "$entry" | grep -q "^file://" && entry=$(urldecode "$entry")
+    entry=${entry#file://}
+    [ -L "$entry" ] && entry=$(realpath "$entry")
+    case "$entry" in
+        *m3u|*m3u8)
+           grep -v "#EXTM3U" "$entry" >> "$TMP_PLAYLIST"
+            ;;
+        *jpg)
+            if exifjpg -M "$entry" 2>/dev/null >> "$TMP_PLAYLIST" ; then
+                continue
+            else
+                b=$(basename "$entry")
+                t=${b%.*}
+                printf "#EXTINF:,%s\n%s\n" "$t" "$entry" >> "$TMP_PLAYLIST"
+            fi
+            ;;
+        http://* | https://*)
+            title=$(yt-dlp -q --no-warnings --skip-download --get-title "$entry" 2>/dev/null)
+            if [ -n "$title" ]; then
+                printf "#EXTINF:,%s\n%s\n" "$title" "$entry" >> "$TMP_PLAYLIST"
+            else
+                echo "Unsupported or invalid URI: $entry" >>"$TMP_LOG"
+            fi
+            ;;
+        *mp4| *mkv| *mp3|*flac|*opus)
+            if [ -f "$entry" ]; then
+                b=$(basename "$entry")
+                t=${b%.*}
+                printf "#EXTINF:,%s\n%s\n" "$t" "$entry" >> "$TMP_PLAYLIST"
+            else
+                echo "Invalid media file: $entry" >>"$TMP_LOG"
+            fi
+            ;;
+        *)  echo "Unsupported entry type: $entry" >>"$TMP_LOG"
+            ;;
+        esac
+    done
+
+mv "$TMP_PLAYLIST" "$MPVQ_PLAYLIST" || { echo "could not move $TMP_PLAYLIST to $MPVQ_PLAYLIST" >&2 ; rm -f "$TMP_PLAYLIST" ; exit 1 ; }
+
+[ -f "$MPVQ_PLAYLIST" ] || { echo "could not find $MPVQ_PLAYLIST file" >&2 ; exit 1 ; }
+[ "$(head -n1 "$MPVQ_PLAYLIST")" = "#EXTM3U" ] || sed -i "1i #EXTM3U" "$MPVQ_PLAYLIST" >/dev/null 2>&1
+
+extract_hls_titles "$MPVQ_PLAYLIST" "$MPVQ_TITLES"
+
+[ -f "$TMP_LOG" ] && {
+    printf '[%s] -------- MPVQ PLAYLIST UPDATE ----------\n' "$(date +"%F %T")"
+    cat "$TMP_LOG"
+} >> "$HOME/.local/var/log/mpvq_titles.log"
+
+rm -f "$TMP_LOG" || { echo "failed to remove ${TMP_LOG}" >&2 ; exit 1 ; }
+
+export MPVQ_PLAYLIST
+export MPVQ_TITLES
+
+pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}" 2>/dev/null
+
+exit 0

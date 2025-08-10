@@ -1,0 +1,12 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+set -e
+
+if command -v notify-send >/dev/null 2>&1 ; then
+    notify-send "[ KP9 pickcolor ]"
+fi
+
+pickcolor || exit 1
+
+exit 0

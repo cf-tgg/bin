@@ -1,0 +1,65 @@
+#!/bin/bash
+# Start or resume the mpvq playlist.
+
+PLAYLIST="${MPVQ_PLAYLIST:-$HOME/.cache/mpvq/mpvq.playlist}"
+TITLES="${MPVQ_TITLES:-$HOME/.cache/mpvq/mpvq.titles}"
+CURRENT_VIDEO="${CURRENT_VIDEO:-$HOME/.cache/mpvq/current.video}"
+SOCK="${MPV_SOCK:-/tmp/mpv.sock}"
+MPV_PID="/tmp/mpvq.pid"
+ICON="/tmp/mpvqicon"
+
+updateicon() {
+  echo "$1" > "$ICON"
+  pkill -RTMIN+13 dwmblocks
+}
+
+kill_mpvq() {
+    recpid=${MPV_PID:-$(pidof mpv)} || return
+    kill -15 "$recpid"
+    rm -f "$MPV_PID"
+    rm -f "$MPV_SOCK"
+    updateicon ""
+    pkill -RTMIN+13 "${STATUSBAR:-dwmblocks}"
+}
+
+# playlist="/tmp/mpvq.playlist.run"
+playlist="${1:-$MPVQ_PLAYLIST}"
+current_title="$(cat "$CURRENT_VIDEO")"
+playlist_start=$(head -n 1 "$MPVQ_PLAYLIST")
+playlist_end=$(tail -n 1 "$MPVQ_PLAYLIST")
+playlist_length=$(wc -l "$MPVQ_PLAYLIST" | awk '{print $1}')
+playlist_index=$(grep -n "$current_title" "$MPVQ_PLAYLIST")
+playlist_index=${playlist_index%%:*}
+current_title="$(grep -iE "$video" "$PLAYLIST" | awk -F' # ' '{for(i=2; i<=NF;i++) print $i}')"
+current_entry_index="$(grep -niE "$current_title" | awk -F':' '{print $1}')"
+current_link="$(grep -iE "$current_title" "$PLAYLIST" | awk -F' # ' '{print $1}')"
+current_link_by_index="$(sed -n "${current_entry_index}p" "$PLAYLIST" | awk -F' # ' '{print $1}')"
+
+# playlist basic search api
+fnhint() { declare -f "$0" ; }
+getLink() { awk -F' # ' '{print $1}' ; }
+getTitle() { awk -F' # ' '{for(i=2; i<=NF; i++) print $i}' ; }
+getIndex() { grep -niE "$1" "$2" | awk -F':' '{print $1}' ; }
+search_by_index() { sed -n "${1}p" "$2" ; }
+search_by_title() { grep -iE "$1" "$2" ; }
+
+search_playlist() {
+    playlist="${PLAYLIST:-$MPVQ_PLAYLIST}"
+    query="${2:-${video}}"
+    cmd="${1:-search_by_title}"
+    search=$("${cmd}" "${query}" "${playlist}")
+    link_by_index="$(search_by_index "$query" "$playlist")"
+    title="$("${search}"|cut -d' # ' -f2-)"
+    index="$(getIndex "${title}" "${playlist}")"
+    getLink "$search" > "$CURRENT_VIDEO"
+    notify-send "mpvplay" "${title} piped to current" -i "+"
+    link="${CURRENT_VIDEO}"
+    kill_mpvq && mpv --input-ipc-server="$SOCK" --playlist="${playlist}" "${link}"
+    notify-send "mpvplay" "${title}" -i ""
+}
+link="$(search_by_index 1 "${playlist}" | getLink)"
+updateicon ""
+mpv --input-ipc-server="$SOCK" --playlist="${playlist}" "${link}"
+echo "$!" > "$MPV_PID"
+trap 'kill_mpvq' HUP INT TERM EXIT QUIT
+notify-send "mpvplay" "${title}" -i ""

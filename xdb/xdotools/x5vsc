@@ -1,0 +1,36 @@
+#!/bin/sh
+
+
+cvt 1680 1050
+
+xrandr --newmode "1680x1050_60.00" 146.25 1680 1784 1960 2240 1050 1053 1059 1089 -hsync +vsync
+xrandr --addmode DisplayPort-3 "1680x1050_60.00"
+
+xrandr --output eDP --mode 2257x1552 --pos 2560x0 --primary \
+    --output DisplayPort-2 --mode 2560x1440 --pos 0x0 \
+    --output DisplayPort-1 --mode "1920x1080_60.00" --pos 4816x0 \
+    --output DisplayPort-0 --mode "1680x1050_60.00" --pos 6736x0 \
+    --output DisplayPort-3 --mode "1680x1050_60.00" --pos 8416x0
+
+    feh --bg-fill ~/Pictures/wals/0012_feu_marjo.jpg
+
+echo 'New Virtual DisplayPort-3:   -s 1680x1050 -i :0.0+8416,0'
+
+sleep 2
+
+stream3() {
+    ffmpeg -f x11grab -s 1680x1050 -i :0.0+8416,0 \
+		-c:v h264 -preset ultrafast -tune zerolatency \
+	-fflags nobuffer -flags low_delay -probesize 32 -an \
+	-f v4l2 /dev/video2 &
+	ffpid=$!
+	sleep 1
+	cleanup() {
+		echo "Cleaning up..."
+		kill $ffpid
+	}
+	trap cleanup EXIT
+
+	mpv av://v4l2:/dev/video1 --no-cache --profile=low-latency --untimed --no-demuxer-thread --vd-lavc-threads=1 --title="DisplayPort-1"
+}
+stream3

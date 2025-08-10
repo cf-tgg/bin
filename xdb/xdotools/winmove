@@ -1,0 +1,48 @@
+#!/bin/sh
+
+target=""
+pos=""
+
+while getopts "t:w:r:e:h" opt ; do
+  case "$opt" in
+      r) target="$OPTARG" ;;
+      e) pos="$OPTARG" ;;
+      h) echo "Usage: $0 -[wreh] [-r|-w|-t <target_window>] [-e <target_position>] [-h help]" ; exit 0 ;;
+      *) ;;
+  esac
+done
+shift $(($OPTIND - 1))
+
+if  [ -n "$target" ] && [ "$target" != ":SELECT:" ] ; then
+   case "$target" in
+       0x*) target="$target" ;;
+       *) target=$(wmctrl -l | grep "$target" | head -n 1 | awk '{print $1}') ;;
+   esac
+fi
+
+if [ -z "$target" ]; then
+    target=":SELECT:"
+fi
+if [ -z "$pos" ]; then
+    pos=5
+fi
+mvargs="$pos"
+
+case "$pos" in
+    1|tl|t*l*) mvargs="0,0,45,830,624" ;;        # top-left
+    2|tr|t*r*) mvargs="0,1426,45,830,624" ;;     # top-right
+    3|br|b*r*) mvargs="0,1426,825,830,624" ;;    # bottom-right
+    4|bl|b*l*) mvargs="0,0,825,830,624" ;;       # bottom-left
+    5|i*) mvargs="0,870,2,50,40" ;;              # top-bar icon
+esac
+
+#xdotool key --window "$target" super+shift+space
+
+if [ "$target" = ":SELECT:" ] ; then
+    wmctrl -r "$target" -e "$mvargs" || exit 1
+
+else
+    wmctrl -r "$target" -i -e "$mvargs" || exit 1
+fi
+
+exit 0

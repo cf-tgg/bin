@@ -1,0 +1,118 @@
+#!/bin/bash
+# MIME Handler for HLS playlist creation.
+# Supports:
+#   - Multiple -i|--input flags (each may be followed by one or more file names)
+#   - Positional file arguments after '--'
+#   - Custom output via -o|--output (appending .m3u8 if needed)
+#   - A -p|--play flag that launches mpv to play the playlist after creation.
+#
+# Example usage:
+#   mk_hls_playlist -i "file1.mp4" "file 2.mp4" -o my_playlist -i "file3.mkv" -- "file 4.avi" "file5.m3u8" -p
+
+PLAY=0
+pl_dir="$HOME/Videos/playlists/adhoc"
+playlist=""
+declare -a files
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -i|--input)
+            shift
+            while [[ $# -gt 0 && "$1" != "-"* ]]; do
+                files+=("$1")
+                shift
+            done
+            ;;
+        -o|--output)
+            shift
+            if [[ $# -gt 0 ]]; then
+                playlist="$1"
+                shift
+            else
+                echo "Error: Missing argument for -o|--output" >&2
+                exit 1
+            fi
+            ;;
+        -p|--play)
+            PLAY=1
+            shift
+            ;;
+        -h|--help)
+            echo "Usage: $0 [-i|--input <file1> [file2 ...]] [-o|--output <playlist_name>] [-p|--play] [-- <file> ...]"
+            exit 0
+            ;;
+        --)
+            shift
+            while [[ $# -gt 0 ]]; do
+                files+=("$1")
+                shift
+            done
+            ;;
+        *)
+            files+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [[ ${#files[@]} -eq 0 ]]; then
+    echo "Error: No input files provided." >&2
+    exit 1
+fi
+
+if [[ -z "$playlist" ]]; then
+    playlist="playlist"
+fi
+
+if [[ "$playlist" != *.m3u8 ]]; then
+    playlist="${playlist}.m3u8"
+fi
+
+out="$pl_dir/$playlist"
+echo "#EXTM3U" > "$out"
+
+extinf_seconds() {
+    local d
+    d=$(mediainfo "$1" --INFORM="Video;%Duration%" | cut -d'.' -f1)
+    local s=$((d/1000))
+    echo "$s"
+}
+
+for f in "${files[@]}"; do
+    if [ -f "$f" ]; then
+        case $(file --brief --dereference --mime-type "$f") in
+            image/jpeg)
+                exifjpg -M "$f" | tee -a "$out" 2>/dev/null
+                ;;
+            video/*)
+                r=$(realpath "$f")
+                b=$(basename "$f")
+                d=$(extinf_seconds "$f")
+                t=${b%.*}
+                printf "#EXTINF:%s,%s\n%s\n" "$d" "$t" "$r" | tee -a "$out" 2>/dev/null
+                ;;
+            audio/x-mpegurl)
+                grep -v "#EXT3MU" "$f" | tee -a "$out" 2>/dev/null
+                ;;
+            *) continue
+                ;;
+        esac
+    else
+        if echo "$f" | grep -qE "^http*"; then
+            yt-dlp "$f" --quiet --skip-download --no-warnings --get-duration --get-title | while read -r d t ; do
+               printf "#EXTINF:%s,%s\n%s\n" | tee -a "$out" 2>/dev/null
+            done
+        fi
+    fi
+done
+
+if [ -f "$out" ] && [ "$(wc -l < "$out")" -gt 2 ]; then
+    echo "$playlist created in $out"
+    [ "$PLAY" -eq 1 ] && linkhandler "$out" >/dev/null 2>&1
+else
+    rm "$out" -f >/dev/null
+    exit 1
+fi
+
+
+exit 0

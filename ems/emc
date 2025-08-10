@@ -1,0 +1,66 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-07 04:23:51 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+#     ___  __ _  ____
+#    / -_)/  ' \/ __/
+#    \__//_/_/_/\__/
+#                   ~emc. v.0.2.0
+
+#    emc --- emacsclient wrapper
+#
+#    DEPENDENCIES
+#      emacs (emacsclient)
+#      xdo
+#      Any other terminal editor (e.g. nvim)
+#
+#    CONFIGURATION
+#         Have your shell export it's window ID:
+#
+#    AUTHOR
+#         cf. (C) 2025 <cf.gg.tty@protonmail.com>
+#
+
+XDG_RUNTIME_DIR="/run/user/$(id -u)"
+EMACS_SOCKET_NAME="${XDG_RUNTIME_DIR}/emacs/server"
+export XDG_RUNTIME_DIR
+export EMACS_SOCKET_NAME
+
+editcmd() {
+    FILE=$1
+    shift
+    if [ -t 1 ]; then
+        ( devour emacsclient -c -s "$EMACS_SOCKET_NAME" --alternate-editor="$ALTERNATE_EDITOR" \
+            --eval "(let ((pop-up-windows nil)) (find-file \"$(printf '%s' "$FILE" | sed 's/"/\\\"/g')\"))"
+        ) || nvim "$FILE" || return 1
+    else
+        emacsclient -cn -s "$EMACS_SOCKET_NAME" --alternate-editor="$ALTERNATE_EDITOR" \
+            --eval "(let ((pop-up-windows nil)) (find-file \"$(printf '%s' "$FILE" | sed 's/"/\\\"/g')\"))" \
+        || $TERMINAL -e nvim "$FILE" || return 1
+    fi
+    return 0
+}
+
+if [ $# -le 0 ]; then
+   if [ -t 1 ]; then
+        ( devour emacsclient -c -s "$EMACS_SOCKET_NAME" --alternate-editor="$ALTERNATE_EDITOR" \
+            --eval "(let ((pop-up-windows nil)) (scratch-buffer))"
+        ) || nvim "$FILE" || true
+   else
+       emacsclient -cn -s "$EMACS_SOCKET_NAME" --alternate-editor="$ALTERNATE_EDITOR" \
+                   --eval "(let ((pop-up-windows nil)) (scratch-buffer))" \
+           || $TERMINAL -e nvim || true
+   fi
+else
+    for f in "$@" ; do
+        [ "$f" = "emc" ] && shift
+        if  [ -f "$f" ] || [ -d "$f" ] ; then
+            if editcmd "$@" "$f" ; then
+                break
+            fi
+        fi
+    done
+fi
+
+exit 0

@@ -1,0 +1,36 @@
+#!/bin/sh
+
+MPVQ_PLAYLIST="$HOME/.cache/mpvq/mpvq.playlist"
+MPVQ_TITLES="$HOME/.cache/mpvq/mpvq.titles"
+
+[ -f "$MPVQ_PLAYLIST" ] || exit 1
+
+wrf() {
+  [ -f "$1" ] && mv "$1" "$2" || return 1
+  rm -f "$1"
+  return 0
+}
+
+grep -v " # " "$MPVQ_PLAYLIST" |\
+  while IFS= read -r line; do
+  temp=$(mktemp)
+  f=$(printf "%s" "$line" | tr -d '\r')
+
+  case "$f" in
+    .m3u)
+      grep -v "^Unknown" "$f" | grep -v "Unknown Title" |\
+        grep -A 1 "#EXTINF" | while read -r e; do read -r l || break ;
+          t=$(printf "%s" "$e" | cut -d',' -f2)
+          tmp=$(mktemp) && printf "%s" "$t" >> "$tmp"
+          printf "%s # %s\n" "$l" "$t" >> "$temp"
+        done
+      break ;;
+    .json)
+      jq -r '.[] | "\(.URI) # \(.Title)"' "$f" > "$temp"
+      printf "%s # %s\n" "$" "$f" >> "$temp"
+      wrf
+      break ;;
+  esac
+
+[ -f "$temp" ] && wrf "$temp" "$MPVQ_PLAYLIST" && rm -f "$temp"
+done

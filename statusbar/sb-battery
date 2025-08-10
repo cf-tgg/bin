@@ -1,9 +1,14 @@
 #!/bin/sh
 # -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-02 00:04:11 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+# sb-battery --- Battery module
 
 # Prints all batteries, their percentage remaining and an emoji corresponding
 # to charge status (🔌 for plugged up, 🔋 for discharging on battery, etc.).
-#  notify-send "🔋 Battery module" "🔋: discharging
+
+# notify-send "🔋 Battery module" "🔋: discharging
 #      🛑: not charging
 #      ♻: stagnant charge
 #      🔌: charging
@@ -12,18 +17,18 @@
 #      - Scroll to change adjust xbacklight."
 
 case $BLOCK_BUTTON in
-    1) if [ -f "/tmp/cava.winid" ]; then
-               cava=$(cat /tmp/cava.winid)
-               ( [ ! -f "/tmp/cava.hidden" ] && xdo hide "$cava" && echo "$cava" >/tmp/cava.hidden ) || { xdo show "$cava" && rm -f "/tmp/cava.hidden" ; }
-       fi
-       ;;
-    2) ewww-browse -d ;;
-    3) sysact  ;;
-    4) bright 2 ;;
-    5) bright -2 ;;
-    6) emc "$0" ;;
+    1)  # if cava pid file exists toggles cavabar terminal window
+        [ -f "/tmp/cava.winid" ] && {
+            cava=$(cat /tmp/cava.winid)
+            # if no hidden token          hide the window and create the hidden token              else display the window and remove the hidden token
+            ( [ ! -f "/tmp/cava.hidden" ] && xdo hide "$cava" && echo "$cava" >"/tmp/cava.hidden" ) || { xdo show "$cava" && rm -f "/tmp/cava.hidden" ; }
+       } || true ;; # else do nothing
+    2) ewww-browse -d || true ;;
+    3) sysact || true ;;
+    4) bright 2 || true ;;
+    5) bright -2 || true ;;
+    6) ( $EDITOR $0 || $TERMINAL -e nvim $0 ) || true ;;
 esac
-
 
 # Loop through all attached batteries and format the info
 for battery in /sys/class/power_supply/BAT?*; do
@@ -42,6 +47,7 @@ for battery in /sys/class/power_supply/BAT?*; do
 	# Will make a warn variable if discharging and low
 	[ "$status" = "🔋" ] && [ "$capacity" -le 25 ] && warn="❗"
 	ac="$(cat /sys/class/power_supply/ACAD/online)"
+        # if attached clamed and capacity higher than 80% exit silently.
 	[ "$ac" = 1 ] && [ "$capacity" -gt 80 ] && exit 0;
 	# Prints the info
 	printf "%s%s%d%%" "$status" "$warn" "$capacity"; unset warn

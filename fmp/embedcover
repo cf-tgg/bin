@@ -1,0 +1,26 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+DIR=${1:-.}
+TDIR="${HOME}/Downloads/Embeded"
+FAIL_LOG="$HOME/.local/var/log/failed_embedcover.log"
+
+[ -d "$(dirname "$FAIL_LOG")" ] || mkdir -p "$(dirname "$FAIL_LOG")"
+[ -d "$TDIR" ] || mkdir -p "$TDIR"
+
+for opus in "${DIR}"/*.opus; do
+    cover="${opus%.*}.jpg"
+    printf "opus: %s  cover: %s  ... embedding ... " "$opus" "$cover"
+    tmpdir=$(mktemp -d)
+    t="$tmpdir/$opus"
+
+    if ffmpeg -i "$opus_file" -i "$cover_file" -c:a copy -c:v mjpeg -disposition:v attached_pic "$t" ; then
+        mv "$t" "$TDIR" && printf "success\n"
+    else
+        printf "failed\n" >&2
+        echo "%s\t%s\n" "$opus" "$cover" >"$FAIL_LOG"
+    fi
+    [ -d "$tmpdir" ] && rm -rf "$tmpdir"
+done
+
+exit 0

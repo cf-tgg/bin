@@ -1,0 +1,23 @@
+#!/bin/sh
+
+PLAYLIST_DIR="$HOME/Videos/playlists"
+
+playlist="$(find "$PLAYLIST_DIR" -type f -name "*.m3u*" -exec basename "{}" \; | cut -d. -f1 | dmenu -i -l 10 -p 'playlist:')"
+
+[ -n "$playlist" ] || exit 0
+
+PL=$(realpath "$PLAYLIST_DIR/$playlist.m3u8") || PL="$HOME/.cache/mpvq/playlists/sd_mpvq.m3u8"
+
+[ -f "$PL" ] || exit 1
+
+cleanup() { pkill -P $$ ; }
+trap cleanup EXIT
+
+setsid -f "$TERMINAL" -e "m3ufzf" "$PL" >/dev/null 2>&1 &
+
+wait $!
+
+# PLAYLIST_DIR="$HOME/Videos/playlists"
+# playlist="$(find "$PLAYLIST_DIR" -type f -name "*.m3u*" -exec basename "{}" \; | cut -d. -f1 | dmenu -i -l 10 -p 'playlist:')"
+# [ -n "$playlist" ] && PL=$(realpath "$PLAYLIST_DIR/$playlist.m3u8") || PL="$MPVQ_PLAYLIST"
+# [ -f "$PL" ] && setsid -f "$TERMINAL" -e "m3ufzf" "$PL" >/dev/null 2>&1

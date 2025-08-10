@@ -1,0 +1,26 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-07-30 05:51:10 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
+
+src=/home/cf/Videos/yt
+dst=/var/local/yt
+
+find "$src" -type l | while IFS= read -r link; do
+  relpath="${link#$src/}"
+  target=$(readlink "$link")
+
+  # absolute symlink or symlink outside tree is skipped
+  case "$target" in
+    /*) continue ;;
+  esac
+
+  # compute new target under destination
+  case "$target" in
+    ../meta/*|meta/*)
+      newtarget=$(realpath --relative-to="$(dirname "$dst/$relpath")" "$dst/${target}")
+      mkdir -p "$(dirname "$dst/$relpath")"
+      ln -sf "$newtarget" "$dst/$relpath"
+      ;;
+  esac
+done

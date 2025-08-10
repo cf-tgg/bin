@@ -1,0 +1,40 @@
+#!/bin/sh
+# -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+cmd=$1
+url=${2:-}
+
+if command -v "$cmd" >/dev/null 2>&1; then
+    return 0
+fi
+
+echo "Missing required command: $cmd" >&2
+printf 'Install it now? [Y/n] '
+
+stty -echo -icanon min 1 time 0
+ans=$(dd bs=1 count=1 2>/dev/null)
+stty sane
+printf '\n'
+
+echo "$ans" | grep -qi 'y' || exit 1
+
+if sudo pacman -S "$cmd"; then
+    exit 0
+fi
+
+if [ -n "$url" ]; then
+    mkdir -p ~/.local/src && cd ~/.local/src || exit 1
+    repo=${url##*/}
+    name=${repo%.git}
+    git clone "${url%.git}.git" || exit 1
+    cd "$name" || exit 1
+    make && sudo make install || {
+            echo "Build failed for $cmd" >&2
+            exit 1
+        }
+else
+    echo "No source URL provided, and package manager install failed." >&2
+    exit 1
+fi
+
+exit 0

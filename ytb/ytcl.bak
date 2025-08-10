@@ -1,0 +1,35 @@
+#!/bin/bash
+
+# getuploaderinfo() {
+#     link="$1"
+
+#     if [[ "$link" =~ https://www.youtube.com/@ ]]; then
+#         uploaderid="${link##https://www.youtube.com/@}"
+#     else
+#         uploaderid=$(yt-dlp "$link" -j --skip-download | jq -r '.uploader_id' | head -n1| tr -d '@')
+#     fi
+
+#     uploader=$(yt-dlp "$link" -j --skip-download | jq -r '.uploader' | head -n1)
+#     uploaderurl=$(yt-dlp "$link" -j --skip-download | jq -r '.uploader_url' | head -n1)
+#     channelid=$(yt-dlp "$link" -j --skip-download | jq -r '.channel_id'|head -n1)
+#     videocount=$(curl -s "$uploaderurl" | grep -ioE '[0-9]+ videos')
+#     subcount=$(curl -s "$uploaderurl" | grep -ioE '[0-9\.]+K subscribers')
+
+#     # newsboat feed
+#     feedprefix="https://www.youtube.com/feeds/videos.xml?channel_id=$channelid"
+#     feedstr="$feedprefix \"~$uploader\""
+#     newsboaturls="$HOME/.config/newsboat/urls"
+#     feedindex=$(nl "$newsboaturls" | grep "Reddit" | cut -d'"' -f1 | sed 's/^ //; s/ $//; s/\n//g')
+#     [[ -f "$newsboaturls" && -z "$feedindex" ]] && echo "$feedstr" >> "$newsboaturls" && notify-send "$uploader al fin du feed"
+#     [[ -n "$channelid" && "$feedindex" ]] && grep -q "$feedstr" "$newsboaturls" || sed -i "${feedindex}i${feedstr}" "$newsboaturls" && notify-send "$uploader dans l'feed"
+
+#     pp=$(curl -s "$uploaderurl" | grep -ioE 'https://yt3.[a-zA-Z0-9_=/?.&%-]+'| grep "s900" | sort -u |head -n1)
+
+#     [ ! -d "$HOME/Pictures/icons/dunst_icons/ytchannels" ] && mkdir -p "$HOME/Pictures/icons/dunst_icons/ytchannels"
+#     channelpic="$HOME/Pictures/icons/dunst_icons/ytchannels/${uploaderid##@}.png"
+#     if [ ! -f "$channelpic" ]; then
+#         wget -q "$pp" -O "$channelpic" || cp "$HOME/Pictures/icons/dunst_icons/youtube.png" "$channelpic"
+#     fi
+#     dunstify -a "ytdlp" -i "$channelpic" -r 9999 -u normal "$link" "\n$uploader\n$subcount\n$videocount\n"
+# }
+# getuploaderinfo "$1"

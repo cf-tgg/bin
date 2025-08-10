@@ -1,0 +1,27 @@
+#!/bin/bash
+
+FONT_CONFIG_PATH="$HOME/.config/fontconfig/conf.d"
+FONT_CONFIG_FILE="$FONT_CONFIG_PATH/99-nerd-fonts.conf"
+
+mkdir -p "$FONT_CONFIG_PATH"
+
+echo '<?xml version="1.0"?>' > "$FONT_CONFIG_FILE"
+echo '<!DOCTYPE fontconfig SYSTEM "fonts.dtd">' >> "$FONT_CONFIG_FILE"
+echo '<fontconfig>' >> "$FONT_CONFIG_FILE"
+
+# Extract unique Nerd Font families
+fc-list | grep 'Nerd' | cut -d: -f2 | sed 's/^ //' | sort -u | while read -r FONT_NAME; do
+    echo "    <match>" >> "$FONT_CONFIG_FILE"
+    echo "        <test name=\"family\">" >> "$FONT_CONFIG_FILE"
+    echo "            <string>$FONT_NAME</string>" >> "$FONT_CONFIG_FILE"
+    echo "        </test>" >> "$FONT_CONFIG_FILE"
+    echo "        <edit name=\"family\" mode=\"prepend\" binding=\"strong\">" >> "$FONT_CONFIG_FILE"
+    echo "            <string>Nerd Font</string>" >> "$FONT_CONFIG_FILE"
+    echo "        </edit>" >> "$FONT_CONFIG_FILE"
+    echo "    </match>" >> "$FONT_CONFIG_FILE"
+done
+echo '</fontconfig>' >> "$FONT_CONFIG_FILE"
+echo "FontConfig file generated: $FONT_CONFIG_FILE" && fc-cache -rv 
+
+# System-Wide FontConfig:
+# sudo cp $FONT_CONFIG_FILE /usr/share/fontconfig/conf.default/ && sudo fc-cache -rv

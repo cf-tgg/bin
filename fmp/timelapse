@@ -1,0 +1,16 @@
+#!/bin/sh
+# Increase video playback speed by factor (without audio)
+if [ "$#" -ne 3 ]; then
+    echo "Syntax: timelapse <input_vid> <speed_factor_integer> <output_vid>"
+    exit 1
+fi
+
+input="$1"
+factor="$2"
+output="$3"
+
+# Calculate video speed factor
+video_pts=$(echo "1 / $factor" | bc -l)
+
+# Run ffmpeg with only video processing (no audio)
+ffmpeg -i "$input" -an -filter_complex "[0:v]setpts=${video_pts}*PTS[v]" -map "[v]" "$output"

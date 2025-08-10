@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# Loop through all files matching the pattern
+for file in audioclip*.mp4; do
+    # Extract the epoch timestamp part (assuming it's after "audioclip" and before "_")
+    epoch=$(echo "$file" | sed -n 's/audioclip\([0-9]\+\)_.*/\1/p')
+
+    # Extract the unique identifier part (after the last "_")
+    unique_id=$(echo "$file" | sed -n 's/.*_\([0-9]\+\)\.mp4/\1/p')
+
+    # Skip if the epoch or unique identifier is not found
+    [ -z "$epoch" ] || [ -z "$unique_id" ] && continue
+
+    # Convert the epoch timestamp to the desired human-readable format in UTC
+    readable_date=$(date -u -d @"$epoch" "+%Y-%m-%d_%H%M-%S_%Z")
+
+    # Construct the new file name
+    new_name="audioclip_${readable_date}_${unique_id}.mp4"
+
+    # Rename the file
+    mv "$file" "$new_name" && echo "Renamed: $file -> $new_name"
+done

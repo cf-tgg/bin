@@ -1,0 +1,53 @@
+#!/bin/sh
+
+AURL=0
+INVINST="https://vid.puffyan.us"
+
+while true; do
+  case "$1" in
+    -a) AURL=1; shift ;;
+    -h) echo "Usage: ytextinf [-a] [URL|QUERY]"; return 0 ;;
+    *) break ;;
+  esac
+done
+
+input="$*"
+playlist="$HOME/exinf.m3u"
+
+[ -f "$playlist" ] || echo "#EXTM3U" > "$playlist"
+
+find_link() { echo "$input" | grep -Eo "/watch\?v=.{11}" | head -n1 ; }
+yt_query() {
+    query="$(printf '%s' "$input" | tr ' ' '+' )"
+    input=$(curl -s "$INVINST/search?q=$query")
+    id="$(find_link)"
+    echo "$id"
+}
+
+case "$input" in
+  *youtube*) id=$(find_link) ;;
+  *) id=$(yt_query) ;;
+esac
+
+url="https://youtube.com$id"
+aurl="$(yt-dlp -q --no-warnings --skip-download -f bestaudio --get-url "$url")"
+title=$(yt-dlp  -q --no-warnings --skip-download --get-title "$url"|sed -E 's/\([Ff]ull [Aa]lbum\)/-/g; s/\( [Ff]ull [Aa]lbum \)/-/g; s/[Ff]ull [Aa]lbum//g;s/\{\}/-/g;s/  / /g;s/ $//; s/-$//;'| sed -E 's/(\s|^)(18[0-9]{2}|19[0-9]{2}|20[0-9]{2})(\s|$)/\1(\2)\3/g'| sed 's/\xE2\x80\xB9\x0332//g' | perl -CSD -pe 's/\x{0332}//g')
+duration=$(yt-dlp -q --no-warnings --skip-download --get-duration "$url")
+[ "$AURL" -eq 1 ] && url="$aurl"
+
+ytdlp_track_duration() { [ -n "$duration" ] && echo "$duration" | awk -F: '{print ($1 * 60) + $2}' ; }
+
+uid=${id#/watch\?v=}
+track_seconds=$(ytdlp_track_duration)
+
+[ -n "$track_seconds" ] && [ -n "$title" ] && [ -n "$uid" ] || return 1
+
+while read -r line; do
+ echo "$line" | tee -a "$playlist"
+done << EOF
+#EXTINF:Duration,Title,ID
+#EXTINF:$track_seconds,$title,$uid
+$url
+EOF
+
+exif 0

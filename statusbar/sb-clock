@@ -1,31 +1,37 @@
 #!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-05 10:11:48 cf>
+# Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
 
+# date time format (see "man date") for list of formats
+datetime=$(date "+%a %m.%d %H:%M:%S")
+
+
+# Cosmetic emoji icon
+# uncomment clock variable to display
 # clock=$(date '+%I')
-
-# case "$clock" in
-#     "00") icon="🕛" ;;
-#     "01") icon="🕐" ;;
-#     "02") icon="🕑" ;;
-#     "03") icon="🕒" ;;
-#     "04") icon="🕓" ;;
-#     "05") icon="🕔" ;;
-#     "06") icon="🕕" ;;
-#     "07") icon="🕖" ;;
-#     "08") icon="🕗" ;;
-#     "09") icon="🕘" ;;
-#     "10") icon="🕙" ;;
-#     "11") icon="🕚" ;;
-#     "12") icon="🕛" ;;
-# esac
-
-case $BLOCK_BUTTON in
-    1) notify-send "This Month" "$(cal | sed "s/\<$(date +'%e')\>/<b><span color='red'>&<\/span><\/b>/")" && notify-send "Rendez-vous" "$(calcurse -d3)" ;;
-    2) setsid -f "$TERMINAL" -e calcurse ;;
-    3) pomodoro ;;
-    6) "$VISUAL" -cn "$0" || "$TERMINAL" -e "$EDITOR" "$0" || emc "$0" ;;
+case $clock in
+   "00") icon="🕛" ;;
+   "01") icon="🕐" ;;
+   "02") icon="🕑" ;;
+   "03") icon="🕒" ;;
+   "04") icon="🕓" ;;
+   "05") icon="🕔" ;;
+   "06") icon="🕕" ;;
+   "07") icon="🕖" ;;
+   "08") icon="🕗" ;;
+   "09") icon="🕘" ;;
+   "10") icon="🕙" ;;
+   "11") icon="🕚" ;;
+   "12") icon="🕛" ;;
 esac
 
-datetime=$(date "+%a %m.%d %H:%M:%S")
-# printf "%s %s" "$datetime" "$icon"
+case $BLOCK_BUTTON in
+    1) notify-send "This Month" "$(cal | sed "s/\<$(date +'%e')\>/<b><span color='red'>&<\/span><\/b>/")"
+       rdv=$(calcurse -d3) ; [ ! -z "$rdv" ] && notify-send "Rendez-vous"  ;;
+    2) setsid -f $TERMINAL -e calcurse >/dev/null 2>&1 ;;
+    3) pomodoro ;;
+    6) $VISUAL -c $0 || $TERMINAL -e nvim $0 ;;
+esac
 
-printf "%s" "$datetime"
+[ ! -z $icon ] && printf "%s %s" "$datetime" "$icon" || printf "%s" "$datetime"

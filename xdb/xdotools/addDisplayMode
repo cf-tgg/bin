@@ -1,0 +1,42 @@
+#!/bin/sh
+
+SELECTED_DISPLAY=$1
+WIDTH=$2
+HEIGHT=$4
+RATE=$4
+
+# Function to add a display with specified width, height, and refresh rate
+addDisplayMode() {
+    local display=$1
+    local width=$2
+    local height=$3
+    local rate=$4
+
+    gtf $width $height $rate -x
+
+    # Generate the mode line using gtf
+    MODELINE=($(gtf $width $height $rate -x | grep Modeline | sed 's/Modeline //'))
+    MODE=($(echo $MODELINE | awk '{print $1}'))
+
+    echo "MODE: " $MODE
+    echo "MODELINE :" $MODELINE
+
+    # Add the mode and assign it to the display
+    xrandr --newmode $MODELINE
+    xrandr --addmode $display $MODE
+
+    echo "Added mode $MODE for display $display"
+}
+addDisplayMode "$SELECTED_DISPLAY" "$WIDTH" "$HEIGHT" "$RATE"
+
+# zsh completion
+# _addDisplayMode_completions() {
+#     # Fetch the list of DisplayPort outputs from xrandr
+#     local -a AVAILABLE_DPORTS=($(xrandr | grep 'DisplayPort-' | awk '{print $1}'))
+#     
+#     # Set the completions for the first argument
+#     _describe 'DisplayPort outputs' AVAILABLE_DPORTS
+# }
+# compdef _addDisplayMode_completions addDisplayMode
+
+# Add the selected display with the specified dimensions and rate

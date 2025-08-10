@@ -1,0 +1,36 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+# Time-stamp: <2025-08-10 00:13:41 cf>
+# Box: cf [Linux 6.15.8-zen1-1-zen x86_64 GNU/Linux]
+
+set -eu
+
+for f in ~/.emacs.d/{early-init,init,custom}.el ; do
+    rsync -av "$f" ~/Templates/emacs/
+done
+
+cd "$HOME/.emacs.d"
+
+find custom cf-lisp snippets \
+     -maxdepth 1 -type f -not -iname '*.elc' \
+    | grep -vE '[#~]' \
+    | rsync -av --files-from=- ./ "$HOME/Templates/emacs/"
+
+find ~/Templates/emacs/data/ -type f -exec rm -f {} \;
+for f in ~/.emacs.d/{history,eww-bookmarks,projects,tramp,recentf,bookmarks} ; do
+    cp "$f" ~/Templates/emacs/data/
+done
+
+cd ~/Templates/emacs/data
+
+for f in * ; do
+    gpg2 --encrypt --recipient "$(pass cfdotgg@gpg)" "$f"
+done
+
+find ~/Templates/emacs/data/ -type f -not -name "*.gpg" -exec rm -f {} \;
+
+cd ~/Templates/emacs
+git add . && git submodule update --init --recursive --force
+( git commit -m "$(date +"%F %T") Automatic update" && git push && git status ) || { echo "Error: Manual intervention needed." >&2 ; exit 1 ; }
+
+exit 0

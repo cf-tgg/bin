@@ -1,0 +1,93 @@
+#!/bin/bash
+
+MPC_LOG="$HOME/.cache/mpc_search.log"
+LANGUAGE="en"
+ACAD=$(cat /sys/class/power_supply/ACAD/online)
+SIMPLE=${ACAD:-0}
+VERBOSE=1
+
+settings() {
+  lang="$(setxkbmap -query | grep -oP 'layout:\s*\K\w+')"
+  [ "$lang" = "ca" ] && LANGUAGE="fr"
+  [ "$lang" = "us" ] && LANGUAGE="en"
+  if [ "$SIMPLE" = 0 ]; then
+    if [ "$LANGUAGE" = "en" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-small-en-us-0.15/"
+    elif [ "$LANGUAGE" = "fr" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-small-fr-0.22/"
+    fi
+  else
+    if [ "$LANGUAGE" = "en" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-en-us-0.22/"
+    elif [ "$LANGUAGE" = "fr" ]; then
+      VOSKDIR="$HOME/.local/share/kdenlive/speechmodels/vosk-model-fr-0.22/"
+    fi
+  fi
+  vosk=$(basename "$VOSKDIR"|cut -d- -f3-)
+  echo "$LANGUAGE 🎙️"
+  [ "$VERBOSE" -eq 1 ] && echo "[::VERBOSE=$VERBOSE::SIMPLE=$SIMPLE::MODEL=$vosk::]"
+  if [ "$VERBOSE" -eq 1 ]; then
+    notify-send "[:::$vosk:::]" "$LANGUAGE 🎙️"
+  else
+    notify-send "$LANGUAGE 🎙️"
+  fi
+}
+updateicon() {
+   echo "$1" > /tmp/recordingicon
+   pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+}
+
+record() {
+  mpc volume 20
+  updateicon "🎙️"
+  ffmpeg -y -f alsa -ac 1 -i hw:1 -c:a flac -t 3 ~/.cache/audio.flac
+  echo $! > /tmp/recordingpid
+  return 0
+}
+
+killrec() {
+  recpid=$(cat /tmp/recordingpid)
+  [ -n "$recpid" ] && kill -15 "$recpid"
+  [ -f "/tmp/recodingpid" ] && rm -f /tmp/recordingpid
+  updateicon ""
+  mpc volume 80
+  pkill -RTMIN+9 "${STATUSBAR:-dwmblocks}"
+  return 0
+}
+
+[ -n "$(pgrep dunst)" ] || { killall dunst >/dev/null ; setsid -f dunst; } &
+settings
+record && killrec && vosk-transcriber -m "$VOSKDIR" -i ~/.cache/audio.flac -o ~/.cache/audio.txt
+read -r audio_in < ~/.cache/audio.txt
+[ -n "$audio_in" ] || exit 1
+[ "$audio_in" = "the" ] && exit 1
+echo "$audio_in" | tee -a "$MPC_LOG"
+notify-send -a "mpctl" -r 9998 -t 3000 "[ $audio_in ]"
+
+IFS=' ' read -r -a words <<< "$audio_in"
+
+# Initialize first search result
+q1="$(mpc search any "${words[0]}")"
+
+# Loop through the rest of the words and intersect them
+for word in "${words[@]:1}"; do
+    q_next="$(mpc search any "$word")"
+
+    # Check if search results are non-empty before intersecting
+    if [ -n "$q_next" ]; then
+        q1=$(echo "$q1" | grep -Fxf <(echo "$q_next"))
+    fi
+done
+
+# Clean up the matches
+match=$(echo "$q1" | grep -v '^$' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+# Ensure we have at least one match
+if [ "$(echo "$match" | wc -l)" -eq 1 ]; then
+    echo "Found a single match: $match"
+    mpc add "$match"
+    mpc | grep -q 'playing' || mpc play
+else
+    museplay "$audio_in"
+    exit 1
+fi

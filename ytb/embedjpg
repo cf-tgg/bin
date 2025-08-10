@@ -1,0 +1,49 @@
+#!/bin/bash
+# Embed JSON metadata into thumbnails, resulting in JPG files.
+
+# Directory setup
+DESTINATION="$HOME/Videos/yt/meta"
+mkdir -p "$DESTINATION"
+
+# Function to embed JSON into a JPG file
+embed_json_in_image() {
+    local json_file="$1"
+    local thumbnail="$2"
+    local output_image="$3"
+
+    # Verify inputs
+    if [[ ! -f "$json_file" ]]; then
+        echo "JSON file $json_file does not exist."
+        return 1
+    fi
+
+    if [[ ! -f "$thumbnail" ]]; then
+        echo "Thumbnail $thumbnail does not exist."
+        return 1
+    fi
+
+    # Create output image from thumbnail
+    magick "$thumbnail" "$output_image"
+    if [[ $? -ne 0 ]]; then
+        echo "Failed to create output image $output_image from thumbnail $thumbnail."
+        return 1
+    fi
+
+    # Embed JSON metadata into the new image
+    exiftool -overwrite_original -UserComment="$(<"$json_file")" "$output_image"
+    if [[ $? -eq 0 ]]; then
+        echo "Successfully embedded JSON into $output_image."
+    else
+        echo "Failed to embed JSON into $output_image."
+        return 1
+    fi
+}
+
+# Process thumbnails and corresponding JSON files
+find "$DESTINATION" -type f -name "*-thumbnail.jpg" | while read -r thumbnail; do
+    basename=$(basename "$thumbnail" -thumbnail.jpg)
+    json_file="${DESTINATION}/${basename}.json"
+    output_image="${DESTINATION}/${basename}-embedded.jpg"
+
+    embed_json_in_image "$json_file" "$thumbnail" "$output_image"
+done

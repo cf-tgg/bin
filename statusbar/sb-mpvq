@@ -70,6 +70,7 @@ TCOUNTS=$(grep -c . "$MPVQ_TITLES")
 export TCOUNTS
 BARICON="/tmp/mpvqicon"
 export BARICON
+BLKSIG=12
 
 if [ -f "$MPVQ_PLAYLIST" ]; then
     [ "$(grep -c '#EXM3U' "$MPVQ_PLAYLIST")" -eq 1 ] || grep -n '^#EXTM3U$' "$MPVQ_PLAYLIST" | cut -d ':' -f1 | while read -r n ; do
@@ -81,8 +82,16 @@ else
 fi
 
 updateicon() {
-    echo "$1" >"/tmp/mpvqicon"
-    pkill -RTMIN+12 "${STATUSBAR:-dwmblocks}"
+    blksig=${BLKSIG:-12}
+    iconf=${BARICON:-"/tmp/mpvqicon"}
+    (
+        echo "$1" >"$iconf"
+        pkill -RTMIN+"$blksig" dwmblocks >/dev/null 2>&1
+    ) || {
+        rtmin=$((blksig + 34))
+        barpid=$(pidof dwmblocks | xargs ps | grep "${GPG_TTY##*/}" | awk '{print $1}')
+        kill -"$rtmin" "$barpid"
+    }
 }
 
 asktoend() { printf "No\\nYes" | dmenu -i -p "kill it?" | grep -q '^Yes$' && kill_mpvq ; }
@@ -92,7 +101,12 @@ kill_mpvq() {
     recpid="$pid" || recpid=$(cat "$MPV_PID")
     if [ -n "$recpid" ] && kill -15 "$recpid" ; then
         [ -f  "$MPV_PID" ] rm -f "$MPV_PID" "$MPV_SOCK" >/dev/null
-        pkill -RTMIN+13 "${STATUSBAR:-dwmblocks}"
+        pkill -RTMIN+13 dwmblocks || {
+            blksig=${BLKSIG:-13}
+            barpid=$(pidof dwmblocks | xargs ps | grep "${GPG_TTY##*/}" | awk '{print $1}')
+            rtmin=$((blksig + 34)) ;
+            kill -"$rtmin" "$barpid"
+        }
         updateicon "📺"
         return 0
     else
@@ -256,13 +270,13 @@ menu() {
     esac
 }
 
-case "$BLOCK_BUTTON" in
-    1) mpstart ;;
-    2) "$TERMINAL" -e "mpvqdl" ;;
-    3) "$TERMINAL" -e "mpvqfzf" ;;
-    4) dndbox ;;
-    5) menu ;;
-    6) emc "$MPVQ_PLAYLIST" ;;
+case $BLOCK_BUTTON in
+    1) mpstart || true ;;
+    2) $TERMINAL -e mpvqdl || true ;;
+    3) $TERMINAL -e mpvqfzf || true ;;
+    4) dndbox || true ;;
+    5) menu || true ;;
+    6) $VISUAL "$MPVQ_PLAYLIST" || $TERMINAL -e nvim "$MPVQ_PLAYLIST" || true ;;
 esac
 
 #  case "$1" in

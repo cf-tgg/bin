@@ -1,0 +1,49 @@
+#!/bin/sh
+
+beg="$1"
+end="$2"
+freq="$3"
+format="$4"
+
+parse_freq() {
+    arg=$1
+    num=$(printf "%s" "$arg" | sed -n 's/^\([0-9]*\)[a-zA-Z%+]\+$/\1/p')
+    fmt=$(printf "%s" "$arg" | sed -n 's/^[0-9]*\([a-zA-Z%+]\+\)$/\1/p' | sed 's/.*/\L&/')
+
+    [ -z "$fmt" ] && { echo "Invalid frequency format: $arg" >&2 ; exit 1 ; }
+    [ -z "$num" ] && num=1
+
+    case "$fmt" in
+        d*|j*) unit="days" ;;
+        m*) unit="months" ;;
+        y*|an*) unit="years" ;;
+        v*|w*|sem*) unit="weeks" ;;
+        *) echo "Unsupported frequency unit: $fmt" >&2 ; exit 1 ;;
+    esac
+    printf "%s:%s\n" "$num" "$unit"
+}
+
+while getopts "b:e:F:h" opt ; do
+    case "$opt" in
+        b) beg="$OPTARG" ;;
+        e) end="$OPTARG" ;;
+        F) freq="$OPTARG" ;;
+        f) format="$OPTARG" ;;
+        h) echo "Usage: $0 [<beg> <end> <freqency> [format]] [-b <begin_date>] [-e <end_date>] [-F <count><freq_unit>] [-f <output_format>]" ;;
+    esac
+done
+shift $(($OPTIND - 1))
+
+start_date=$(date --date="$beg" +"%F") || { echo "Invalid start date: $beg" >&2 ; exit 1 ; }
+end_date=$(date --date="$end" +"%F")   || { echo "Invalid end date: $end" >&2 ; exit 1 ; }
+freq_val=$(parse_freq "$freq") || exit 1
+IFS=":" ; set -- $freq_val ; freq_n=$1 ; freq_unit=$2
+
+[ -z "$format" ] && format="F"
+current="$beg"
+while [ $(date --date="$current" +"%s") -le $(date --date="$end" +"%s") ] ; do
+    printf '%s\n' "$(date --date="$current" +%${format})"
+    current=$(date --date="$current +${freq_n} $freq_unit" +"%F")
+done
+
+exit 0

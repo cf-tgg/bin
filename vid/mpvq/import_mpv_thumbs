@@ -1,0 +1,65 @@
+#!/bin/bash
+# Embed JSON metadata in a JPG thumbnail using EXIF data (for mpv parsing)
+
+# Input checks
+uri="$1"
+DESTINATION="$HOME/Videos/yt/meta"
+
+if [ -z "$uri" ]; then
+    echo "Usage: $0 <YouTube Channel URL>"
+    exit 1
+fi
+
+# Output prep
+mkdir -p "$DESTINATION"
+
+# Main process
+yt-dlp -j --no-download "$uri" | jq -c -r '
+    {
+        Thumbnail: .thumbnail,
+        Title: .title,
+        Date: .upload_date,
+        Duration: .duration_string,
+        URI: .original_url,
+        ID: .id,
+        Description: .description,
+        Uploader: .uploader,
+        LikeCount: .like_count,
+        CommentCount: .comment_count,
+        Channel: .channel,
+        ChannelFollowerCount: .channel_follower_count,
+        UploaderID: .uploader_id,
+        UploaderURL: .uploader_url,
+        UploadDate: .upload_date,
+        UploaderThumbnail: "\(.uploader_url)/photo.jpg",
+        OriginalURL: .original_url,
+        Resolution: .resolution,
+        Timestamp: .timestamp,
+        Playlist: .playlist,
+        PlaylistIndex: .playlist_index,
+        Chapters: [
+            .chapters[]? | {start_time, title}
+        ]
+    }
+' | while read -r metadata; do
+    title=$(echo "$metadata" | jq -r '.Title')
+    uploader=$(echo "$metadata" | jq -r '.Uploader')
+    uri=$(echo "$metadata" | jq -r '.URI')
+    video_thumbnail=$(echo "$metadata" | jq -r '.Thumbnail')
+
+    if [ -n "$title" ] && [ -n "$uploader" ]; then
+        sanitized_title=$(echo "$title" | tr -cd '[:alnum:]_-' | tr ' ' '_')
+        uploader_dir="$DESTINATION/$uploader"
+        mkdir -p "$uploader_dir" || exit 1
+        if [ -n "$video_thumbnail" ]; then
+            thumbnail_file="$uploader_dir/$sanitized_title-thumbnail.jpg"
+            wget -q "$video_thumbnail" -O "$thumbnail_file"
+            magick "$thumbnail_file" -quality 100 "$thumbnail_file"
+            jpegoptim --max=100 "$thumbnail_file"
+            exiftool -UserComment="$metadata" "$thumbnail_file" > /dev/null
+        fi
+        echo "Processed: $title (URI: $uri)"
+    else
+        echo "Missing title or uploader... Skipping..."
+    fi
+done

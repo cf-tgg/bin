@@ -1,0 +1,86 @@
+#!/bin/bash
+# arg delimiter string builder
+
+DELIM="${DELIM:-%}"
+VERBOSE=0
+short_opts="vd:f:"
+long_opts="verbose:delimiter:format-parameters:"
+parsed_args=$(getopt -o "$short_opts" --long "$long_opts" -- "$@") || exit 1
+
+eval set -- "$parsed_args"
+
+format_args=()
+while :; do
+    case "$1" in
+        -v|--verbose)
+            shift
+            VERBOSE=1
+            ;;
+        -d|--delimiter)
+            shift
+            DELIM="$1"
+            shift
+            ;;
+        -f|--format-parameters)
+            while [ -n "$1" ]; do
+                case "$1" in
+                    --|-f) shift  ;;
+                    *) [[ "$1" != -* && "$1" != -- && "$1" != "$DELIM" ]] && \
+                        format_args+=("$1") ; shift ;;
+                esac
+            done
+            break
+            ;;
+        --)
+            break
+            ;;
+        *)
+            echo "Invalid option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+unset parsed_args
+
+matchpair() {
+    pair=${1:-"$DELIM"}
+    p_arr=${2:-'[]()<>{}'}
+    pairs=$(fold -w2 <<< "${p_arr}" | grep -F "${pair}")
+    echo "$pairs" | tr -d "$pair"
+}
+
+delim() {
+    delims="[]{}()<>"
+    input="$1"
+    d=$(fold -w2 <<< "$delims" | grep -F "$DELIM")
+    if [ -n "$d" ]; then
+        d1="${d:0:1}"
+        d2="${d:1:1}"
+    else
+        d1="$DELIM"
+        d2="$DELIM"
+    fi
+    case "$DELIM" in
+        ,) d1=""; d2=", " ;;
+    esac
+
+    printf "%s%s%s" "$d1" "$input" "$d2"
+}
+
+for arg in "${format_args[@]}"; do
+    if [ "$arg" == "${format_args[-1]}" ]; then
+        if [ "$VERBOSE" -ne 0 ]; then
+            printf "%s: %s" "$arg" "$(delim "$arg")"
+        else
+            printf "%s" "$arg" "$(delim "$arg")"
+        fi
+    else
+        if [ "$VERBOSE" -ne 0 ]; then
+            printf "%s: %s\n" "$arg" "$(delim "$arg")"
+        else
+            printf "%s\n" "$arg" "$(delim "$arg")"
+        fi
+    fi
+done
+echo

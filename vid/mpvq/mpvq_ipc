@@ -1,0 +1,112 @@
+#!/bin/bash
+# IPC handler script for controlling mpv via JSON protocol
+
+MPV_SOCK="/tmp/mpv.sock"
+REQUEST_ID=1
+
+# Helper function to send JSON commands to mpv via IPC and handle response
+send_command() {
+    local json_command="$1"
+    response=$(echo "$json_command" | socat - UNIX-CONNECT:"$MPV_SOCK")
+    if echo "$response" | grep -q '"error": "success"'; then
+        echo "$response"
+    else
+        echo "Error in mpv response: $response" >&2
+        return 1
+    fi
+}
+
+# Incremental request ID generator
+next_request_id() {
+    REQUEST_ID=$((REQUEST_ID + 1))
+    echo "$REQUEST_ID"
+}
+
+# Commands
+
+# Play/Pause toggle
+play_pause() {
+    send_command "{ \"command\": [\"cycle\", \"pause\"], \"request_id\": $(next_request_id) }"
+}
+
+# Set volume (expects volume level as first argument)
+set_volume() {
+    local volume="$1"
+    send_command "{ \"command\": [\"set_property\", \"volume\", $volume], \"request_id\": $(next_request_id) }"
+}
+
+# Get current playback position
+get_time_pos() {
+    send_command "{ \"command\": [\"get_property\", \"time-pos\"], \"request_id\": $(next_request_id) }"
+}
+
+# Observe a property (e.g., volume) and receive events when it changes
+observe_property() {
+    local property="$1"
+    local observer_id="${2:-$(next_request_id)}"
+    send_command "{ \"command\": [\"observe_property\", $observer_id, \"$property\"], \"request_id\": $(next_request_id) }"
+}
+
+# Unobserve a property
+unobserve_property() {
+    local observer_id="$1"
+    send_command "{ \"command\": [\"unobserve_property\", $observer_id], \"request_id\": $(next_request_id) }"
+}
+
+# Enable event messages (useful for tracking changes or states)
+enable_event() {
+    local event_name="$1"
+    send_command "{ \"command\": [\"enable_event\", \"$event_name\"], \"request_id\": $(next_request_id) }"
+}
+
+# Disable event messages
+disable_event() {
+    local event_name="$1"
+    send_command "{ \"command\": [\"disable_event\", \"$event_name\"], \"request_id\": $(next_request_id) }"
+}
+
+# Request log messages (for diagnostic purposes)
+request_log_messages() {
+    local log_level="${1:-info}"
+    send_command "{ \"command\": [\"request_log_messages\", \"$log_level\"], \"request_id\": $(next_request_id) }"
+}
+
+# Async screenshot (saves a screenshot asynchronously)
+async_screenshot() {
+    send_command "{ \"command\": [\"screenshot\"], \"request_id\": $(next_request_id), \"async\": true }"
+}
+
+usage() {
+    while read -r line ; do
+        printf '%s\n' "$line" ;
+    done <<- EOF
+    mpvq_ipc - A simple mpv JSON IPC client
+
+        Usage: mpvq_ipc <command>
+
+    Commands:
+        play_pause
+        set_volume <int>
+        get_time_pos
+        observe_property <prop1> <prop2>
+        unobserve_property <prop>
+        enable_event <event>
+        disable_event <event>
+        request_log_messages <msg>
+        async_screenshot
+EOF
+}
+
+case "$1" in
+    help|--help|-h) usage ;;
+    pla*|pau*) play_pause ;;
+    set_vol*|*vol*) set_volume "$2" ;;
+    get_time_pos|*time*) get_time_pos ;;
+    observe_property|obs*) observe_property "$2" "$3" ;;
+    unobserve_property|unobs*) unobserve_property "$2" ;;
+    enable_event|enab*) enable_event "$2" ;;
+    disable_event|disab*) disable_event "$2" ;;
+    request_log_messages|req*|log*) request_log_messages "$2" ;;
+    async_screenshot|scr*) async_screenshot ;;
+    *) echo "Usage: $0 {play_pause|set_volume|get_time_pos|observe_property|unobserve_property|enable_event|disable_event|request_log_messages|async_screenshot}" ;;
+esac

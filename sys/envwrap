@@ -1,9 +1,9 @@
 #!/bin/sh
 # -*- mode: sh; -*- vim: ft=sh:ts=2:sw=2:norl:et:
-# Time-stamp: <2025-07-27 19:35:26 cf>
+# Time-stamp: <2025-08-07 04:01:21 cf>
 # Box: cf [Linux 6.15.6-zen1-1-zen x86_64 GNU/Linux]
 
-export DISPLAY=:0
+export DISPLAY=${DISPLAY:-":0"}
 export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
 export HOME=${HOME:-"/home/$USER"}
 

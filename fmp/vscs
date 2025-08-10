@@ -1,0 +1,59 @@
+#!/bin/sh
+
+# Functions
+dspy() {
+  xrandr | grep 'mm' | awk '{if ($3 == "primary") {print $1, $4} else {print $1, $3}}'
+}
+
+size() {
+  dspy | grep "$1" | awk '{print $2}'
+}
+
+dv=$(v4l2-ctl --list-devices | grep -Eo 'video[0-9]' | cut -d'o' -f2 | sort -u | tail -n 1)
+
+# Process management arrays
+ffmpeg_pids=()
+mpv_pids=()
+
+clean() {
+  echo "Cleaning up all background processes..."
+  for pid in "${ffmpeg_pids[@]}" "${mpv_pids[@]}"; do
+    kill "$pid" 2>/dev/null
+  done
+}
+
+# Trap for global cleanup
+trap clean EXIT
+
+# Loop through provided display names
+for dp in "$@"; do
+  if dspy | grep -q "^$dp "; then
+    res=$(size "$dp" | cut -d+ -f1)
+    pos="$(size "$dp" | cut -d+ -f2),$(size "$dp" | cut -d+ -f3)"
+    if [ -z "$res" ] || [ -z "$pos" ]; then
+      echo "Error: Could not retrieve resolution or position for display $dp"
+      continue
+    fi
+
+    # Start ffmpeg detached
+    setsid -f ffmpeg -f x11grab -s "$res" -i :0.0+"$pos" -f v4l2 "/dev/video$dv" &
+    ffmpeg_pid=$!
+    ffmpeg_pids+=("$ffmpeg_pid")
+    echo "Started ffmpeg (pid: $ffmpeg_pid) for display: $dp"
+
+    # Start mpv detached
+    setsid -f mpv av://v4l2:/dev/video"$dv" --load-scripts=no --no-resume-playback \
+      --profile=low-latency --untimed --title="$dp" &
+    mpv_pid=$!
+    mpv_pids+=("$mpv_pid")
+    echo "Started mpv (pid: $mpv_pid) for display: $dp"
+
+    # Decrement video device index
+    dv=$((dv - 1))
+  else
+    echo "Warning: Display $dp not found or unsupported."
+  fi
+done
+
+# Wait for background processes (to keep script running)
+wait

@@ -1,0 +1,309 @@
+#!/bin/sh
+# -*- mode: sh; sh-shell: sh; -*- vim: ft=sh:ts=2:sw=2:et:
+
+#             _             __
+#    __ __ __| | _ __  __  / _| __ _
+#    \ \ // _` || '_ \/ _||  _|/ _` |
+#    /_\_\\__,_|| .__/\__||_|  \__, |
+#               |_|            |___/
+
+#    xdpcfg --- YAW to manage screen configurations using xrandr.
+
+#    SYNOPSIS
+#        Yet another xrandr wrapper for configuring displays in minimal environments
+#        as stacking window managers. I use dwm, I haven't tested the others.
+
+#    DISCLAIMER
+#        This script was written for recreational and educational purposes,
+#        I am not a programmer and I do not recommend you run this code, unless
+#        you understand what it does.
+#
+#    USAGE
+#        Use to test configurations, from simple display setups to more complex nested
+#        configurations.
+#
+#            1. Explore the possibilities the xrandr program has for your displays.
+#
+#            2. Setup atomatic configurations, or spawning of some interface for
+#               layout selection.
+#
+#            3. Call the script from anywhere setup displays from other scripts,
+#               bar buttons, some triggered event, or spawn an interactive selection
+#               interface (e.g. dmenu or a TERMINAL with fzf).
+#
+#    RATIONALE
+#        The point was to learn how to use the `xrandr` program to configure displays
+#        programatically, learn shell-scripting, while having a strong visual output
+#        of the script behaviour. The demonstrative nature of it's output made it all
+#        the more convincing to make it work.
+#
+
+ACTIVE_LAYOUT=$(cat /tmp/dislayout)
+CONNECTED=$(xrandr | grep -c "\sconnected")
+DISPLAYS=$(xrandr | grep "\sconnected" | awk '{print $1}')
+DPI=384
+
+# validate display availability by output name
+davail() {
+    echo "$DISPLAYS" | grep -q "$1"
+}
+
+# cmd="xrandr"
+# echo "$DISPLAYS" | while read -r d ; do
+
+#     pos=
+#     res=
+#     cmd="${cmd} --output ${d}"
+
+# exit 0
+
+
+# Singles:
+
+# 1. eDP (laptop screen)
+edp() {
+    davail "eDP" && xrandr \
+        --output eDP --mode 2256x1504 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-1 --off \
+        --output DisplayPort-2 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off
+   ACTIVE_LAYOUT="edp"
+}
+
+# 2. MSI (DisplayPort-2)
+msi() {
+    davail "DisplayPort-2" && xrandr \
+        --output DisplayPort-2 --mode 2560x1440 --pos 0x0  --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-1 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off \
+        --output eDP --off
+    walfeh
+    ACTIVE_LAYOUT="msi"
+}
+
+# 3. HP (DisplayPort-1)
+hp() {
+    davail "DisplayPort-1" && xrandr \
+        --output DisplayPort-1 --mode 1680x1050 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-2 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off \
+        --output eDP --off
+    ACTIVE_LAYOUT="hp"
+}
+
+# Duo toggles:
+
+# 2. Duo1: | eDP | MSI |
+duo1() {
+    xrandr \
+        --output eDP --mode 2256x1504 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-2 --mode 2560x1440 --pos 2256x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-1 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off
+    ACTIVE_LAYOUT="duo1"
+}
+
+# 3. Duo2: | MSI | eDP |
+duo2() {
+    davail "DisplayPort-2" && xrandr \
+        --output DisplayPort-2 --mode 2560x1440 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output eDP --mode 2256x1504 --pos 2560x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-1 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off
+    ACTIVE_LAYOUT="duo2"
+}
+
+# Duo3: | MSI | HP |
+duo3() {
+    ! davail "DisplayPort-1" && duo1 && return
+    xrandr \
+        --output DisplayPort-2 --mode 2560x1440 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-1 --mode 1680x1050 --pos 2560x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output eDP --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off || duo1
+    ACTIVE_LAYOUT="duo3"
+}
+
+# Trios:
+
+# 1. Trio1: | eDP | MSI | HP |
+trio1() {
+    xrandr \
+        --output eDP --mode 2256x1504 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-2 --mode 2560x1440 --pos 2256x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-1 --mode 1680x1050 --pos 4816x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off
+    ACTIVE_LAYOUT="trio1"
+}
+
+# 2. Trio2: | HP | eDP | MSI |
+trio2() {
+    xrandr \
+        --output DisplayPort-1 --mode 1680x1050 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output eDP --mode 2256x1504 --pos 1680x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-2 --mode 2560x1440 --pos 3936x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off
+    ACTIVE_LAYOUT="trio2"
+}
+
+# 3. Trio3: | MSI | HP | eDP |
+trio3() {
+    xrandr \
+        --output DisplayPort-2 --mode 2560x1440 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-1 --mode 1680x1050 --pos 2560x0 --rotate normal --dpi "$DPI" \
+        --output eDP --mode 2256x1504 --pos 4240x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off
+    ACTIVE_LAYOUT="trio3"
+}
+
+# 4. Trio4: | eDP | HP | MSI |
+trio4() {
+    xrandr \
+        --output eDP --mode 2256x1504 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-1 --mode 1680x1050 --pos 2256x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-2 --mode 2560x1440 --pos 3936x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off
+    ACTIVE_LAYOUT="trio4"
+}
+
+# 5. Trio5: | MSI | eDP | HP |
+trio5() {
+    xrandr \
+        --output DisplayPort-2 --mode 2560x1440 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output eDP --mode 2256x1504 --pos 2560x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-1 --mode 1680x1050 --pos 4816x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off
+    ACTIVE_LAYOUT="trio5"
+}
+
+# 6. Trio6: | HP | MSI | eDP |
+trio6() {
+    xrandr \
+        --output DisplayPort-1 --mode 1680x1050 --pos 0x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-2 --mode 2560x1440 --pos 1680x0 --rotate normal --dpi "$DPI" \
+        --output eDP --mode 2256x1504 --pos 4240x0 --rotate normal --dpi "$DPI" \
+        --output DisplayPort-0 --off \
+        --output DisplayPort-3 --off \
+        --output DisplayPort-4 --off \
+        --output DisplayPort-5 --off \
+        --output DisplayPort-6 --off \
+        --output DisplayPort-7 --off
+    ACTIVE_LAYOUT="trio6"
+}
+[ -n "$1" ] && selected="$1"
+case "$selected" in
+  eDP) edp && exit 0 || return ;;
+  msi|MSI|DisplayPort-2) msi && exit 0 || return ;;
+  hp|HP|DisplayPort-1) hp && exit 0 || return ;;
+  duo1|d1|Duo1|duo|Duo) duo1 && exit 0 || return ;;
+  duo2|d2|Duo2|D2) duo2 && exit 0 || return ;;
+  duo3|d3|Duo3|D3) duo3 && exit 0 || return ;;
+  T1|t1|trio|Trio|trio1) trio1 && exit 0 || return ;;
+  T2|t2|trio2|Trio2) trio2 && exit 0 || return ;;
+  T3|t3|trio3|Trio3) trio3 && exit 0 || return ;;
+  T4|t4|trio4|Trio4) trio4 && exit 0 || return ;;
+  T5|t5|trio5|Trio5) trio5 && exit 0 || return ;;
+  T6|t6|trio6|Trio6) trio6 && exit 0 || return ;;
+esac
+
+# Case statement to handle the layout cycles per connected display count:
+if [ "$CONNECTED" -eq 1 ]; then
+    for display in $DISPLAYS; do
+        case "$display" in
+            "eDP") edp ; break ;;
+            "DisplayPort-2") msi ; break ;;
+            "DisplayPort-1") hp ; break ;;
+            *) edp ; break ;;
+        esac
+    done
+elif [ "$CONNECTED" -eq 2 ]; then
+    case "$ACTIVE_LAYOUT" in
+        "edp") duo1 ;;
+        "msi") duo1 ;;
+        "hp") duo1 ;;
+        "duo1") duo2 || duo1 ;;
+        "duo2") duo3 || duo1 ;;
+        "duo3") duo1 || duo2 ;;
+        *) duo1 ;;
+    esac
+elif [ "$CONNECTED" -eq 3 ]; then
+    case "$ACTIVE_LAYOUT" in
+        "trio1") trio2 && notify-send "T2" || trio3 && notify-send "T3" ;;
+            # notify-send "|        Trio 2         |" "|  HP   |  eDP  |  MSI  |" ;;
+        "trio2") trio3 && notify-send "T3" || trio4 && notify-send "T4" ;;
+            # notify-send "|        Trio 3         |" "|  MSI  |  HP   |  eDP  |" ;;
+        "trio3") trio4 && notify-send "T4" || trio5 && notify-send "T5" ;;
+            # notify-send "|        Trio 4         |" "|  eDP  |  HP   |  MSI  |" ;;
+        "trio4") trio5 && notify-send "T5" || trio6 && notify-send "T6" ;;
+            # notify-send "|        Trio 5         |" "|  MSI  |  eDP  |  HP   |" ;;
+        "trio5") trio6 && notify-send "T6" || trio1 && notify-send "T1" ;;
+            # notify-send "|        Trio 6         |" "|  HP   |  MSI  |  eDP  |" ;;
+        "trio6") trio1 && notify-send "T1" || trio2 && notify-send "T2" ;;
+            # notify-send "|        Trio 1         |" "|  eDP  |  MSI  |  HP   |" ;;
+        *) trio1 && notify-send "Fallback T1. Some errors occurred..." ;;
+            # notify-send "|    Fallback Trio 1    |" "|  eDP  |  MSI  |  HP   |" ;;
+    esac
+fi
+
+# reset the wallpapers & save the new active layout to dislayout file:
+echo "$ACTIVE_LAYOUT" > /tmp/dislayout
+
+walfeh -reset
+redunst
+
+# vim: ft=sh:ts=2:sw=2:sts:12:tw=78:et:norl:

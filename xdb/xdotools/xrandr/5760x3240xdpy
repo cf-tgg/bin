@@ -1,0 +1,17 @@
+#!/bin/sh
+cvt 1920 1080 2>/dev/null
+MODELINE=($(cvt 1920 1080 | grep -F 'Modeline:' | awk '{print $NF}'))
+echo $MODELINE
+MODE=$(echo $MODELINE | awk '{print $1}')
+echo $MODE
+xrandr --newmode $MODE
+xrandr --addmode DisplayPort-1 $MODE
+xrandr --addmode DisplayPort-3 $MODE
+
+xrandr --fb 5760x3240 \
+	--output DisplayPort-2 --mode 2560x1440 \
+	--scale "2.25x2.25" --pos 0x0 --primary \
+	--output DisplayPort-1 --mode 1920x1080 --pos 1980x2160 \
+	--output DisplayPort-3 --mode 1920x1080 --pos 3960x2160 \
+	--output eDP --panning 5760x3240+0+0/5760x3240+0+0/64/64/64/64
+

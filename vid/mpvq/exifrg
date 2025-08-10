@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Loop through the jpg files to process them
+for f in yt/meta/*/*.jpg; do
+  # Extract the UserComment EXIF field and parse it as JSON to extract URI
+  match_uri=$(exiftool "$f" -UserComment -j | jq -r '.[].UserComment | fromjson | .Summary.URI // .URI')
+
+  # Search for the pattern in the file using rg, exclude binary matches
+  rg_output=$(rg --no-binary --ignore-case --with-filename --color=always "$1" "$f")
+
+  # If there is a rg match
+  if [[ -n "$rg_output" ]]; then
+    echo -e "File: $f"
+    echo -e "Match URI: $match_uri"
+    echo -e "Search Results:"
+    echo -e "$rg_output" | sed 's/\x1b\[[0-9;]*m//g' # Remove ANSI color codes for clarity
+    echo -e "----------------------------"
+  fi
+done
